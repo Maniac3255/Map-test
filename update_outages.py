@@ -7,11 +7,15 @@ sce = sites[
     .str.contains("Edi", case=False, na=False)
 ].copy()
 
-sce["Status"] = "OUTAGE"
+active_outage = False
 
-sce.to_csv(
-    "impacted_sites.csv",
-    index=False
-)
+if active_outage:
+    sce["Status"] = "OUTAGE"
+    sce.to_csv("impacted_sites.csv", index=False)
+else:
+    pd.DataFrame(columns=list(sce.columns) + ["Status"]).to_csv(
+        "impacted_sites.csv",
+        index=False
+    )
 
-print(f"Created {len(sce)} outage records")
+print("Finished outage check")
