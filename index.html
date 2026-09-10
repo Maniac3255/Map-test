@@ -1,184 +1,135 @@
-import pandas as pd
-import requests
-import json
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Store Outage Map</title>
 
-from pyproj import Transformer
-from math import radians, sin, cos, sqrt, atan2
+    <!-- Leaflet CSS -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+        .legend {
+            background: white;
+            padding: 10px;
+            line-height: 1.5;
+            border-radius: 6px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+        .legend div {
+            display: flex;
+            align-items: center;
+        }
+        .legend span {
+            height: 12px;
+            width: 12px;
+            margin-right: 6px;
+            display: inline-block;
+        }
+    </style>
+</head>
 
-OUTAGE_RADIUS_MILES = 1
-RED_RADIUS = 0.5
-YELLOW_RADIUS = 1
+<body>
 
-SCE_URL = (
-    "https://sce-outage-ags.esriemcs.com/"
-    "arcgis/rest/services/43/outage/"
-    "MapServer/0/query"
-)
+<div id="map"></div>
 
-# ==========================================
-# LOAD STORE DATA
-# ==========================================
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-sites = pd.read_csv("Sites-small.csv")
+<script>
+// ==========================================
+// LOAD OUTAGE DATA
+// ==========================================
 
-# Filter for SCE vendor
-sites = sites[
-    sites["Vendor Name"].str.contains("Edi", case=False, na=False)
-]
+fetch("outages.json")
+    .then(response => response.json())
+    .then(data => initMap(data))
+    .catch(err => console.error("Error loading outages.json:", err));
 
-print(f"SCE Sites Found: {len(sites)}")
+// ==========================================
+// INITIALIZE MAP
+// ==========================================
 
-# ==========================================
-# GET LIVE OUTAGES
-# ==========================================
+function initMap(outages) {
 
-params = {
-    "where": "1=1",
-    "returnGeometry": "true",
-    "outFields": "*",
-    "f": "json"
+    // Default center (USA)
+    let map = L.map("map").setView([37.5, -95.5], 5);
+
+    // Base map layer
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: "© OpenStreetMap"
+    }).addTo(map);
+
+    // Color mapping
+    const colorMap = {
+        red: "red",
+        yellow: "orange",
+        white: "blue"
+    };
+
+    // Add markers
+    outages.forEach(store => {
+
+        let color = colorMap[store.color] || "blue";
+
+        let marker = L.circleMarker([store.lat, store.lon], {
+            radius: 10,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.8
+        });
+
+        let popupHtml = `
+            <b>Store ${store.storeNumber} – ${store.storeName}</b><br>
+            ${store.address}<br><br>
+
+            <b>Distance:</b> ${store.distanceMiles} miles<br>
+            <b>Status:</b> ${store.status}<br>
+            <b>Planned:</b> ${store.plannedOutage}<br>
+            <b>ETA:</b> ${store.etr}<br>
+            <b>Last Updated:</b> ${store.lastUpdated}<br><br>
+
+            <b>Store Location:</b> ${store.lat}, ${store.lon}<br>
+            <b>Outage Location:</b> ${store.outageLat}, ${store.outageLon}<br>
+        `;
+
+        marker.bindPopup(popupHtml);
+        marker.addTo(map);
+    });
+
+    // ==========================================
+    // LEGEND
+    // ==========================================
+
+    let legend = L.control({ position: "bottomright" });
+
+    legend.onAdd = function () {
+        let div = L.DomUtil.create("div", "legend");
+
+        div.innerHTML = `
+            <div><span style="background:red"></span> Outage Detected (0–0.5 miles)</div>
+            <div><span style="background:orange"></span> Possible Outage (0.5–1 mile)</div>
+            <div><span style="background:blue"></span> Store Impacted (>1 mile)</div>
+        `;
+
+        return div;
+    };
+
+    legend.addTo(map);
 }
+</script>
 
-response = requests.get(SCE_URL, params=params, timeout=30)
-data = response.json()
-
-features = data.get("features", [])
-print(f"Outages Found: {len(features)}")
-
-# ==========================================
-# COORDINATE CONVERTER
-# ==========================================
-
-transformer = Transformer.from_crs(
-    "EPSG:3857",
-    "EPSG:4326",
-    always_xy=True
-)
-
-# ==========================================
-# DISTANCE FUNCTION
-# ==========================================
-
-def miles_between(lat1, lon1, lat2, lon2):
-    earth_radius = 3958.8
-
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-
-    a = (
-        sin(dlat / 2) ** 2 +
-        cos(radians(lat1)) *
-        cos(radians(lat2)) *
-        sin(dlon / 2) ** 2
-    )
-
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    return earth_radius * c
-
-# ==========================================
-# FIND IMPACTED STORES
-# ==========================================
-
-impacted = []
-
-for outage in features:
-
-    geometry = outage.get("geometry", {})
-    attributes = outage.get("attributes", {})
-
-    if "x" not in geometry or "y" not in geometry:
-        continue
-
-    outage_x = geometry["x"]
-    outage_y = geometry["y"]
-
-    outage_lon, outage_lat = transformer.transform(outage_x, outage_y)
-
-    for _, site in sites.iterrows():
-
-        try:
-            site_lat = float(site["Latitude"])
-            site_lon = float(site["Longitude"])
-
-            distance = miles_between(outage_lat, outage_lon, site_lat, site_lon)
-
-            if distance <= OUTAGE_RADIUS_MILES:
-
-                row = site.copy()
-
-                row["DistanceMiles"] = round(distance, 2)
-                row["IncidentId"] = attributes.get("IncidentId")
-                row["OutageStatus"] = attributes.get("Status")
-
-                # Planned outage detection
-                status = str(attributes.get("Status", "")).lower()
-                row["PlannedOutage"] = (
-                    "planned" in status or "maint" in status
-                )
-
-                # ETA + last updated
-                row["ETR"] = attributes.get("EstRestoreTime")
-                row["LastUpdated"] = attributes.get("VersionDate")
-
-                # Outage coordinates
-                row["OutageLatitude"] = outage_lat
-                row["OutageLongitude"] = outage_lon
-
-                # ==========================================
-                # COLOR CLASSIFICATION
-                # ==========================================
-                if distance <= RED_RADIUS:
-                    row["OutageColor"] = "red"
-                elif distance <= YELLOW_RADIUS:
-                    row["OutageColor"] = "yellow"
-                else:
-                    row["OutageColor"] = "white"
-
-                impacted.append(row)
-
-        except Exception as e:
-            print(e)
-
-# ==========================================
-# SAVE IMPACTED CSV
-# ==========================================
-
-if impacted:
-    impacted_df = pd.DataFrame(impacted)
-
-    impacted_df = impacted_df.drop_duplicates(subset=["Site #"])
-
-    impacted_df.to_csv("impacted_sites.csv", index=False)
-    print(f"Unique Impacted Stores: {len(impacted_df)}")
-
-else:
-    impacted_df = pd.DataFrame()
-    impacted_df.to_csv("impacted_sites.csv", index=False)
-    print("No impacted stores found.")
-
-# ==========================================
-# CREATE MAP FILE (outages.json)
-# ==========================================
-
-map_data = []
-
-if not impacted_df.empty:
-
-    for _, row in impacted_df.iterrows():
-
-        map_data.append({
-            "storeNumber": row["Site #"],
-            "storeName": row["SiteName"],
-            "address": f"{row['City']}, {row['State']}",
-            "provider": row["Vendor Name"],
-            "providerWebsite": "https://www.sce.com",
-
-            "distanceMiles": row["DistanceMiles"],
-
-            # Store location
-            "lat": float(row["Latitude"]),
-            "lon": float(row
+</body>
+</html>
