@@ -69,7 +69,7 @@ for outage in data["features"]:
                 site_lon
             )
 
-            if distance <= 10:
+            if distance <= 1:
 
                 row = site.copy()
 
