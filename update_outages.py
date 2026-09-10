@@ -2,14 +2,14 @@ import pandas as pd
 
 sites = pd.read_csv("Sites-small.csv")
 
-duke = sites[
+sce = sites[
     sites["Vendor Name"]
-    .str.contains("Duke", na=False)
+    .str.contains("Southern California Edison", na=False)
 ]
 
-duke.to_csv(
-    "duke_sites.csv",
+sce.to_csv(
+    "sce_sites.csv",
     index=False
 )
 
-print(f"Found {len(duke)} Duke locations")
+print(f"Found {len(sce)} SCE locations")
