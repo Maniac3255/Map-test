@@ -1,12 +1,30 @@
-name: Test Outage Workflow
+name: Update Outages
 
 on:
   workflow_dispatch:
 
 jobs:
-  test:
+  update:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Hello World
-        run: echo "Workflow is running!"
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+
+      - name: Install pandas
+        run: pip install pandas
+
+      - name: Run script
+        run: python update_outages.py
+
+      - name: Commit changes
+        run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+
+          git add impacted_sites.csv
+
+          git commit -m "Update outages" || true
+
+          git push
