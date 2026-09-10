@@ -1,1 +1,48 @@
-https://unpkg.com/leaflet/dist/leaflet.css
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Power Outage Demo</title>
+
+    https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+https://unpkg.com/leaflet@1.9.4/dist/leaflet.jsscript>
+
+<script>
+const map = L.map('map').setView([34.0, -118.0], 6);
+
+L.tileLayer(
+  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {
+    maxZoom: 19
+  }
+).addTo(map);
+
+L.circleMarker(
+  [34.274, -119.229],
+  {
+    color: 'red',
+    radius: 10
+  }
+).addTo(map)
+ .bindPopup('SCE Test Outage');
+</script>
+
+</body>
+</html>
