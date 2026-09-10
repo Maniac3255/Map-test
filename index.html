@@ -144,10 +144,15 @@ function parseCSV(text) {
     const headers = lines[0].split(",");
 
     return lines.slice(1).map(line => {
+        // Split respecting quoted commas
         const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
-        let obj = {};
-        headers.forEach((h, i) => obj[h.trim()] = cols[i]?.replace(/"/g, ""));
 
+        let obj = {};
+        headers.forEach((h, i) => {
+            obj[h.trim()] = cols[i]?.replace(/"/g, "");
+        });
+
+        // Clean coordinates
         let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
         let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
 
@@ -198,10 +203,8 @@ function initMap(stores) {
     let markers = {};
 
     stores.forEach(store => {
-        let match = store;
-
-        let lat = match.outageLat ? match.outageLat : store.Latitude;
-        let lon = match.outageLon ? match.outageLon : store.Longitude;
+        let lat = store.outageLat ? store.outageLat : store.Latitude;
+        let lon = store.outageLon ? store.outageLon : store.Longitude;
 
         if (isNaN(lat) || isNaN(lon)) {
             console.warn("Skipping store due to invalid coordinates:", store["Site #"], lat, lon);
