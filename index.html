@@ -21,7 +21,6 @@
             height: 100%;
         }
 
-        /* DARK MODE SIDEBAR */
         #sidebar {
             width: 320px;
             background: #1e1e1e;
@@ -38,12 +37,10 @@
             z-index: 9999;
         }
 
-        /* COLLAPSED SIDEBAR → becomes a small bubble in top-right */
         #sidebar.collapsed {
             transform: translateX(100%);
         }
 
-        /* Floating arrow bubble */
         #collapseBubble {
             position: absolute;
             top: 10px;
@@ -112,7 +109,6 @@
 
 <div id="map"></div>
 
-<!-- SIDEBAR -->
 <div id="sidebar">
     <div id="sidebarHeader">
         <h2>All Stores</h2>
@@ -129,28 +125,19 @@
     <div id="storeList"></div>
 </div>
 
-<!-- COLLAPSED BUBBLE -->
 <div id="collapseBubble">►</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-// ==========================================
-// LOAD BOTH DATASETS
-// ==========================================
-
 Promise.all([
     fetch("Sites-small.csv").then(r => r.text()),
     fetch("outages.json").then(r => r.json())
 ]).then(([csvText, outages]) => {
-    const allStores = parseCSV(csvText);
-    mergeOutageData(allStores, outages);
-    initMap(allStores);
+    const stores = parseCSV(csvText);
+    mergeOutageData(stores, outages);
+    initMap(stores);
 });
-
-// ==========================================
-// CSV PARSER (Latitude + Longitude ONLY)
-// ==========================================
 
 function parseCSV(text) {
     const lines = text.trim().split("\n");
@@ -161,21 +148,15 @@ function parseCSV(text) {
         let obj = {};
         headers.forEach((h, i) => obj[h.trim()] = cols[i]?.replace(/"/g, ""));
 
-        // Clean lat/lon aggressively so ALL stores parse correctly
-let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
-let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
+        let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
+        let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
 
-obj.Latitude = parseFloat(rawLat);
-obj.Longitude = parseFloat(rawLon);
-
+        obj.Latitude = parseFloat(rawLat);
+        obj.Longitude = parseFloat(rawLon);
 
         return obj;
     });
 }
-
-// ==========================================
-// MERGE OUTAGE DATA
-// ==========================================
 
 function mergeOutageData(stores, outages) {
     stores.forEach(store => {
@@ -183,34 +164,27 @@ function mergeOutageData(stores, outages) {
 
         if (match) {
             store.color = match.color;
-            store.distanceMiles = match.distanceMiles;
             store.status = match.status;
-            store.plannedOutage = match.plannedOutage;
-            store.etr = match.etr;
-            store.lastUpdated = match.lastUpdated;
+            store.distanceMiles = match.distanceMiles;
             store.outageLat = match.outageLat;
             store.outageLon = match.outageLon;
+            store.etr = match.etr;
+            store.lastUpdated = match.lastUpdated;
             store.providerWebsite = match.providerWebsite;
         } else {
             store.color = "white";
-            store.distanceMiles = "";
             store.status = "No outage";
-            store.plannedOutage = "";
-            store.etr = "";
-            store.lastUpdated = "";
+            store.distanceMiles = "";
             store.outageLat = "";
             store.outageLon = "";
+            store.etr = "";
+            store.lastUpdated = "";
             store.providerWebsite = store["Vendor Link"];
         }
     });
 }
 
-// ==========================================
-// INITIALIZE MAP
-// ==========================================
-
 function initMap(stores) {
-
     let map = L.map("map").setView([37.5, -95.5], 5);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
@@ -223,14 +197,11 @@ function initMap(stores) {
 
     let markers = {};
 
-    // ==========================================
-    // ADD ALL STORE MARKERS
-    // ==========================================
-
     stores.forEach(store => {
+        let match = store;
 
-        let lat = store.Latitude;
-        let lon = store.Longitude;
+        let lat = match.outageLat ? match.outageLat : store.Latitude;
+        let lon = match.outageLon ? match.outageLon : store.Longitude;
 
         if (isNaN(lat) || isNaN(lon)) {
             console.warn("Skipping store due to invalid coordinates:", store["Site #"], lat, lon);
@@ -247,31 +218,22 @@ function initMap(stores) {
 
         let marker = L.marker([lat, lon], { icon });
 
-        let popupHtml = `
-            <b>Store ${store["Site #"]} – ${store.SiteName}</b><br>
+        marker.bindPopup(`
+            <b>Store ${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
             ${store.City}, ${store.State}<br><br>
-
-            <b>Provider:</b> ${store["Vendor Name"]}<br>
-            <a href="${store.providerWebsite}" target="_blank">Provider Outage Page</a><br><br>
 
             <b>Status:</b> ${store.status}<br>
             <b>ETA:</b> ${store.etr}<br>
             <b>Last Updated:</b> ${store.lastUpdated}<br>
             <b>Distance to Outage:</b> ${store.distanceMiles}<br><br>
 
-            <b>Store Location:</b> ${lat}, ${lon}<br>
+            <b>Store Location:</b> ${store.Latitude}, ${store.Longitude}<br>
             <b>Outage Location:</b> ${store.outageLat}, ${store.outageLon}<br>
-        `;
+        `);
 
-        marker.bindPopup(popupHtml);
         marker.addTo(map);
-
         markers[store["Site #"]] = marker;
     });
-
-    // ==========================================
-    // SIDEBAR LIST + SEARCH + FILTER
-    // ==========================================
 
     let storeListDiv = document.getElementById("storeList");
     let filterSelect = document.getElementById("filterSelect");
@@ -281,7 +243,6 @@ function initMap(stores) {
 
         stores
             .filter(store => {
-
                 if (filterSelect.value === "outages" && store.color === "white") {
                     return false;
                 }
@@ -293,12 +254,11 @@ function initMap(stores) {
                 );
             })
             .forEach(store => {
-
                 let div = document.createElement("div");
                 div.className = "store-item";
 
                 div.innerHTML = `
-                    <b>${store["Site #"]} – ${store.SiteName}</b><br>
+                    <b>${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
                     ${store.City}, ${store.State}<br>
                     <span style="color:${store.color}">● ${store.color.toUpperCase()}</span>
                 `;
@@ -323,10 +283,6 @@ function initMap(stores) {
         renderStoreList(document.getElementById("searchBar").value.toLowerCase());
     });
 
-    // ==========================================
-    // COLLAPSIBLE SIDEBAR → bubble stays visible
-    // ==========================================
-
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("toggleBtn");
     const collapseBubble = document.getElementById("collapseBubble");
@@ -338,10 +294,6 @@ function initMap(stores) {
     collapseBubble.onclick = () => {
         sidebar.classList.remove("collapsed");
     };
-
-    // ==========================================
-    // LEGEND BOTTOM-LEFT (with colored swatches)
-    // ==========================================
 
     let legend = L.control({ position: "bottomleft" });
 
@@ -377,10 +329,6 @@ function initMap(stores) {
 
     legend.addTo(map);
 
-    // ==========================================
-    // AUTO REFRESH WHEN outages.json CHANGES
-    // ==========================================
-
     let lastHash = null;
 
     async function checkForUpdate() {
@@ -390,7 +338,6 @@ function initMap(stores) {
             const hash = btoa(text);
 
             if (lastHash && lastHash !== hash) {
-                console.log("Outages updated — refreshing page...");
                 location.reload();
             }
 
