@@ -11,27 +11,41 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
             display: flex;
         }
 
         #map {
             flex: 1;
-            height: 100vh;
+            height: 100%;
         }
 
-        /* Sidebar always visible */
         #sidebar {
             width: 320px;
             background: #f7f7f7;
             border-left: 1px solid #ccc;
             padding: 10px;
             overflow-y: auto;
-            height: 100vh;
+            height: 100%;
+            transition: transform 0.3s ease;
         }
 
-        #sidebar h2 {
-            margin-top: 0;
-            text-align: center;
+        #sidebar.collapsed {
+            transform: translateX(100%);
+        }
+
+        #toggleBtn {
+            position: absolute;
+            right: 330px;
+            top: 10px;
+            z-index: 9999;
+            background: #0078ff;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: none;
         }
 
         .store-item {
@@ -46,31 +60,189 @@
         .store-item:hover {
             background: #e9f3ff;
         }
-
-        .legend {
-            background: white;
-            padding: 10px;
-            line-height: 1.5;
-            border-radius: 6px;
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
-        }
-        .legend div {
-            display: flex;
-            align-items: center;
-        }
-        .legend span {
-            height: 12px;
-            width: 12px;
-            margin-right: 6px;
-            display: inline-block;
-        }
     </style>
 </head>
 
 <body>
 
+<button id="toggleBtn">Hide Stores</button>
+
 <div id="map"></div>
 
 <div id="sidebar">
     <h2>All Stores</h2>
-    <div id="storeList">
+    <div id="storeList"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ==========================================
+// LOAD BOTH DATASETS
+// ==========================================
+
+Promise.all([
+    fetch("Sites-small.csv").then(r => r.text()),
+    fetch("outages.json").then(r => r.json())
+]).then(([csvText, outages]) => {
+    const allStores = parseCSV(csvText);
+    mergeOutageData(allStores, outages);
+    initMap(allStores);
+});
+
+// ==========================================
+// CSV PARSER
+// ==========================================
+
+function parseCSV(text) {
+    const lines = text.split("\n");
+    const headers = lines[0].split(",");
+
+    return lines.slice(1).map(line => {
+        const cols = line.split(",");
+        let obj = {};
+        headers.forEach((h, i) => obj[h.trim()] = cols[i]);
+        return obj;
+    });
+}
+
+// ==========================================
+// MERGE OUTAGE DATA INTO STORE LIST
+// ==========================================
+
+function mergeOutageData(stores, outages) {
+    stores.forEach(store => {
+        const match = outages.find(o => o.storeNumber == store["Site #"]);
+
+        if (match) {
+            store.color = match.color;
+            store.distanceMiles = match.distanceMiles;
+            store.status = match.status;
+            store.plannedOutage = match.plannedOutage;
+            store.etr = match.etr;
+            store.lastUpdated = match.lastUpdated;
+            store.outageLat = match.outageLat;
+            store.outageLon = match.outageLon;
+            store.providerWebsite = match.providerWebsite;
+        } else {
+            store.color = "white";
+            store.distanceMiles = "";
+            store.status = "No outage";
+            store.plannedOutage = "";
+            store.etr = "";
+            store.lastUpdated = "";
+            store.outageLat = "";
+            store.outageLon = "";
+            store.providerWebsite = "https://www.sce.com";
+        }
+    });
+}
+
+// ==========================================
+// INITIALIZE MAP
+// ==========================================
+
+function initMap(stores) {
+
+    let map = L.map("map").setView([37.5, -95.5], 5);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: "© OpenStreetMap"
+    }).addTo(map);
+
+    const iconColors = {
+        red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+        yellow: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png",
+        white: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"
+    };
+
+    let markers = {};
+
+    // ==========================================
+    // ADD ALL STORE MARKERS
+    // ==========================================
+
+    stores.forEach(store => {
+
+        let lat = parseFloat(store.Latitude);
+        let lon = parseFloat(store.Longitude);
+
+        if (!lat || !lon) return;
+
+        let icon = L.icon({
+            iconUrl: iconColors[store.color],
+            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+        });
+
+        let marker = L.marker([lat, lon], { icon });
+
+        let popupHtml = `
+            <b>Store ${store["Site #"]} – ${store.SiteName}</b><br>
+            ${store.City}, ${store.State}<br><br>
+
+            <b>Provider:</b> ${store["Vendor Name"]}<br>
+            <a href="${store.providerWebsite}" target="_blank">Provider Outage Page</a><br><br>
+
+            <b>Status:</b> ${store.status}<br>
+            <b>ETA:</b> ${store.etr}<br>
+            <b>Last Updated:</b> ${store.lastUpdated}<br>
+            <b>Distance to Outage:</b> ${store.distanceMiles}<br><br>
+
+            <b>Store Location:</b> ${lat}, ${lon}<br>
+            <b>Outage Location:</b> ${store.outageLat}, ${store.outageLon}<br>
+        `;
+
+        marker.bindPopup(popupHtml);
+        marker.addTo(map);
+
+        markers[store["Site #"]] = marker;
+    });
+
+    // ==========================================
+    // POPULATE SIDEBAR WITH ALL STORES
+    // ==========================================
+
+    let storeListDiv = document.getElementById("storeList");
+
+    stores.forEach(store => {
+
+        let div = document.createElement("div");
+        div.className = "store-item";
+
+        div.innerHTML = `
+            <b>${store["Site #"]} – ${store.SiteName}</b><br>
+            ${store.City}, ${store.State}<br>
+            <span style="color:${store.color}">● ${store.color.toUpperCase()}</span>
+        `;
+
+        div.onclick = () => {
+            let marker = markers[store["Site #"]];
+            map.setView(marker.getLatLng(), 14);
+            marker.openPopup();
+        };
+
+        storeListDiv.appendChild(div);
+    });
+
+    // ==========================================
+    // COLLAPSIBLE SIDEBAR
+    // ==========================================
+
+    const sidebar = document.getElementById("sidebar");
+    const toggleBtn = document.getElementById("toggleBtn");
+
+    toggleBtn.onclick = () => {
+        sidebar.classList.toggle("collapsed");
+        toggleBtn.textContent = sidebar.classList.contains("collapsed")
+            ? "Show Stores"
+            : "Hide Stores";
+    };
+}
+</script>
+
+</body>
+</html>
