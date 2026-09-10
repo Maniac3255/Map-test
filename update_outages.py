@@ -96,8 +96,9 @@ for outage in features:
     for _, site in sce_sites.iterrows():
 
         try:
-            site_lat = float(site["Latitude"])
-            site_lon = float(site["Longitude"])
+            # Allow up to 10 decimal places
+            site_lat = float(str(site["Latitude"]).strip())
+            site_lon = float(str(site["Longitude"]).strip())
 
             distance = miles_between(outage_lat, outage_lon, site_lat, site_lon)
 
@@ -106,14 +107,14 @@ for outage in features:
                 store_number = str(site["Site #"]).zfill(4)
 
                 impacted_lookup[store_number] = {
-                    "distanceMiles": round(distance, 2),
+                    "distanceMiles": round(distance, 10),
                     "incidentId": attributes.get("IncidentId"),
                     "status": attributes.get("Status"),
                     "plannedOutage": "planned" in str(attributes.get("Status", "")).lower(),
                     "etr": attributes.get("EstRestoreTime"),
                     "lastUpdated": attributes.get("VersionDate"),
-                    "outageLat": outage_lat,
-                    "outageLon": outage_lon,
+                    "outageLat": round(outage_lat, 10),
+                    "outageLon": round(outage_lon, 10),
                     "color": (
                         "red" if distance <= RED_RADIUS
                         else "yellow" if distance <= YELLOW_RADIUS
@@ -122,7 +123,7 @@ for outage in features:
                 }
 
         except Exception as e:
-            print(e)
+            print("Error processing outage:", e)
 
 # ==========================================
 # CREATE OUTAGES.JSON FOR ALL STORES
@@ -133,6 +134,10 @@ map_data = []
 for _, row in sites.iterrows():
 
     store_number = str(row["Site #"]).zfill(4)
+
+    # Allow up to 10 decimal places for store coordinates
+    lat = float(str(row["Latitude"]).strip())
+    lon = float(str(row["Longitude"]).strip())
 
     if store_number in impacted_lookup:
         info = impacted_lookup[store_number]
@@ -158,9 +163,9 @@ for _, row in sites.iterrows():
 
         "distanceMiles": info["distanceMiles"],
 
-        # Store location
-        "lat": float(row["Latitude"]),
-        "lon": float(row["Longitude"]),
+        # Store location (10 decimal places supported)
+        "lat": round(lat, 10),
+        "lon": round(lon, 10),
 
         # Outage location
         "outageLat": info["outageLat"],
