@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Outage Map</title>
+    <title>Store Outage Map</title>
     <meta charset="utf-8" />
 
     <style>
@@ -10,11 +10,11 @@
             width: 100%;
         }
 
-        #filters {
+        #filters, #actions {
             margin: 10px;
         }
 
-        #filters button {
+        #filters button, #actions button {
             margin-right: 10px;
             padding: 6px 12px;
             font-size: 14px;
@@ -37,141 +37,3 @@
         }
     </style>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-
-<body>
-
-<h2>Store Outage Map</h2>
-
-<div id="filters">
-    <button onclick="filterMarkers('all')">All</button>
-    <button onclick="filterMarkers('outage')">Outage</button>
-    <button onclick="filterMarkers('possible')">Possible Outage</button>
-</div>
-
-<div id="map"></div>
-
-<script>
-// ---------------------------
-// Initialize Map
-// ---------------------------
-const map = L.map('map').setView([37.0, -85.0], 7);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19
-}).addTo(map);
-
-// ---------------------------
-// Legend
-// ---------------------------
-const legend = L.control({ position: "bottomright" });
-
-legend.onAdd = function () {
-    const div = L.DomUtil.create("div", "info legend");
-    div.innerHTML = `
-        <h4>Outage Legend</h4>
-        <i style="background:red"></i> Outage (≤ 0.5 miles)<br>
-        <i style="background:yellow"></i> Possible Outage (0.5–1 mile)<br>
-        <i style="background:blue"></i> No Issue (> 1 mile)
-    `;
-    return div;
-};
-
-legend.addTo(map);
-
-// ---------------------------
-// Load Outage Data
-// ---------------------------
-let markers = [];
-
-fetch("outages.json")
-    .then(response => response.json())
-    .then(data => {
-        data.forEach(store => {
-
-            const lat = store.lat;
-            const lon = store.lon;
-
-            const storeName = store.storeName;
-            const storeNumber = store.storeNumber;
-            const address = store.address;
-            const provider = store.provider;
-            const providerWebsite = store.providerWebsite;
-
-            const distanceMiles = store.distanceMiles;
-
-            // Determine marker color + status
-            let markerColor = "blue";
-            let outageStatus = "No issue";
-
-            if (distanceMiles <= 0.5) {
-                markerColor = "red";
-                outageStatus = "Outage";
-            } else if (distanceMiles > 0.5 && distanceMiles <= 1) {
-                markerColor = "yellow";
-                outageStatus = "Possible outage";
-            }
-
-            // Create marker
-            const marker = L.circleMarker([lat, lon], {
-                radius: 8,
-                color: markerColor,
-                fillColor: markerColor,
-                fillOpacity: 0.8
-            }).addTo(map);
-
-            marker.outageStatus = outageStatus;
-            markers.push(marker);
-
-            // Popup
-            marker.bindPopup(`
-                <b>${storeName}</b><br>
-                Store #: ${storeNumber}<br>
-                Address: ${address}<br>
-                Provider: ${provider}<br>
-                Provider Website: <a href="${providerWebsite}" target="_blank">${providerWebsite}</a><br>
-                Distance: ${distanceMiles.toFixed(2)} miles<br>
-                Status: ${outageStatus}<br><br>
-
-                <b>Outage Details</b><br>
-                Incident: ${store.incident}<br>
-                Affected Customers: ${store.affected_customers}<br>
-                Outage Status: ${store.outageStatus}<br>
-                Outage Location: ${store.outage_lat}, ${store.outage_lon}
-            `);
-        });
-
-        // Auto-zoom to affected stores
-        const affected = markers.filter(m =>
-            m.outageStatus === "Outage" || m.outageStatus === "Possible outage"
-        );
-
-        if (affected.length > 0) {
-            const group = L.featureGroup(affected);
-            map.fitBounds(group.getBounds(), { padding: [50, 50] });
-        }
-    });
-
-// ---------------------------
-// Filter Buttons
-// ---------------------------
-function filterMarkers(type) {
-    markers.forEach(m => {
-        const show =
-            type === "all" ||
-            (type === "outage" && m.outageStatus === "Outage") ||
-            (type === "possible" && m.outageStatus === "Possible outage");
-
-        if (show) {
-            m.addTo(map);
-        } else {
-            map.removeLayer(m);
-        }
-    });
-}
-</script>
-
-</body>
-</html>
