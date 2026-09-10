@@ -20,20 +20,14 @@ SCE_URL = (
 )
 
 # ==========================================
-# LOAD STORE DATA
+# LOAD STORE DATA (ALL STORES)
 # ==========================================
 
 sites = pd.read_csv("Sites-small.csv")
-
-# Filter for SCE vendor
-sites = sites[
-    sites["Vendor Name"].str.contains("Edi", case=False, na=False)
-]
-
-print(f"SCE Sites Found: {len(sites)}")
+print(f"Total Stores Loaded: {len(sites)}")
 
 # ==========================================
-# GET LIVE OUTAGES
+# GET LIVE OUTAGES (SCE ONLY)
 # ==========================================
 
 params = {
@@ -47,7 +41,7 @@ response = requests.get(SCE_URL, params=params, timeout=30)
 data = response.json()
 
 features = data.get("features", [])
-print(f"Outages Found: {len(features)}")
+print(f"SCE Outages Found: {len(features)}")
 
 # ==========================================
 # COORDINATE CONVERTER
@@ -80,10 +74,11 @@ def miles_between(lat1, lon1, lat2, lon2):
     return earth_radius * c
 
 # ==========================================
-# FIND IMPACTED STORES
+# BUILD OUTAGE LOOKUP FOR SCE ONLY
 # ==========================================
 
-impacted = []
+sce_sites = sites[sites["Vendor Name"].str.contains("Edi", case=False, na=False)]
+impacted_lookup = {}
 
 for outage in features:
 
@@ -98,7 +93,7 @@ for outage in features:
 
     outage_lon, outage_lat = transformer.transform(outage_x, outage_y)
 
-    for _, site in sites.iterrows():
+    for _, site in sce_sites.iterrows():
 
         try:
             site_lat = float(site["Latitude"])
@@ -108,98 +103,81 @@ for outage in features:
 
             if distance <= OUTAGE_RADIUS_MILES:
 
-                row = site.copy()
+                store_number = str(site["Site #"]).zfill(4)
 
-                row["DistanceMiles"] = round(distance, 2)
-                row["IncidentId"] = attributes.get("IncidentId")
-                row["OutageStatus"] = attributes.get("Status")
-
-                # Planned outage detection
-                status = str(attributes.get("Status", "")).lower()
-                row["PlannedOutage"] = (
-                    "planned" in status or "maint" in status
-                )
-
-                # ETA + last updated
-                row["ETR"] = attributes.get("EstRestoreTime")
-                row["LastUpdated"] = attributes.get("VersionDate")
-
-                # Outage coordinates
-                row["OutageLatitude"] = outage_lat
-                row["OutageLongitude"] = outage_lon
-
-                # ==========================================
-                # COLOR CLASSIFICATION
-                # ==========================================
-                if distance <= RED_RADIUS:
-                    row["OutageColor"] = "red"
-                elif distance <= YELLOW_RADIUS:
-                    row["OutageColor"] = "yellow"
-                else:
-                    row["OutageColor"] = "white"
-
-                impacted.append(row)
+                impacted_lookup[store_number] = {
+                    "distanceMiles": round(distance, 2),
+                    "incidentId": attributes.get("IncidentId"),
+                    "status": attributes.get("Status"),
+                    "plannedOutage": "planned" in str(attributes.get("Status", "")).lower(),
+                    "etr": attributes.get("EstRestoreTime"),
+                    "lastUpdated": attributes.get("VersionDate"),
+                    "outageLat": outage_lat,
+                    "outageLon": outage_lon,
+                    "color": (
+                        "red" if distance <= RED_RADIUS
+                        else "yellow" if distance <= YELLOW_RADIUS
+                        else "white"
+                    )
+                }
 
         except Exception as e:
             print(e)
 
 # ==========================================
-# SAVE IMPACTED CSV
-# ==========================================
-
-if impacted:
-    impacted_df = pd.DataFrame(impacted)
-
-    impacted_df = impacted_df.drop_duplicates(subset=["Site #"])
-
-    impacted_df.to_csv("impacted_sites.csv", index=False)
-    print(f"Unique Impacted Stores: {len(impacted_df)}")
-
-else:
-    impacted_df = pd.DataFrame()
-    impacted_df.to_csv("impacted_sites.csv", index=False)
-    print("No impacted stores found.")
-
-# ==========================================
-# CREATE MAP FILE (outages.json)
+# CREATE OUTAGES.JSON FOR ALL STORES
 # ==========================================
 
 map_data = []
 
-if not impacted_df.empty:
+for _, row in sites.iterrows():
 
-    for _, row in impacted_df.iterrows():
+    store_number = str(row["Site #"]).zfill(4)
 
-        map_data.append({
-            "storeNumber": row["Site #"],
-            "storeName": row["SiteName"],
-            "address": f"{row['City']}, {row['State']}",
-            "provider": row["Vendor Name"],
-            "providerWebsite": "https://www.sce.com",
+    if store_number in impacted_lookup:
+        info = impacted_lookup[store_number]
+    else:
+        info = {
+            "distanceMiles": "",
+            "incidentId": "",
+            "status": "No outage",
+            "plannedOutage": False,
+            "etr": "",
+            "lastUpdated": "",
+            "outageLat": "",
+            "outageLon": "",
+            "color": "white"
+        }
 
-            "distanceMiles": row["DistanceMiles"],
+    map_data.append({
+        "storeNumber": store_number,
+        "storeName": row["SiteName"],
+        "address": f"{row['City']}, {row['State']}",
+        "provider": row["Vendor Name"],
+        "providerWebsite": row["Vendor Link"],
 
-            # Store location
-            "lat": float(row["Latitude"]),
-            "lon": float(row["Longitude"]),
+        "distanceMiles": info["distanceMiles"],
 
-            # Outage location
-            "outageLat": row["OutageLatitude"],
-            "outageLon": row["OutageLongitude"],
+        # Store location
+        "lat": float(row["Latitude"]),
+        "lon": float(row["Longitude"]),
 
-            # Outage metadata
-            "incidentId": row["IncidentId"],
-            "status": row["OutageStatus"],
-            "plannedOutage": bool(row["PlannedOutage"]),
-            "etr": row["ETR"],
-            "lastUpdated": row["LastUpdated"],
+        # Outage location
+        "outageLat": info["outageLat"],
+        "outageLon": info["outageLon"],
 
-            # Color classification
-            "color": row["OutageColor"]
-        })
+        # Outage metadata
+        "incidentId": info["incidentId"],
+        "status": info["status"],
+        "plannedOutage": info["plannedOutage"],
+        "etr": info["etr"],
+        "lastUpdated": info["lastUpdated"],
 
-# Save JSON
+        # Color classification
+        "color": info["color"]
+    })
+
 with open("outages.json", "w") as f:
     json.dump(map_data, f, indent=2)
 
-print(f"Map file created with {len(map_data)} entries.")
+print(f"Map file created with {len(map_data)} total stores.")
