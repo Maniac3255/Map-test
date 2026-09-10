@@ -21,7 +21,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install packages
-        run: pip install pandas requests
+        run: pip install pandas requests pyproj
 
       - name: Run script
         run: python update_outages.py
