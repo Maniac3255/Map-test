@@ -1,154 +1,128 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Power Outage Demo</title>
+    <title>Outage Map</title>
+    <meta charset="utf-8" />
 
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
 
-<style>
+        #filters {
+            margin: 10px;
+        }
 
-html,
-body {
-    margin: 0;
-    padding: 0;
-}
+        #filters button {
+            margin-right: 10px;
+            padding: 6px 12px;
+            font-size: 14px;
+        }
 
-#map {
-    height: 100vh;
-    width: 100%;
-}
+        .info.legend {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            line-height: 18px;
+            font-size: 14px;
+        }
 
-</style>
+        .info.legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.8;
+        }
+    </style>
 
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body>
 
+<h2>Store Outage Map</h2>
+
+<div id="filters">
+    <button onclick="filterMarkers('all')">All</button>
+    <button onclick="filterMarkers('outage')">Outage</button>
+    <button onclick="filterMarkers('possible')">Possible Outage</button>
+</div>
+
 <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script>
+// ---------------------------
+// Initialize Map
+// ---------------------------
+const map = L.map('map').setView([37.0, -85.0], 7);
 
-// Create Map
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19
+}).addTo(map);
 
-const map = L.map('map').setView(
-    [34.0, -118.0],
-    6
-);
+// ---------------------------
+// Legend
+// ---------------------------
+const legend = L.control({ position: "bottomright" });
 
-// Base Map
+legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = `
+        <h4>Outage Legend</h4>
+        <i style="background:red"></i> Outage (≤ 0.5 miles)<br>
+        <i style="background:yellow"></i> Possible Outage (0.5–1 mile)<br>
+        <i style="background:blue"></i> No Issue (> 1 mile)
+    `;
+    return div;
+};
 
-L.tileLayer(
-    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-        maxZoom: 19
-    }
-).addTo(map);
+legend.addTo(map);
 
-// Load outage data
+// ---------------------------
+// Load Outage Data
+// ---------------------------
+let markers = [];
 
-fetch('outages.json')
-.then(response => response.json())
-.then(data => {
+fetch("outages.json")
+    .then(response => response.json())
+    .then(data => {
+        data.forEach(site => {
+            const lat = site.lat;
+            const lon = site.lon;
 
-    const bounds = [];
+            const storeName = site.storeName;
+            const storeNumber = site.storeNumber;
+            const address = site.address;
+            const provider = site.provider;
+            const providerWebsite = site.providerWebsite;
 
-    data.forEach(site => {
+            const distanceMiles = site.distanceMiles;
 
-        // Add outage coordinates to zoom bounds
+            // Determine marker color + status
+            let markerColor = "blue";
+            let outageStatus = "No issue";
 
-        bounds.push([
-            site.outage_lat,
-            site.outage_lon
-        ]);
-
-        bounds.push([
-            site.lat,
-            site.lon
-        ]);
-
-        // ==========================
-        // RED OUTAGE MARKER
-        // ==========================
-
-        L.marker([
-            site.outage_lat,
-            site.outage_lon
-        ])
-        .addTo(map)
-        .bindPopup(`
-            <b>SCE Outage</b><br>
-            Incident: ${site.incident}<br>
-            Customers Affected:
-            ${site.affected_customers}
-        `);
-
-        // ==========================
-        // YELLOW IMPACT AREA
-        // ==========================
-
-        L.circle(
-            [
-                site.outage_lat,
-                site.outage_lon
-            ],
-            {
-                color: 'yellow',
-                fillColor: 'yellow',
-                fillOpacity: 0.25,
-                radius: 1609
+            if (distanceMiles <= 0.5) {
+                markerColor = "red";
+                outageStatus = "Outage";
+            } else if (distanceMiles > 0.5 && distanceMiles <= 1) {
+                markerColor = "yellow";
+                outageStatus = "Possible outage";
             }
-        )
-        .addTo(map);
 
-        // ==========================
-        // GREEN STORE MARKER
-        // ==========================
+            // Create marker
+            const marker = L.circleMarker([lat, lon], {
+                radius: 8,
+                color: markerColor,
+                fillColor: markerColor,
+                fillOpacity: 0.8
+            }).addTo(map);
 
-        L.circleMarker(
-            [
-                site.lat,
-                site.lon
-            ],
-            {
-                color: 'green',
-                fillColor: 'green',
-                fillOpacity: 1,
-                radius: 8
-            }
-        )
-        .addTo(map)
-        .bindPopup(`
-            <b>${site.name}</b><br>
-            Site #: ${site.site}<br>
-            Vendor: ${site.vendor}<br>
-            City: ${site.city}, ${site.state}<br>
-            Distance From Outage:
-            ${site.distance} miles
-        `);
+            marker.outageStatus = outageStatus;
+            markers.push(marker);
 
-    });
-
-    // Auto zoom to all markers
-
-    if (bounds.length > 0) {
-        map.fitBounds(bounds);
-    }
-
-})
-.catch(error => {
-
-    console.error(
-        "Failed loading outages.json",
-        error
-    );
-
-});
-
-</script>
-
-</body>
-</html>
+            // Popup
+            marker
