@@ -1,0 +1,12 @@
+name: Test Outage Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hello World
+        run: echo "Workflow is running!"
