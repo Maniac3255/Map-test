@@ -1,2 +1,6 @@
-Site #,Status
-12345,OUTAGE
+Site #,Vendor Name,Vendor Link,SiteName,Location,City,State,Zip,Outage Map Flag,Latitude,Longitude,Status
+0,BOWLING GREEN MUNICIPAL UTILITIES,https://outages.bgmu.com/,CORPORATE,650 Three Springs rd,BOWLING GREEN,Kentucky,42101,,36.93251,-86.42179,OUTAGE
+1,WARREN RURAL ELECTRIC COOP COR,https://warrenec.outagemap.coop/,BOWLING GREEN,725 BLUE GRASS FARMS BLVD SUITE 1,BOWLING GREEN,Kentucky,42101,,36.923775,-86.42304,OUTAGE
+3,KISSIMMEE UTILITY AUTHORITY,https://kissimmee.datacapable.com/map/,KISSIMMEE,"5175 W IRLO BRONSON MEM HWY PKG, LOT",KISSIMMEE,FLORIDA,34746,,28.334164,-81.49048,OUTAGE
+4,SOUTHERN CALIFORNIA EDISION,https://www.sce.com/outages-safety/outage-center/check-outage-status,VALENCIA,24901 Pico Canyon Rd,NEWHALL,CALIFORNIA,91381,,34.381298,-118.569626,OUTAGE
+5,SOUTHERN CALIFORNIA EDISION,https://www.sce.com/outages-safety/outage-center/check-outage-status,LA MIRADA,14900 E Firestone Blvd,LA MIRADA,CALIFORNIA,90638,,33.875317,-118.014061,OUTAGE
