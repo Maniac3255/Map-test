@@ -3,11 +3,35 @@ import requests
 from pyproj import Transformer
 from math import radians, sin, cos, sqrt, atan2
 
-# Read stores
+# -----------------------
+# CONFIGURATION
+# -----------------------
+
+OUTAGE_RADIUS_MILES = 1
+
+SCE_URL = (
+    "https://sce-outage-ags.esriemcs.com/"
+    "arcgis/rest/services/43/outage/"
+    "MapServer/0/query"
+)
+
+# -----------------------
+# LOAD SITES
+# -----------------------
+
 sites = pd.read_csv("Sites-small.csv")
 
-# Get SCE outages
-url = "https://sce-outage-ags.esriemcs.com/arcgis/rest/services/43/outage/MapServer/0/query"
+# Only Southern California Edison locations
+sites = sites[
+    sites["Vendor Name"]
+    .str.contains("Edi", case=False, na=False)
+]
+
+print(f"SCE Sites Found: {len(sites)}")
+
+# -----------------------
+# GET OUTAGES
+# -----------------------
 
 params = {
     "where": "1=1",
@@ -16,45 +40,76 @@ params = {
     "f": "json"
 }
 
-response = requests.get(url, params=params)
+response = requests.get(
+    SCE_URL,
+    params=params,
+    timeout=30
+)
+
 data = response.json()
 
-print("Outages Found:", len(data["features"]))
+features = data.get("features", [])
 
-# Coordinate converter
+print(f"Outages Found: {len(features)}")
+
+# -----------------------
+# COORDINATE CONVERTER
+# -----------------------
+
 transformer = Transformer.from_crs(
     "EPSG:3857",
     "EPSG:4326",
     always_xy=True
 )
 
-# Haversine formula
+# -----------------------
+# DISTANCE CALCULATION
+# -----------------------
+
 def miles_between(lat1, lon1, lat2, lon2):
-    R = 3958.8
+    earth_radius = 3958.8
 
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
 
     a = (
-        sin(dlat / 2) ** 2 +
-        cos(radians(lat1)) *
-        cos(radians(lat2)) *
+        sin(dlat / 2) ** 2
+        +
+        cos(radians(lat1))
+        *
+        cos(radians(lat2))
+        *
         sin(dlon / 2) ** 2
     )
 
-    return R * 2 * atan2(
+    c = 2 * atan2(
         sqrt(a),
         sqrt(1 - a)
     )
 
+    return earth_radius * c
+
+# -----------------------
+# FIND IMPACTED STORES
+# -----------------------
+
 impacted = []
 
-for outage in data["features"]:
+for outage in features:
 
-    x = outage["geometry"]["x"]
-    y = outage["geometry"]["y"]
+    geometry = outage.get("geometry", {})
+    attributes = outage.get("attributes", {})
 
-    outage_lon, outage_lat = transformer.transform(x, y)
+    if "x" not in geometry or "y" not in geometry:
+        continue
+
+    outage_x = geometry["x"]
+    outage_y = geometry["y"]
+
+    outage_lon, outage_lat = transformer.transform(
+        outage_x,
+        outage_y
+    )
 
     for _, site in sites.iterrows():
 
@@ -69,31 +124,61 @@ for outage in data["features"]:
                 site_lon
             )
 
-            if distance <= 1:
+            if distance <= OUTAGE_RADIUS_MILES:
 
                 row = site.copy()
 
                 row["Status"] = "OUTAGE"
                 row["DistanceMiles"] = round(distance, 2)
 
+                row["IncidentId"] = attributes.get(
+                    "IncidentId"
+                )
+
+                row["CityName"] = attributes.get(
+                    "CityName"
+                )
+
+                row["AffectedCustomers"] = attributes.get(
+                    "NoOfAffectedCust_Inci"
+                )
+
+                row["OutageStatus"] = attributes.get(
+                    "Status"
+                )
+
                 impacted.append(row)
 
-        except:
+        except Exception:
             pass
 
+# -----------------------
+# SAVE RESULTS
+# -----------------------
+
 if impacted:
-    pd.DataFrame(impacted).drop_duplicates(
+
+    impacted_df = pd.DataFrame(impacted)
+
+    impacted_df = impacted_df.drop_duplicates(
         subset=["Site #"]
-    ).to_csv(
+    )
+
+    impacted_df.to_csv(
         "impacted_sites.csv",
         index=False
     )
+
+    print(
+        f"Unique Impacted Stores: "
+        f"{len(impacted_df)}"
+    )
+
 else:
+
     pd.DataFrame().to_csv(
         "impacted_sites.csv",
         index=False
     )
 
-print(
-    f"Impacted Stores: {len(impacted)}"
-)
+    print("No impacted stores found.")
