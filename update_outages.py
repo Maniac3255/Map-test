@@ -1,11 +1,13 @@
 import pandas as pd
 import requests
+import json
+
 from pyproj import Transformer
 from math import radians, sin, cos, sqrt, atan2
 
-# -----------------------
+# ==========================================
 # CONFIGURATION
-# -----------------------
+# ==========================================
 
 OUTAGE_RADIUS_MILES = 1
 
@@ -15,13 +17,12 @@ SCE_URL = (
     "MapServer/0/query"
 )
 
-# -----------------------
-# LOAD SITES
-# -----------------------
+# ==========================================
+# LOAD STORE DATA
+# ==========================================
 
 sites = pd.read_csv("Sites-small.csv")
 
-# Only Southern California Edison locations
 sites = sites[
     sites["Vendor Name"]
     .str.contains("Edi", case=False, na=False)
@@ -29,9 +30,9 @@ sites = sites[
 
 print(f"SCE Sites Found: {len(sites)}")
 
-# -----------------------
-# GET OUTAGES
-# -----------------------
+# ==========================================
+# GET SCE OUTAGES
+# ==========================================
 
 params = {
     "where": "1=1",
@@ -48,137 +49,4 @@ response = requests.get(
 
 data = response.json()
 
-features = data.get("features", [])
-
-print(f"Outages Found: {len(features)}")
-
-# -----------------------
-# COORDINATE CONVERTER
-# -----------------------
-
-transformer = Transformer.from_crs(
-    "EPSG:3857",
-    "EPSG:4326",
-    always_xy=True
-)
-
-# -----------------------
-# DISTANCE CALCULATION
-# -----------------------
-
-def miles_between(lat1, lon1, lat2, lon2):
-    earth_radius = 3958.8
-
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-
-    a = (
-        sin(dlat / 2) ** 2
-        +
-        cos(radians(lat1))
-        *
-        cos(radians(lat2))
-        *
-        sin(dlon / 2) ** 2
-    )
-
-    c = 2 * atan2(
-        sqrt(a),
-        sqrt(1 - a)
-    )
-
-    return earth_radius * c
-
-# -----------------------
-# FIND IMPACTED STORES
-# -----------------------
-
-impacted = []
-
-for outage in features:
-
-    geometry = outage.get("geometry", {})
-    attributes = outage.get("attributes", {})
-
-    if "x" not in geometry or "y" not in geometry:
-        continue
-
-    outage_x = geometry["x"]
-    outage_y = geometry["y"]
-
-    outage_lon, outage_lat = transformer.transform(
-        outage_x,
-        outage_y
-    )
-
-    for _, site in sites.iterrows():
-
-        try:
-            site_lat = float(site["Latitude"])
-            site_lon = float(site["Longitude"])
-
-            distance = miles_between(
-                outage_lat,
-                outage_lon,
-                site_lat,
-                site_lon
-            )
-
-            if distance <= OUTAGE_RADIUS_MILES:
-
-                row = site.copy()
-
-                row["Status"] = "OUTAGE"
-                row["DistanceMiles"] = round(distance, 2)
-
-                row["IncidentId"] = attributes.get(
-                    "IncidentId"
-                )
-
-                row["CityName"] = attributes.get(
-                    "CityName"
-                )
-
-                row["AffectedCustomers"] = attributes.get(
-                    "NoOfAffectedCust_Inci"
-                )
-
-                row["OutageStatus"] = attributes.get(
-                    "Status"
-                )
-
-                impacted.append(row)
-
-        except Exception:
-            pass
-
-# -----------------------
-# SAVE RESULTS
-# -----------------------
-
-if impacted:
-
-    impacted_df = pd.DataFrame(impacted)
-
-    impacted_df = impacted_df.drop_duplicates(
-        subset=["Site #"]
-    )
-
-    impacted_df.to_csv(
-        "impacted_sites.csv",
-        index=False
-    )
-
-    print(
-        f"Unique Impacted Stores: "
-        f"{len(impacted_df)}"
-    )
-
-else:
-
-    pd.DataFrame().to_csv(
-        "impacted_sites.csv",
-        index=False
-    )
-
-    print("No impacted stores found.")
+features
