@@ -21,21 +21,25 @@
             height: 100%;
         }
 
-        /* Sidebar */
+        /* DARK MODE SIDEBAR */
         #sidebar {
             width: 320px;
-            background: #f7f7f7;
-            border-left: 1px solid #ccc;
+            background: #1e1e1e;
+            color: white;
+            border-left: 1px solid #444;
             padding: 10px;
             overflow-y: auto;
             height: 100%;
-            transition: margin-right 0.3s ease;
-            position: relative;
+            transition: transform 0.3s ease;
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 9999;
         }
 
-        /* Collapsed sidebar */
         #sidebar.collapsed {
-            margin-right: -320px;
+            transform: translateX(100%);
         }
 
         #sidebarHeader {
@@ -47,32 +51,35 @@
         #toggleBtn {
             background: none;
             border: none;
-            font-size: 20px;
+            font-size: 22px;
             cursor: pointer;
             padding: 0;
             margin: 0;
+            color: white;
         }
 
-        #searchBar {
+        #filterSelect, #searchBar, #mapType {
             width: 95%;
             padding: 8px;
             margin: 10px 0;
             border-radius: 6px;
-            border: 1px solid #ccc;
-            font-size: 14px;
+            border: 1px solid #666;
+            background: #2b2b2b;
+            color: white;
         }
 
         .store-item {
             padding: 8px;
             margin: 6px 0;
-            background: white;
+            background: #2b2b2b;
             border-radius: 6px;
             cursor: pointer;
-            border: 1px solid #ddd;
+            border: 1px solid #555;
+            color: white;
         }
 
         .store-item:hover {
-            background: #e9f3ff;
+            background: #3a3a3a;
         }
     </style>
 </head>
@@ -87,7 +94,20 @@
         <button id="toggleBtn">▼</button>
     </div>
 
+    <select id="mapType">
+        <option value="streets">Streets</option>
+        <option value="satellite">Satellite</option>
+        <option value="dark">Dark Mode</option>
+        <option value="terrain">Terrain</option>
+    </select>
+
+    <select id="filterSelect">
+        <option value="all">All Stores</option>
+        <option value="outages">Outages Only (Red + Yellow)</option>
+    </select>
+
     <input id="searchBar" type="text" placeholder="Search store #, name, city...">
+
     <div id="storeList"></div>
 </div>
 
@@ -108,7 +128,7 @@ Promise.all([
 });
 
 // ==========================================
-// SAFE CSV PARSER (handles commas inside fields)
+// CSV PARSER (Latitude + Longitude ONLY)
 // ==========================================
 
 function parseCSV(text) {
@@ -119,12 +139,16 @@ function parseCSV(text) {
         const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
         let obj = {};
         headers.forEach((h, i) => obj[h.trim()] = cols[i]?.replace(/"/g, ""));
+
+        obj._lat = parseFloat(obj.Latitude);
+        obj._lon = parseFloat(obj.Longitude);
+
         return obj;
     });
 }
 
 // ==========================================
-// MERGE OUTAGE DATA INTO STORE LIST
+// MERGE OUTAGE DATA
 // ==========================================
 
 function mergeOutageData(stores, outages) {
@@ -163,10 +187,20 @@ function initMap(stores) {
 
     let map = L.map("map").setView([37.5, -95.5], 5);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 18,
-        attribution: "© OpenStreetMap"
-    }).addTo(map);
+    // Base layers
+    const baseLayers = {
+        streets: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"),
+        satellite: L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"),
+        dark: L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"),
+        terrain: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png")
+    };
+
+    baseLayers.streets.addTo(map);
+
+    document.getElementById("mapType").addEventListener("change", e => {
+        const type = e.target.value;
+        baseLayers[type].addTo(map);
+    });
 
     const iconColors = {
         red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
@@ -182,8 +216,8 @@ function initMap(stores) {
 
     stores.forEach(store => {
 
-        let lat = parseFloat(store.Latitude);
-        let lon = parseFloat(store.Longitude);
+        let lat = store._lat;
+        let lon = store._lon;
 
         if (!lat || !lon) return;
 
@@ -220,20 +254,28 @@ function initMap(stores) {
     });
 
     // ==========================================
-    // SIDEBAR LIST + SEARCH
+    // SIDEBAR LIST + SEARCH + FILTER
     // ==========================================
 
     let storeListDiv = document.getElementById("storeList");
+    let filterSelect = document.getElementById("filterSelect");
 
     function renderStoreList(filterText = "") {
         storeListDiv.innerHTML = "";
 
         stores
-            .filter(store =>
-                store["Site #"].toLowerCase().includes(filterText) ||
-                store.SiteName.toLowerCase().includes(filterText) ||
-                store.City.toLowerCase().includes(filterText)
-            )
+            .filter(store => {
+
+                if (filterSelect.value === "outages" && store.color === "white") {
+                    return false;
+                }
+
+                return (
+                    store["Site #"].toLowerCase().includes(filterText) ||
+                    store.SiteName.toLowerCase().includes(filterText) ||
+                    store.City.toLowerCase().includes(filterText)
+                );
+            })
             .forEach(store => {
 
                 let div = document.createElement("div");
@@ -261,6 +303,10 @@ function initMap(stores) {
         renderStoreList(e.target.value.toLowerCase());
     });
 
+    filterSelect.addEventListener("change", () => {
+        renderStoreList(document.getElementById("searchBar").value.toLowerCase());
+    });
+
     // ==========================================
     // COLLAPSIBLE SIDEBAR (arrow rotates)
     // ==========================================
@@ -277,7 +323,7 @@ function initMap(stores) {
     };
 
     // ==========================================
-    // LEGEND BOTTOM-LEFT
+    // LEGEND BOTTOM-LEFT (with colored swatches)
     // ==========================================
 
     let legend = L.control({ position: "bottomleft" });
@@ -285,10 +331,28 @@ function initMap(stores) {
     legend.onAdd = function () {
         let div = L.DomUtil.create("div", "legend");
 
+        div.style.background = "#1e1e1e";
+        div.style.color = "white";
+        div.style.padding = "10px";
+        div.style.borderRadius = "6px";
+        div.style.lineHeight = "1.6";
+        div.style.boxShadow = "0 0 5px rgba(0,0,0,0.4)";
+
         div.innerHTML = `
-            <div><span style="background:red"></span> Outage (0–0.5 miles)</div>
-            <div><span style="background:orange"></span> Possible Outage (0.5–1 mile)</div>
-            <div><span style="background:grey"></span> No Outage</div>
+            <div style="display:flex;align-items:center;">
+                <span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
+                Outage (0–0.5 miles)
+            </div>
+
+            <div style="display:flex;align-items:center;">
+                <span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
+                Possible Outage (0.5–1 mile)
+            </div>
+
+            <div style="display:flex;align-items:center;">
+                <span style="background:white;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;border:1px solid #999;"></span>
+                No Outage
+            </div>
         `;
 
         return div;
