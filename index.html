@@ -32,14 +32,14 @@ body {
 
 <script>
 
-// Create map
+// Create Map
 
 const map = L.map('map').setView(
     [34.0, -118.0],
     6
 );
 
-// OpenStreetMap
+// Base Map
 
 L.tileLayer(
     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -48,19 +48,31 @@ L.tileLayer(
     }
 ).addTo(map);
 
-// Read outage data
+// Load outage data
 
 fetch('outages.json')
-
 .then(response => response.json())
-
 .then(data => {
+
+    const bounds = [];
 
     data.forEach(site => {
 
-        // =====================
-        // OUTAGE LOCATION
-        // =====================
+        // Add outage coordinates to zoom bounds
+
+        bounds.push([
+            site.outage_lat,
+            site.outage_lon
+        ]);
+
+        bounds.push([
+            site.lat,
+            site.lon
+        ]);
+
+        // ==========================
+        // RED OUTAGE MARKER
+        // ==========================
 
         L.marker([
             site.outage_lat,
@@ -74,10 +86,44 @@ fetch('outages.json')
             ${site.affected_customers}
         `);
 
-        // =====================
-        // IMPACT RADIUS
-        // =====================
+        // ==========================
+        // YELLOW IMPACT AREA
+        // ==========================
 
         L.circle(
             [
-   
+                site.outage_lat,
+                site.outage_lon
+            ],
+            {
+                color: 'yellow',
+                fillColor: 'yellow',
+                fillOpacity: 0.25,
+                radius: 1609
+            }
+        )
+        .addTo(map);
+
+        // ==========================
+        // GREEN STORE MARKER
+        // ==========================
+
+        L.circleMarker(
+            [
+                site.lat,
+                site.lon
+            ],
+            {
+                color: 'green',
+                fillColor: 'green',
+                fillOpacity: 1,
+                radius: 8
+            }
+        )
+        .addTo(map)
+        .bindPopup(`
+            <b>${site.name}</b><br>
+            Site #: ${site.site}<br>
+            Vendor: ${site.vendor}<br>
+            City: ${site.city}, ${site.state}<br>
+            Distance From
