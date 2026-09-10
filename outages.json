@@ -1,0 +1,16 @@
+[
+  {
+    "site": 5,
+    "name": "LA MIRADA",
+    "vendor": "SOUTHERN CALIFORNIA EDISION",
+    "city": "LA MIRADA",
+    "state": "CALIFORNIA",
+    "distance": 0.82,
+    "incident": 136575505,
+    "affected_customers": 50,
+    "lat": 33.875317,
+    "lon": -118.014061,
+    "outage_lat": 33.87690573396871,
+    "outage_lon": -117.99987724336336
+  }
+]
