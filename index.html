@@ -126,4 +126,29 @@ fetch('outages.json')
             Site #: ${site.site}<br>
             Vendor: ${site.vendor}<br>
             City: ${site.city}, ${site.state}<br>
-            Distance From
+            Distance From Outage:
+            ${site.distance} miles
+        `);
+
+    });
+
+    // Auto zoom to all markers
+
+    if (bounds.length > 0) {
+        map.fitBounds(bounds);
+    }
+
+})
+.catch(error => {
+
+    console.error(
+        "Failed loading outages.json",
+        error
+    );
+
+});
+
+</script>
+
+</body>
+</html>
