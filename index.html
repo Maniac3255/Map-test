@@ -1,22 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>Power Outage Demo</title>
+<meta charset="utf-8">
+<title>Power Outage Demo</title>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-    <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-        }
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+}
 
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-    </style>
+#map {
+    height: 100vh;
+    width: 100%;
+}
+</style>
 </head>
 
 <body>
@@ -26,8 +27,11 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-const map = L.map('map').setView([34.0, -118.0], 6);
 
+// Initialize map
+const map = L.map('map').setView([34.0, -118.0], 7);
+
+// OpenStreetMap tiles
 L.tileLayer(
     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -35,14 +39,52 @@ L.tileLayer(
     }
 ).addTo(map);
 
-L.circleMarker(
-    [34.274, -119.229],
+// --------------------
+// OUTAGE LOCATION
+// --------------------
+
+const outageLat = 34.274;
+const outageLon = -119.229;
+
+// Red outage marker
+L.marker(
+    [outageLat, outageLon]
+)
+.addTo(map)
+.bindPopup(
+    "<b>SCE Outage</b><br>Active outage location"
+);
+
+// Yellow impact radius
+L.circle(
+    [outageLat, outageLon],
     {
-        color: 'red',
-        radius: 10
+        color: 'yellow',
+        fillColor: 'yellow',
+        fillOpacity: 0.25,
+        radius: 1609
     }
-).addTo(map)
- .bindPopup('SCE Test Outage');
+)
+.addTo(map);
+
+// --------------------
+// STORE LOCATION
+// --------------------
+
+L.circleMarker(
+    [34.280, -119.220],
+    {
+        color: 'green',
+        fillColor: 'green',
+        fillOpacity: 1,
+        radius: 8
+    }
+)
+.addTo(map)
+.bindPopup(
+    "<b>Store 12345</b><br>Impacted Location"
+);
+
 </script>
 
 </body>
