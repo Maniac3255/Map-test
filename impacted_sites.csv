@@ -1,2 +1,2 @@
-Site #,Vendor Name,Vendor Link,SiteName,Location,City,State,Zip,Outage Map Flag,Latitude,Longitude,DistanceMiles,IncidentId,CityName,AffectedCustomers,OutageStatus,OutageLatitude,OutageLongitude
-5,SOUTHERN CALIFORNIA EDISION,https://www.sce.com/outages-safety/outage-center/check-outage-status,LA MIRADA,14900 E Firestone Blvd,LA MIRADA,CALIFORNIA,90638,,33.875317,-118.014061,0.82,136575505,BUENA PARK,50,ACTIVE,33.87690573396871,-117.99987724336336
+Site #,Vendor Name,Vendor Link,SiteName,Location,City,State,Zip,Outage Map Flag,Latitude,Longitude,DistanceMiles,IncidentId,OutageStatus,PlannedOutage,ETR,LastUpdated,OutageLatitude,OutageLongitude
+5,SOUTHERN CALIFORNIA EDISION,https://www.sce.com/outages-safety/outage-center/check-outage-status,LA MIRADA,14900 E Firestone Blvd,LA MIRADA,CALIFORNIA,90638,,33.875317,-118.014061,0.82,136575505,ACTIVE,False,,,33.87690573396871,-117.99987724336336
