@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <title>Store Outage Map</title>
 
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
     <style>
@@ -15,7 +14,12 @@
             display: flex;
         }
 
-        /* Right-side panel */
+        #map {
+            flex: 1;
+            height: 100vh;
+        }
+
+        /* Sidebar */
         #sidebar {
             width: 300px;
             background: #f7f7f7;
@@ -23,11 +27,28 @@
             padding: 10px;
             overflow-y: auto;
             height: 100vh;
+            transition: transform 0.3s ease;
+        }
+
+        #sidebar.collapsed {
+            transform: translateX(100%);
+        }
+
+        #toggleBtn {
+            position: absolute;
+            right: 310px;
+            top: 10px;
+            z-index: 9999;
+            background: #0078ff;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: none;
         }
 
         #sidebar h2 {
             margin-top: 0;
-            font-size: 18px;
             text-align: center;
         }
 
@@ -42,11 +63,6 @@
 
         .store-item:hover {
             background: #e9f3ff;
-        }
-
-        #map {
-            flex: 1;
-            height: 100vh;
         }
 
         .legend {
@@ -71,6 +87,8 @@
 
 <body>
 
+<button id="toggleBtn">Hide Stores</button>
+
 <div id="map"></div>
 
 <div id="sidebar">
@@ -78,7 +96,6 @@
     <div id="storeList"></div>
 </div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
@@ -104,28 +121,31 @@ function initMap(outages) {
         attribution: "© OpenStreetMap"
     }).addTo(map);
 
-    const colorMap = {
-        red: "red",
-        yellow: "orange",
-        white: "blue"
+    const iconColors = {
+        red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+        yellow: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png",
+        white: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"
     };
 
     let markers = {};
 
     // ==========================================
-    // ADD MARKERS
+    // ADD MARKERS (RED + YELLOW ONLY)
     // ==========================================
 
     outages.forEach(store => {
 
-        let color = colorMap[store.color] || "blue";
+        if (store.color === "white") return; // ignore non-impacted stores
 
-        let marker = L.circleMarker([store.lat, store.lon], {
-            radius: 10,
-            color: color,
-            fillColor: color,
-            fillOpacity: 0.8
+        let icon = L.icon({
+            iconUrl: iconColors[store.color],
+            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
         });
+
+        let marker = L.marker([store.lat, store.lon], { icon });
 
         let popupHtml = `
             <b>Store ${store.storeNumber} – ${store.storeName}</b><br>
@@ -148,18 +168,21 @@ function initMap(outages) {
     });
 
     // ==========================================
-    // POPULATE RIGHT-SIDE STORE LIST
+    // POPULATE SIDEBAR (RED + YELLOW ONLY)
     // ==========================================
 
     let storeListDiv = document.getElementById("storeList");
 
     outages.forEach(store => {
+
+        if (store.color === "white") return;
+
         let div = document.createElement("div");
         div.className = "store-item";
         div.innerHTML = `
             <b>${store.storeNumber} – ${store.storeName}</b><br>
             ${store.address}<br>
-            <span style="color:${colorMap[store.color]}">● ${store.color.toUpperCase()}</span>
+            <span style="color:${store.color}">● ${store.color.toUpperCase()}</span>
         `;
 
         div.onclick = () => {
@@ -170,6 +193,20 @@ function initMap(outages) {
 
         storeListDiv.appendChild(div);
     });
+
+    // ==========================================
+    // COLLAPSIBLE SIDEBAR
+    // ==========================================
+
+    const sidebar = document.getElementById("sidebar");
+    const toggleBtn = document.getElementById("toggleBtn");
+
+    toggleBtn.onclick = () => {
+        sidebar.classList.toggle("collapsed");
+        toggleBtn.textContent = sidebar.classList.contains("collapsed")
+            ? "Show Stores"
+            : "Hide Stores";
+    };
 
     // ==========================================
     // LEGEND
@@ -183,7 +220,6 @@ function initMap(outages) {
         div.innerHTML = `
             <div><span style="background:red"></span> Outage Detected (0–0.5 miles)</div>
             <div><span style="background:orange"></span> Possible Outage (0.5–1 mile)</div>
-            <div><span style="background:blue"></span> Store Impacted (>1 mile)</div>
         `;
 
         return div;
