@@ -161,7 +161,7 @@ function parseCSV(text) {
         let obj = {};
         headers.forEach((h, i) => obj[h.trim()] = cols[i]?.replace(/"/g, ""));
 
-        // Clean lat/lon
+        // Clean lat/lon and allow up to 10 decimal places
         obj.Latitude = parseFloat((obj.Latitude || "").trim());
         obj.Longitude = parseFloat((obj.Longitude || "").trim());
 
@@ -228,7 +228,10 @@ function initMap(stores) {
         let lat = store.Latitude;
         let lon = store.Longitude;
 
-        if (isNaN(lat) || isNaN(lon)) return;
+        if (isNaN(lat) || isNaN(lon)) {
+            console.warn("Skipping store due to invalid coordinates:", store["Site #"], lat, lon);
+            return;
+        }
 
         let icon = L.icon({
             iconUrl: iconColors[store.color],
@@ -369,6 +372,32 @@ function initMap(stores) {
     };
 
     legend.addTo(map);
+
+    // ==========================================
+    // AUTO REFRESH WHEN outages.json CHANGES
+    // ==========================================
+
+    let lastHash = null;
+
+    async function checkForUpdate() {
+        try {
+            const response = await fetch("outages.json", { cache: "no-store" });
+            const text = await response.text();
+            const hash = btoa(text);
+
+            if (lastHash && lastHash !== hash) {
+                console.log("Outages updated — refreshing page...");
+                location.reload();
+            }
+
+            lastHash = hash;
+
+        } catch (err) {
+            console.error("Auto-refresh check failed:", err);
+        }
+    }
+
+    setInterval(checkForUpdate, 30000);
 }
 </script>
 
