@@ -127,7 +127,7 @@
   },
   {
     "storeNumber": "0008",
-    "storeName": "Fort Myers, FL",
+    "storeName": "Fort Myers",
     "address": "FORT MYERS, FLORIDA",
     "provider": "FPL",
     "providerWebsite": "https://www.fplmaps.com/",
@@ -181,7 +181,7 @@
   },
   {
     "storeNumber": "0016",
-    "storeName": "Tampa, FL (Dover)",
+    "storeName": "Tampa(Dover)",
     "address": "DOVER, FLORIDA",
     "provider": "TECO",
     "providerWebsite": "https://www.tampaelectric.com/poweroutages/",
@@ -253,7 +253,7 @@
   },
   {
     "storeNumber": "0024",
-    "storeName": "Golden, CO (Denver)",
+    "storeName": "Denver",
     "address": "GOLDEN, COLORADO",
     "provider": "XCEL ENERGY",
     "providerWebsite": "https://co.my.xcelenergy.com/s/outage-safety/outage-map",
@@ -289,7 +289,7 @@
   },
   {
     "storeNumber": "0030",
-    "storeName": "Draper, UT",
+    "storeName": "Draper",
     "address": "DRAPER, UTAH",
     "provider": "ROCKY MOUNTAIN POWER",
     "providerWebsite": "https://www.rockymountainpower.net/outages-safety.html",
@@ -307,7 +307,7 @@
   },
   {
     "storeNumber": "0031",
-    "storeName": "Tucson, AZ",
+    "storeName": "Tucson",
     "address": "TUCSON, ARIZONA",
     "provider": "TEP - TUCSON ELECTRIC POWER",
     "providerWebsite": "https://www.tep.com/outages/",
@@ -325,7 +325,7 @@
   },
   {
     "storeNumber": "0032",
-    "storeName": "Manassas, VA",
+    "storeName": "Manassas",
     "address": "MANASSAS, VIRGINIA",
     "provider": "NOVEC",
     "providerWebsite": "https://www.novec.com/Stormcenter/index.cfm",
@@ -361,7 +361,7 @@
   },
   {
     "storeNumber": "0036",
-    "storeName": "Statesville, NC",
+    "storeName": "Statesville",
     "address": "STATESVILLE, NORTH CAROLINA",
     "provider": "CITY OF STATESVILLE",
     "providerWebsite": "https://www.statesvillenc.net/public-power",
@@ -379,7 +379,7 @@
   },
   {
     "storeNumber": "0037",
-    "storeName": "Oklahoma City, OK",
+    "storeName": "Oklahoma City",
     "address": "OKLAHOMA CITY, OKLAHOMA",
     "provider": "OG&E",
     "providerWebsite": "https://outagemap.oge.com/",
@@ -397,7 +397,7 @@
   },
   {
     "storeNumber": "0038",
-    "storeName": "Hamburg, NY",
+    "storeName": "Hamburg",
     "address": "HAMBURG, NEW YORK",
     "provider": "NEW YORK STATE ELEC & GAS CORP",
     "providerWebsite": "https://portal.nyseg.com/outages/map",
