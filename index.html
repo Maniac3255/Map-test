@@ -140,28 +140,30 @@ Promise.all([
 });
 
 function parseCSV(text) {
-    const lines = text.trim().split("\n");
-    const headers = lines[0].split(",");
+  const lines = text.trim().split("\n");
+  const headers = lines[0].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g).map(h => h.replace(/"/g, "").trim());
 
-    return lines.slice(1).map(line => {
-        // Split respecting quoted commas
-        const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
+  return lines.slice(1).map(line => {
+    // Split respecting quoted commas
+    const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
+    if (!cols) return null;
 
-        let obj = {};
-        headers.forEach((h, i) => {
-            obj[h.trim()] = cols[i]?.replace(/"/g, "");
-        });
-
-        // Clean coordinates
-        let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
-        let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
-
-        obj.Latitude = parseFloat(rawLat);
-        obj.Longitude = parseFloat(rawLon);
-
-        return obj;
+    let obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = cols[i]?.replace(/"/g, "").trim();
     });
+
+    // Clean coordinates
+    let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
+    let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
+
+    obj.Latitude = parseFloat(rawLat);
+    obj.Longitude = parseFloat(rawLon);
+
+    return obj;
+  }).filter(Boolean);
 }
+
 
 function mergeOutageData(stores, outages) {
     stores.forEach(store => {
