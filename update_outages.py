@@ -171,3 +171,14 @@ if not impacted_df.empty:
             "lat": float(row["Latitude"]),
             "lon": float(row["Longitude"]),
 
+            # Outage location
+            "outage_lat": float(row["OutageLatitude"]),
+            "outage_lon": float(row["OutageLongitude"]),
+
+            # Outage metadata
+            "incident": row["IncidentId"],
+            "outageStatus": row["OutageStatus"],
+            "planned": row["PlannedOutage"],
+            "eta": row["ETR"],
+            "lastUpdated": row["LastUpdated"]
+        })
