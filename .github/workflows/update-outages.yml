@@ -1,6 +1,9 @@
 name: Update Outages
 
 on:
+  schedule:
+    - cron: '*/10 * * * *'
+
   workflow_dispatch:
 
 permissions:
