@@ -4,7 +4,7 @@ sites = pd.read_csv("Sites-small.csv")
 
 sce = sites[
     sites["Vendor Name"]
-    .str.contains("Southern California Edison", na=False)
+    .str.contains("Southern California Edision", na=False)
 ].copy()
 
 sce["Status"] = "NORMAL"
