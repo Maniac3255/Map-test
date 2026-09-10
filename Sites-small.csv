@@ -1,0 +1,24 @@
+﻿Site #,Vendor Name,Vendor Link,SiteName,Location,City,State,Zip,Outage Map Flag,Latitude,Longitude
+0000,BOWLING GREEN MUNICIPAL UTILITIES,https://outages.bgmu.com/,CORPORATE,650 Three Springs rd,BOWLING GREEN,Kentucky,42101,,36.93251,-86.42179
+0001,WARREN RURAL ELECTRIC COOP COR,https://warrenec.outagemap.coop/,BOWLING GREEN,725 BLUE GRASS FARMS BLVD SUITE 1,BOWLING GREEN,Kentucky,42101,,36.923775,-86.42304
+0003,KISSIMMEE UTILITY AUTHORITY,https://kissimmee.datacapable.com/map/,KISSIMMEE,"5175 W IRLO BRONSON MEM HWY PKG, LOT",KISSIMMEE,FLORIDA,34746,,28.334164,-81.49048
+0004,SOUTHERN CALIFORNIA EDISION,https://www.sce.com/outages-safety/outage-center/check-outage-status,VALENCIA,24901 Pico Canyon Rd,NEWHALL,CALIFORNIA,91381,,34.381298,-118.569626
+0005,SOUTHERN CALIFORNIA EDISION,https://www.sce.com/outages-safety/outage-center/check-outage-status,LA MIRADA,14900 E Firestone Blvd,LA MIRADA,CALIFORNIA,90638,,33.875317,-118.014061
+0006,PG&E,https://www.pge.com/outagestatus,VACAVILLE,5051 Quinn Rd,VACAVILLE,CALIFORNIA,95688,,38.39,-121.95
+0007,CITY OF DENTON,https://www.cityofdenton.com/472/Ready-Denton---Power-Outage,DENTON,5209 N INTERSTATE 35,DENTON,TEXAS,76207,,33.27,-97.13
+0008,FPL,https://www.fplmaps.com/,"Fort Myers, FL",4681 WAYCROSS RD # ROADSIGN,FORT MYERS,FLORIDA,33905,,26.75,-81.75
+0009,SOUTHERN CALIFORNIA EDISION,https://www.sce.com/outages-safety/outage-center/check-outage-status,Bakersfield,5500 Wible Road,BAKERSFIELD,CALIFORNIA,93313,,35.3,-119.04
+0014,SOUTHERN CALIFORNIA EDISION,https://www.sce.com/outages-safety/outage-center/check-outage-status,SAN BERNARDINO,151 E Redlands Blvd,SAN BERNARDINO,CALIFORNIA,92408,,34.069,-117.282
+0016,TECO,https://www.tampaelectric.com/poweroutages/,"Tampa, FL (Dover)",4811 McIntosh Road,DOVER,FLORIDA,33527,,28.024548,-82.24299
+0017,PGE,https://portlandgeneral.com/outages,WILSONVILLE,26875 SW Boones Ferry Rd,WILSONVILLE,OREGON,97070,,45.299,-122.773
+0018,TACOMA PUBLIC UTILITIES,https://www.mytpu.org/outages-safety/,TACOMA,4650 16th Street East,FIFE,WASHINGTON,98424,,47.239,-122.366
+0020,PG&E,https://www.pge.com/outagestatus,WCDC 20,"5205 Wheeler Ridge Road, Suite A",ARVIN,CALIFORNIA,93203,,34.987,-118.942
+0024,XCEL ENERGY,https://co.my.xcelenergy.com/s/outage-safety/outage-map,"Golden, CO (Denver)",16000 West Colfax Avenue,GOLDEN,COLORADO,80401,,39.72745,-105.178871
+0029,ATLANTIC CITY ELECTRIC,https://www.atlanticcityelectric.com/outages/experiencing-an-outage/view-outage-map,BRIDGEPORT,602 Heron Dr,BRIDGEPORT,NEW JERSEY,8014,,39.801,-75.348
+0030,ROCKY MOUNTAIN POWER,https://www.rockymountainpower.net/outages-safety.html,"Draper, UT",13153 Minuteman Drive,DRAPER,UTAH,84020,,40.522,-111.876
+0031,TEP - TUCSON ELECTRIC POWER,https://www.tep.com/outages/,"Tucson, AZ",4700 South Palo Verde Road,TUCSON,ARIZONA,85714,,32.166,-110.917
+0032,NOVEC,https://www.novec.com/Stormcenter/index.cfm,"Manassas, VA",10850 BALLS FORD RD A,MANASSAS,VIRGINIA,20109,,38.79,-77.52
+0033,NEW BRAUNFELS UTILITIES,https://oms.nbutexas.com/,NEW BRAUNFELS,3891 N IH 35,NEW BRAUNFELS,TEXAS,78130,,29.736073,-98.072174
+0036,CITY OF STATESVILLE,https://www.statesvillenc.net/public-power,"Statesville, NC",1220 Morland Drive,STATESVILLE,NORTH CAROLINA,28677,No Dedicated Outage Map,35.782,-80.93
+0037,OG&E,https://outagemap.oge.com/,"Oklahoma City, OK",13111 North Broadway Ext. - Well,OKLAHOMA CITY,OKLAHOMA,73114,,35.603,-97.504
+0038,NEW YORK STATE ELEC & GAS CORP,https://portal.nyseg.com/outages/map,"Hamburg, NY",5533 CAMP RD,HAMBURG,NEW YORK,14075,,42.715,-78.829
