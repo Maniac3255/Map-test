@@ -5,7 +5,9 @@ sites = pd.read_csv("Sites-small.csv")
 sce = sites[
     sites["Vendor Name"]
     .str.contains("Southern California Edison", na=False)
-]
+].copy()
+
+sce["Status"] = "NORMAL"
 
 sce.to_csv(
     "sce_sites.csv",
