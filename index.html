@@ -161,8 +161,9 @@ function parseCSV(text) {
         let obj = {};
         headers.forEach((h, i) => obj[h.trim()] = cols[i]?.replace(/"/g, ""));
 
-        obj._lat = parseFloat(obj.Latitude);
-        obj._lon = parseFloat(obj.Longitude);
+        // Clean lat/lon
+        obj.Latitude = parseFloat((obj.Latitude || "").trim());
+        obj.Longitude = parseFloat((obj.Longitude || "").trim());
 
         return obj;
     });
@@ -195,7 +196,7 @@ function mergeOutageData(stores, outages) {
             store.lastUpdated = "";
             store.outageLat = "";
             store.outageLon = "";
-            store.providerWebsite = "https://www.sce.com";
+            store.providerWebsite = store["Vendor Link"];
         }
     });
 }
@@ -224,10 +225,10 @@ function initMap(stores) {
 
     stores.forEach(store => {
 
-        let lat = store._lat;
-        let lon = store._lon;
+        let lat = store.Latitude;
+        let lon = store.Longitude;
 
-        if (!lat || !lon) return;
+        if (isNaN(lat) || isNaN(lon)) return;
 
         let icon = L.icon({
             iconUrl: iconColors[store.color],
