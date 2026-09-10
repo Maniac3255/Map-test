@@ -161,9 +161,13 @@ function parseCSV(text) {
         let obj = {};
         headers.forEach((h, i) => obj[h.trim()] = cols[i]?.replace(/"/g, ""));
 
-        // Clean lat/lon and allow up to 10 decimal places
-        obj.Latitude = parseFloat((obj.Latitude || "").trim());
-        obj.Longitude = parseFloat((obj.Longitude || "").trim());
+        // Clean lat/lon aggressively so ALL stores parse correctly
+let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
+let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
+
+obj.Latitude = parseFloat(rawLat);
+obj.Longitude = parseFloat(rawLon);
+
 
         return obj;
     });
