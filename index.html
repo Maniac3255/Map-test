@@ -10,6 +10,8 @@ from math import radians, sin, cos, sqrt, atan2
 # ==========================================
 
 OUTAGE_RADIUS_MILES = 1
+RED_RADIUS = 0.5
+YELLOW_RADIUS = 1
 
 SCE_URL = (
     "https://sce-outage-ags.esriemcs.com/"
@@ -126,6 +128,16 @@ for outage in features:
                 row["OutageLatitude"] = outage_lat
                 row["OutageLongitude"] = outage_lon
 
+                # ==========================================
+                # COLOR CLASSIFICATION
+                # ==========================================
+                if distance <= RED_RADIUS:
+                    row["OutageColor"] = "red"
+                elif distance <= YELLOW_RADIUS:
+                    row["OutageColor"] = "yellow"
+                else:
+                    row["OutageColor"] = "white"
+
                 impacted.append(row)
 
         except Exception as e:
@@ -169,5 +181,4 @@ if not impacted_df.empty:
 
             # Store location
             "lat": float(row["Latitude"]),
-            "lon": float(row["Longitude"]),
-
+            "lon": float(row
