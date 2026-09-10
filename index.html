@@ -21,6 +21,7 @@
             height: 100%;
         }
 
+        /* Sidebar */
         #sidebar {
             width: 320px;
             background: #f7f7f7;
@@ -28,11 +29,12 @@
             padding: 10px;
             overflow-y: auto;
             height: 100%;
-            transition: transform 0.3s ease;
+            transition: margin-right 0.3s ease;
         }
 
+        /* Collapsed sidebar */
         #sidebar.collapsed {
-            transform: translateX(100%);
+            margin-right: -320px;
         }
 
         #toggleBtn {
@@ -46,6 +48,15 @@
             border-radius: 6px;
             cursor: pointer;
             border: none;
+        }
+
+        #searchBar {
+            width: 95%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
         }
 
         .store-item {
@@ -71,6 +82,7 @@
 
 <div id="sidebar">
     <h2>All Stores</h2>
+    <input id="searchBar" type="text" placeholder="Search store #, name, city...">
     <div id="storeList"></div>
 </div>
 
@@ -91,17 +103,17 @@ Promise.all([
 });
 
 // ==========================================
-// CSV PARSER
+// SAFE CSV PARSER (handles commas inside fields)
 // ==========================================
 
 function parseCSV(text) {
-    const lines = text.split("\n");
+    const lines = text.trim().split("\n");
     const headers = lines[0].split(",");
 
     return lines.slice(1).map(line => {
-        const cols = line.split(",");
+        const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
         let obj = {};
-        headers.forEach((h, i) => obj[h.trim()] = cols[i]);
+        headers.forEach((h, i) => obj[h.trim()] = cols[i]?.replace(/"/g, ""));
         return obj;
     });
 }
@@ -203,33 +215,49 @@ function initMap(stores) {
     });
 
     // ==========================================
-    // POPULATE SIDEBAR WITH ALL STORES
+    // SIDEBAR LIST + SEARCH
     // ==========================================
 
     let storeListDiv = document.getElementById("storeList");
 
-    stores.forEach(store => {
+    function renderStoreList(filterText = "") {
+        storeListDiv.innerHTML = "";
 
-        let div = document.createElement("div");
-        div.className = "store-item";
+        stores
+            .filter(store =>
+                store["Site #"].toLowerCase().includes(filterText) ||
+                store.SiteName.toLowerCase().includes(filterText) ||
+                store.City.toLowerCase().includes(filterText)
+            )
+            .forEach(store => {
 
-        div.innerHTML = `
-            <b>${store["Site #"]} – ${store.SiteName}</b><br>
-            ${store.City}, ${store.State}<br>
-            <span style="color:${store.color}">● ${store.color.toUpperCase()}</span>
-        `;
+                let div = document.createElement("div");
+                div.className = "store-item";
 
-        div.onclick = () => {
-            let marker = markers[store["Site #"]];
-            map.setView(marker.getLatLng(), 14);
-            marker.openPopup();
-        };
+                div.innerHTML = `
+                    <b>${store["Site #"]} – ${store.SiteName}</b><br>
+                    ${store.City}, ${store.State}<br>
+                    <span style="color:${store.color}">● ${store.color.toUpperCase()}</span>
+                `;
 
-        storeListDiv.appendChild(div);
+                div.onclick = () => {
+                    let marker = markers[store["Site #"]];
+                    map.setView(marker.getLatLng(), 14);
+                    marker.openPopup();
+                };
+
+                storeListDiv.appendChild(div);
+            });
+    }
+
+    renderStoreList();
+
+    document.getElementById("searchBar").addEventListener("input", e => {
+        renderStoreList(e.target.value.toLowerCase());
     });
 
     // ==========================================
-    // COLLAPSIBLE SIDEBAR
+    // COLLAPSIBLE SIDEBAR FIXED
     // ==========================================
 
     const sidebar = document.getElementById("sidebar");
