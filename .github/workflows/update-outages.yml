@@ -20,8 +20,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install pandas
-        run: pip install pandas
+      - name: Install packages
+        run: pip install pandas requests
 
       - name: Run script
         run: python update_outages.py
