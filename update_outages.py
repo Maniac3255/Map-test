@@ -1,96 +1,44 @@
-import pandas as pd
-import requests
-import json
+name: Update Outage Map
 
-from pyproj import Transformer
-from math import radians, sin, cos, sqrt, atan2
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # Run every 10 minutes
+  workflow_dispatch:         # Allow manual runs
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-OUTAGE_RADIUS_MILES = 1
-RED_RADIUS = 0.5
-YELLOW_RADIUS = 1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # IMPORTANT: allows pulling latest changes
 
-SCE_URL = (
-    "https://sce-outage-ags.esriemcs.com/"
-    "arcgis/rest/services/43/outage/"
-    "MapServer/0/query"
-)
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
 
-# ==========================================
-# LOAD STORE DATA
-# ==========================================
+      - name: Install dependencies
+        run: |
+          pip install pandas requests pyproj
 
-sites = pd.read_csv("Sites-small.csv")
+      - name: Run outage script
+        run: python outage.py
 
-# Filter for SCE vendor
-sites = sites[
-    sites["Vendor Name"].str.contains("Edi", case=False, na=False)
-]
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
 
-print(f"SCE Sites Found: {len(sites)}")
+      - name: Pull latest changes (fixes push rejection)
+        run: git pull origin main --rebase
 
-# ==========================================
-# GET LIVE OUTAGES
-# ==========================================
+      - name: Commit changes
+        run: |
+          git add outages.json impacted_sites.csv
+          git commit -m "Auto-update outage map" || echo "No changes to commit"
 
-params = {
-    "where": "1=1",
-    "returnGeometry": "true",
-    "outFields": "*",
-    "f": "json"
-}
-
-response = requests.get(SCE_URL, params=params, timeout=30)
-data = response.json()
-
-features = data.get("features", [])
-print(f"Outages Found: {len(features)}")
-
-# ==========================================
-# COORDINATE CONVERTER
-# ==========================================
-
-transformer = Transformer.from_crs(
-    "EPSG:3857",
-    "EPSG:4326",
-    always_xy=True
-)
-
-# ==========================================
-# DISTANCE FUNCTION
-# ==========================================
-
-def miles_between(lat1, lon1, lat2, lon2):
-    earth_radius = 3958.8
-
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-
-    a = (
-        sin(dlat / 2) ** 2 +
-        cos(radians(lat1)) *
-        cos(radians(lat2)) *
-        sin(dlon / 2) ** 2
-    )
-
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    return earth_radius * c
-
-# ==========================================
-# FIND IMPACTED STORES
-# ==========================================
-
-impacted = []
-
-for outage in features:
-
-    geometry = outage.get("geometry", {})
-    attributes = outage.get("attributes", {})
-
-    if "x" not in geometry or "y" not in geometry:
-        continue
-
-    outage_x = geometry["x"]
+      - name: Push changes
+        run: git push origin main
