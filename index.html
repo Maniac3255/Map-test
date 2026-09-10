@@ -38,8 +38,32 @@
             z-index: 9999;
         }
 
+        /* COLLAPSED SIDEBAR → becomes a small bubble in top-right */
         #sidebar.collapsed {
             transform: translateX(100%);
+        }
+
+        /* Floating arrow bubble */
+        #collapseBubble {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #1e1e1e;
+            color: white;
+            border: 1px solid #444;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 10000;
+            font-size: 22px;
+        }
+
+        #sidebar.collapsed + #collapseBubble {
+            display: flex;
         }
 
         #sidebarHeader {
@@ -58,7 +82,7 @@
             color: white;
         }
 
-        #filterSelect, #searchBar, #mapType {
+        #filterSelect, #searchBar {
             width: 95%;
             padding: 8px;
             margin: 10px 0;
@@ -88,18 +112,12 @@
 
 <div id="map"></div>
 
+<!-- SIDEBAR -->
 <div id="sidebar">
     <div id="sidebarHeader">
         <h2>All Stores</h2>
         <button id="toggleBtn">▼</button>
     </div>
-
-    <select id="mapType">
-        <option value="streets">Streets</option>
-        <option value="satellite">Satellite</option>
-        <option value="dark">Dark Mode</option>
-        <option value="terrain">Terrain</option>
-    </select>
 
     <select id="filterSelect">
         <option value="all">All Stores</option>
@@ -110,6 +128,9 @@
 
     <div id="storeList"></div>
 </div>
+
+<!-- COLLAPSED BUBBLE -->
+<div id="collapseBubble">►</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -187,20 +208,7 @@ function initMap(stores) {
 
     let map = L.map("map").setView([37.5, -95.5], 5);
 
-    // Base layers
-    const baseLayers = {
-        streets: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"),
-        satellite: L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"),
-        dark: L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"),
-        terrain: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png")
-    };
-
-    baseLayers.streets.addTo(map);
-
-    document.getElementById("mapType").addEventListener("change", e => {
-        const type = e.target.value;
-        baseLayers[type].addTo(map);
-    });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
     const iconColors = {
         red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
@@ -308,18 +316,19 @@ function initMap(stores) {
     });
 
     // ==========================================
-    // COLLAPSIBLE SIDEBAR (arrow rotates)
+    // COLLAPSIBLE SIDEBAR → bubble stays visible
     // ==========================================
 
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("toggleBtn");
+    const collapseBubble = document.getElementById("collapseBubble");
 
     toggleBtn.onclick = () => {
-        sidebar.classList.toggle("collapsed");
+        sidebar.classList.add("collapsed");
+    };
 
-        toggleBtn.textContent = sidebar.classList.contains("collapsed")
-            ? "►"
-            : "▼";
+    collapseBubble.onclick = () => {
+        sidebar.classList.remove("collapsed");
     };
 
     // ==========================================
