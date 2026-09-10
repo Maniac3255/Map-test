@@ -11,10 +11,8 @@ params = {
 
 response = requests.get(url, params=params)
 
-print(response.status_code)
+print("Status Code:", response.status_code)
 
 data = response.json()
 
-print(
-    f"Outages found: {len(data['features'])}"
-)
+print("Outages Found:", len(data.get("features", [])))
