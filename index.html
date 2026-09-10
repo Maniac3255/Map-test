@@ -141,7 +141,11 @@ Promise.all([
 
 function parseCSV(text) {
   const lines = text.trim().split("\n");
-  const headers = lines[0].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g).map(h => h.replace(/"/g, "").trim());
+
+  // Split headers safely
+  const headers = lines[0]
+    .match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
+    .map(h => h.replace(/"/g, "").trim());
 
   return lines.slice(1).map(line => {
     // Split respecting quoted commas
