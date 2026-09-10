@@ -19,32 +19,14 @@
             height: 100vh;
         }
 
-        /* Sidebar */
+        /* Sidebar always visible */
         #sidebar {
-            width: 300px;
+            width: 320px;
             background: #f7f7f7;
             border-left: 1px solid #ccc;
             padding: 10px;
             overflow-y: auto;
             height: 100vh;
-            transition: transform 0.3s ease;
-        }
-
-        #sidebar.collapsed {
-            transform: translateX(100%);
-        }
-
-        #toggleBtn {
-            position: absolute;
-            right: 310px;
-            top: 10px;
-            z-index: 9999;
-            background: #0078ff;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            border: none;
         }
 
         #sidebar h2 {
@@ -87,147 +69,8 @@
 
 <body>
 
-<button id="toggleBtn">Hide Stores</button>
-
 <div id="map"></div>
 
 <div id="sidebar">
-    <h2>Impacted Stores</h2>
-    <div id="storeList"></div>
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script>
-// ==========================================
-// LOAD OUTAGE DATA
-// ==========================================
-
-fetch("outages.json")
-    .then(response => response.json())
-    .then(data => initMap(data))
-    .catch(err => console.error("Error loading outages.json:", err));
-
-// ==========================================
-// INITIALIZE MAP
-// ==========================================
-
-function initMap(outages) {
-
-    let map = L.map("map").setView([37.5, -95.5], 5);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 18,
-        attribution: "© OpenStreetMap"
-    }).addTo(map);
-
-    const iconColors = {
-        red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-        yellow: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png",
-        white: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"
-    };
-
-    let markers = {};
-
-    // ==========================================
-    // ADD MARKERS (RED + YELLOW ONLY)
-    // ==========================================
-
-    outages.forEach(store => {
-
-        if (store.color === "white") return; // ignore non-impacted stores
-
-        let icon = L.icon({
-            iconUrl: iconColors[store.color],
-            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34]
-        });
-
-        let marker = L.marker([store.lat, store.lon], { icon });
-
-        let popupHtml = `
-            <b>Store ${store.storeNumber} – ${store.storeName}</b><br>
-            ${store.address}<br><br>
-
-            <b>Distance:</b> ${store.distanceMiles} miles<br>
-            <b>Status:</b> ${store.status}<br>
-            <b>Planned:</b> ${store.plannedOutage}<br>
-            <b>ETA:</b> ${store.etr}<br>
-            <b>Last Updated:</b> ${store.lastUpdated}<br><br>
-
-            <b>Store Location:</b> ${store.lat}, ${store.lon}<br>
-            <b>Outage Location:</b> ${store.outageLat}, ${store.outageLon}<br>
-        `;
-
-        marker.bindPopup(popupHtml);
-        marker.addTo(map);
-
-        markers[store.storeNumber] = marker;
-    });
-
-    // ==========================================
-    // POPULATE SIDEBAR (RED + YELLOW ONLY)
-    // ==========================================
-
-    let storeListDiv = document.getElementById("storeList");
-
-    outages.forEach(store => {
-
-        if (store.color === "white") return;
-
-        let div = document.createElement("div");
-        div.className = "store-item";
-        div.innerHTML = `
-            <b>${store.storeNumber} – ${store.storeName}</b><br>
-            ${store.address}<br>
-            <span style="color:${store.color}">● ${store.color.toUpperCase()}</span>
-        `;
-
-        div.onclick = () => {
-            let marker = markers[store.storeNumber];
-            map.setView([store.lat, store.lon], 14);
-            marker.openPopup();
-        };
-
-        storeListDiv.appendChild(div);
-    });
-
-    // ==========================================
-    // COLLAPSIBLE SIDEBAR
-    // ==========================================
-
-    const sidebar = document.getElementById("sidebar");
-    const toggleBtn = document.getElementById("toggleBtn");
-
-    toggleBtn.onclick = () => {
-        sidebar.classList.toggle("collapsed");
-        toggleBtn.textContent = sidebar.classList.contains("collapsed")
-            ? "Show Stores"
-            : "Hide Stores";
-    };
-
-    // ==========================================
-    // LEGEND
-    // ==========================================
-
-    let legend = L.control({ position: "bottomright" });
-
-    legend.onAdd = function () {
-        let div = L.DomUtil.create("div", "legend");
-
-        div.innerHTML = `
-            <div><span style="background:red"></span> Outage Detected (0–0.5 miles)</div>
-            <div><span style="background:orange"></span> Possible Outage (0.5–1 mile)</div>
-        `;
-
-        return div;
-    };
-
-    legend.addTo(map);
-}
-</script>
-
-</body>
-</html>
+    <h2>All Stores</h2>
+    <div id="storeList">
