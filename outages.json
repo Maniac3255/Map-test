@@ -1,16 +1,17 @@
 [
   {
-    "site": 5,
-    "name": "LA MIRADA",
-    "vendor": "SOUTHERN CALIFORNIA EDISION",
-    "city": "LA MIRADA",
-    "state": "CALIFORNIA",
-    "distance": 0.82,
-    "incident": 136575505,
-    "affected_customers": 50,
+    "storeNumber": 5,
+    "storeName": "LA MIRADA",
+    "address": "LA MIRADA, CALIFORNIA",
+    "provider": "SOUTHERN CALIFORNIA EDISION",
+    "providerWebsite": "https://www.sce.com",
+    "distanceMiles": 0.82,
     "lat": 33.875317,
     "lon": -118.014061,
     "outage_lat": 33.87690573396871,
-    "outage_lon": -117.99987724336336
+    "outage_lon": -117.99987724336336,
+    "incident": 136575505,
+    "affected_customers": 50,
+    "outageStatus": "ACTIVE"
   }
 ]
