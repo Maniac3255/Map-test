@@ -168,7 +168,6 @@ function parseCSV(text) {
   }).filter(Boolean);
 }
 
-
 function mergeOutageData(stores, outages) {
     stores.forEach(store => {
         const match = outages.find(o => o.storeNumber == store["Site #"]);
