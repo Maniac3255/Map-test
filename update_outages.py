@@ -1,17 +1,17 @@
 import pandas as pd
 
-data = pd.DataFrame([
-    ["12345", "OUTAGE"]
-])
+sites = pd.read_csv("Sites-small.csv")
 
-data.columns = [
-    "Site #",
-    "Status"
-]
+sites["Status"] = "NORMAL"
 
-data.to_csv(
+# Test outage
+sites.loc[0:4, "Status"] = "OUTAGE"
+
+outages = sites[sites["Status"] == "OUTAGE"]
+
+outages.to_csv(
     "impacted_sites.csv",
     index=False
 )
 
-print("Updated outages file")
+print(f"Created {len(outages)} outage records")
