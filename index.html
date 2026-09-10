@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>Power Outage Demo</title>
 
-    https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
         html, body {
@@ -23,9 +23,9 @@
 
 <div id="map"></div>
 
-https://unpkg.com/leaflet@1.9.4/dist/leaflet.jsscript>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script>
+script>
 const map = L.map('map').setView([34.0, -118.0], 6);
 
 L.tileLayer(
@@ -44,6 +44,9 @@ L.circleMarker(
 ).addTo(map)
  .bindPopup('SCE Test Outage');
 </script>
+
+</body>
+</html>
 
 </body>
 </html>
