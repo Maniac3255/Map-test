@@ -8,7 +8,9 @@
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
-html, body {
+
+html,
+body {
     margin: 0;
     padding: 0;
 }
@@ -17,7 +19,9 @@ html, body {
     height: 100vh;
     width: 100%;
 }
+
 </style>
+
 </head>
 
 <body>
@@ -28,10 +32,15 @@ html, body {
 
 <script>
 
-// Initialize map
-const map = L.map('map').setView([34.0, -118.0], 7);
+// Create map
 
-// OpenStreetMap tiles
+const map = L.map('map').setView(
+    [34.0, -118.0],
+    6
+);
+
+// OpenStreetMap
+
 L.tileLayer(
     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -39,53 +48,36 @@ L.tileLayer(
     }
 ).addTo(map);
 
-// --------------------
-// OUTAGE LOCATION
-// --------------------
+// Read outage data
 
-const outageLat = 34.274;
-const outageLon = -119.229;
+fetch('outages.json')
 
-// Red outage marker
-L.marker(
-    [outageLat, outageLon]
-)
-.addTo(map)
-.bindPopup(
-    "<b>SCE Outage</b><br>Active outage location"
-);
+.then(response => response.json())
 
-// Yellow impact radius
-L.circle(
-    [outageLat, outageLon],
-    {
-        color: 'yellow',
-        fillColor: 'yellow',
-        fillOpacity: 0.25,
-        radius: 1609
-    }
-)
-.addTo(map);
+.then(data => {
 
-// --------------------
-// STORE LOCATION
-// --------------------
+    data.forEach(site => {
 
-L.circleMarker(
-    [34.280, -119.220],
-    {
-        color: 'green',
-        fillColor: 'green',
-        fillOpacity: 1,
-        radius: 8
-    }
-)
-.addTo(map)
-.bindPopup(
-    "<b>Store 12345</b><br>Impacted Location"
-);
+        // =====================
+        // OUTAGE LOCATION
+        // =====================
 
-</script>
+        L.marker([
+            site.outage_lat,
+            site.outage_lon
+        ])
+        .addTo(map)
+        .bindPopup(`
+            <b>SCE Outage</b><br>
+            Incident: ${site.incident}<br>
+            Customers Affected:
+            ${site.affected_customers}
+        `);
 
-</body>
-</html>
+        // =====================
+        // IMPACT RADIUS
+        // =====================
+
+        L.circle(
+            [
+   
