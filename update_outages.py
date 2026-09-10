@@ -23,30 +23,11 @@ SCE_URL = (
 
 sites = pd.read_csv("Sites-small.csv")
 
+# Only Southern California Edison locations
+
 sites = sites[
     sites["Vendor Name"]
     .str.contains("Edi", case=False, na=False)
 ]
 
-print(f"SCE Sites Found: {len(sites)}")
-
-# ==========================================
-# GET SCE OUTAGES
-# ==========================================
-
-params = {
-    "where": "1=1",
-    "returnGeometry": "true",
-    "outFields": "*",
-    "f": "json"
-}
-
-response = requests.get(
-    SCE_URL,
-    params=params,
-    timeout=30
-)
-
-data = response.json()
-
-features
+print(f"SCE Sites 
