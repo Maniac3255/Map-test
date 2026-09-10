@@ -1,21 +1,20 @@
-import pandas as pd
+import requests
 
-sites = pd.read_csv("Sites-small.csv")
+url = "https://sce-outage-ags.esriemcs.com/arcgis/rest/services/43/outage/MapServer/0/query"
 
-sce = sites[
-    sites["Vendor Name"]
-    .str.contains("Edi", case=False, na=False)
-].copy()
+params = {
+    "where": "1=1",
+    "returnGeometry": "true",
+    "outFields": "*",
+    "f": "json"
+}
 
-active_outage = False
+response = requests.get(url, params=params)
 
-if active_outage:
-    sce["Status"] = "OUTAGE"
-    sce.to_csv("impacted_sites.csv", index=False)
-else:
-    pd.DataFrame(columns=list(sce.columns) + ["Status"]).to_csv(
-        "impacted_sites.csv",
-        index=False
-    )
+print(response.status_code)
 
-print("Finished outage check")
+data = response.json()
+
+print(
+    f"Outages found: {len(data['features'])}"
+)
