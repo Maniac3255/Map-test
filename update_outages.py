@@ -4,13 +4,14 @@ sites = pd.read_csv("Sites-small.csv")
 
 sce = sites[
     sites["Vendor Name"]
-    .str.contains("Edision", case=False, na=False)
-]
+    .str.contains("Edi", case=False, na=False)
+].copy()
+
+sce["Status"] = "OUTAGE"
 
 sce.to_csv(
-    "sce_sites.csv",
+    "impacted_sites.csv",
     index=False
 )
 
-print(f"Found {len(sce)} SCE locations")
-
+print(f"Created {len(sce)} outage records")
