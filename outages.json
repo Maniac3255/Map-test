@@ -15,7 +15,7 @@
     "plannedOutage": false,
     "etr": "",
     "lastUpdated": "",
-    "color": "red"
+    "color": "white"
   },
   {
     "storeNumber": "0001",
@@ -33,7 +33,7 @@
     "plannedOutage": false,
     "etr": "",
     "lastUpdated": "",
-    "color": "yellow"
+    "color": "white"
   },
   {
     "storeNumber": "0003",
