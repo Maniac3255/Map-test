@@ -384,6 +384,11 @@ function initMap(stores) {
     let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
+    // Reset map view to USA
+document.getElementById("resetViewBtn").onclick = () => {
+    map.setView([37.5, -95.5], 5);
+};
+    
 let legend = L.control({ position: "bottomleft" });
 
 legend.onAdd = function () {
