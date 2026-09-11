@@ -23,7 +23,7 @@ SCE_URL = (
 # LOAD STORE DATA (ALL STORES)
 # ==========================================
 
-sites = pd.read_csv("Sites-small.csv")
+sites = pd.read_csv("Sites.csv")
 print(f"Total Stores Loaded: {len(sites)}")
 
 # ==========================================
