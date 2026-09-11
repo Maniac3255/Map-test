@@ -102,6 +102,34 @@
         .store-item:hover {
             background: #3a3a3a;
         }
+
+        #errorMessage {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #d32f2f;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 6px;
+            display: none;
+            z-index: 10001;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        #updateNotification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1976d2;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 6px;
+            display: none;
+            z-index: 10001;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 
@@ -126,61 +154,134 @@
 </div>
 
 <div id="collapseBubble">►</div>
+<div id="errorMessage"></div>
+<div id="updateNotification">Map data updated. Reloading...</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
+// Show error message
+function showError(message) {
+    const errorDiv = document.getElementById("errorMessage");
+    errorDiv.textContent = message;
+    errorDiv.style.display = "block";
+    setTimeout(() => {
+        errorDiv.style.display = "none";
+    }, 5000);
+}
+
+// Show update notification
+function showUpdateNotification() {
+    const notifDiv = document.getElementById("updateNotification");
+    notifDiv.style.display = "block";
+    setTimeout(() => {
+        location.reload();
+    }, 2000);
+}
+
 Promise.all([
-    fetch("Sites-small.csv").then(r => r.text()),
-    fetch("outages.json").then(r => r.json())
+    fetch("Sites-small.csv").then(r => {
+        if (!r.ok) throw new Error(`Failed to load Sites-small.csv: ${r.status}`);
+        return r.text();
+    }),
+    fetch("outages.json").then(r => {
+        if (!r.ok) throw new Error(`Failed to load outages.json: ${r.status}`);
+        return r.json();
+    })
 ]).then(([csvText, outages]) => {
     const stores = parseCSV(csvText);
+    if (stores.length === 0) {
+        throw new Error("No valid stores found in CSV data");
+    }
     mergeOutageData(stores, outages);
     initMap(stores);
+}).catch(err => {
+    console.error("Fatal error:", err);
+    showError(`Error loading map data: ${err.message}`);
+    document.getElementById("map").innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#d32f2f;font-size:18px;">
+            <div style="text-align:center;">
+                <p>Failed to load map data</p>
+                <p style="font-size:14px;">${err.message}</p>
+                <button onclick="location.reload()" style="padding:10px 20px;margin-top:10px;background:#d32f2f;color:white;border:none;border-radius:4px;cursor:pointer;">
+                    Retry
+                </button>
+            </div>
+        </div>
+    `;
 });
 
 function parseCSV(text) {
-  const lines = text.trim().split("\n");
+    if (!text || text.trim().length === 0) {
+        throw new Error("CSV file is empty");
+    }
 
-  // Split headers safely
-  const headers = lines[0]
-    .match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
-    .map(h => h.replace(/"/g, "").trim());
+    const lines = text.trim().split("\n").filter(line => line.trim());
 
-  return lines.slice(1).map(line => {
-    // Split respecting quoted commas
-    const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
-    if (!cols) return null;
+    if (lines.length < 2) {
+        throw new Error("CSV file must contain headers and at least one data row");
+    }
 
-    let obj = {};
-    headers.forEach((h, i) => {
-      obj[h] = cols[i]?.replace(/"/g, "").trim();
-    });
+    // Split headers safely
+    const headerLine = lines[0];
+    const headers = headerLine
+        .match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
+        .map(h => h.replace(/"/g, "").trim());
 
-    // Clean coordinates
-    let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
-    let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
+    if (headers.length === 0) {
+        throw new Error("Invalid CSV headers");
+    }
 
-    obj.Latitude = parseFloat(rawLat);
-    obj.Longitude = parseFloat(rawLon);
+    return lines.slice(1).map((line, rowIndex) => {
+        if (!line.trim()) return null;
 
-    return obj;
-  }).filter(Boolean);
+        // Split respecting quoted commas
+        const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
+        if (!cols || cols.length === 0) {
+            console.warn(`Skipping row ${rowIndex + 2}: unable to parse`);
+            return null;
+        }
+
+        let obj = {};
+        headers.forEach((h, i) => {
+            obj[h] = cols[i]?.replace(/"/g, "").trim() || "";
+        });
+
+        // Validate required fields
+        if (!obj["Site #"] || !obj.SiteName) {
+            console.warn(`Skipping row ${rowIndex + 2}: missing required fields`);
+            return null;
+        }
+
+        // Clean coordinates
+        let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
+        let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
+
+        obj.Latitude = parseFloat(rawLat) || NaN;
+        obj.Longitude = parseFloat(rawLon) || NaN;
+
+        return obj;
+    }).filter(Boolean);
 }
 
 function mergeOutageData(stores, outages) {
+    if (!Array.isArray(outages)) {
+        console.warn("Outages data is not an array, treating all stores as no outage");
+        outages = [];
+    }
+
     stores.forEach(store => {
         const match = outages.find(o => o.storeNumber == store["Site #"]);
 
         if (match) {
-            store.color = match.color;
-            store.status = match.status;
-            store.distanceMiles = match.distanceMiles;
-            store.outageLat = match.outageLat;
-            store.outageLon = match.outageLon;
-            store.etr = match.etr;
-            store.lastUpdated = match.lastUpdated;
-            store.providerWebsite = match.providerWebsite;
+            store.color = match.color || "white";
+            store.status = match.status || "Unknown";
+            store.distanceMiles = match.distanceMiles || "";
+            store.outageLat = match.outageLat || "";
+            store.outageLon = match.outageLon || "";
+            store.etr = match.etr || "";
+            store.lastUpdated = match.lastUpdated || "";
+            store.providerWebsite = match.providerWebsite || "";
         } else {
             store.color = "white";
             store.status = "No outage";
@@ -189,7 +290,7 @@ function mergeOutageData(stores, outages) {
             store.outageLon = "";
             store.etr = "";
             store.lastUpdated = "";
-            store.providerWebsite = store["Vendor Link"];
+            store.providerWebsite = store["Vendor Link"] || "";
         }
     });
 }
@@ -206,18 +307,23 @@ function initMap(stores) {
     };
 
     let markers = {};
+    let skippedCount = 0;
 
     stores.forEach(store => {
-        let lat = store.outageLat ? store.outageLat : store.Latitude;
-        let lon = store.outageLon ? store.outageLon : store.Longitude;
+        let lat = store.outageLat ? parseFloat(store.outageLat) : store.Latitude;
+        let lon = store.outageLon ? parseFloat(store.outageLon) : store.Longitude;
 
         if (isNaN(lat) || isNaN(lon)) {
             console.warn("Skipping store due to invalid coordinates:", store["Site #"], lat, lon);
+            skippedCount++;
             return;
         }
 
+        // Fallback for unknown colors
+        const markerColor = store.color && iconColors[store.color] ? store.color : "white";
+
         let icon = L.icon({
-            iconUrl: iconColors[store.color],
+            iconUrl: iconColors[markerColor],
             shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
             iconSize: [25, 41],
             iconAnchor: [12, 41],
@@ -231,17 +337,21 @@ function initMap(stores) {
             ${store.City}, ${store.State}<br><br>
 
             <b>Status:</b> ${store.status}<br>
-            <b>ETA:</b> ${store.etr}<br>
-            <b>Last Updated:</b> ${store.lastUpdated}<br>
-            <b>Distance to Outage:</b> ${store.distanceMiles}<br><br>
+            <b>ETA:</b> ${store.etr || "N/A"}<br>
+            <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
+            <b>Distance to Outage:</b> ${store.distanceMiles || "N/A"}<br><br>
 
-            <b>Store Location:</b> ${store.Latitude}, ${store.Longitude}<br>
-            <b>Outage Location:</b> ${store.outageLat}, ${store.outageLon}<br>
+            <b>Store Location:</b> ${store.Latitude.toFixed(4)}, ${store.Longitude.toFixed(4)}<br>
+            <b>Outage Location:</b> ${store.outageLat || "N/A"}, ${store.outageLon || "N/A"}<br>
         `);
 
         marker.addTo(map);
         markers[store["Site #"]] = marker;
     });
+
+    if (skippedCount > 0) {
+        console.warn(`${skippedCount} stores skipped due to invalid data`);
+    }
 
     let storeListDiv = document.getElementById("storeList");
     let filterSelect = document.getElementById("filterSelect");
@@ -249,36 +359,52 @@ function initMap(stores) {
     function renderStoreList(filterText = "") {
         storeListDiv.innerHTML = "";
 
-        stores
+        const filteredStores = stores
             .filter(store => {
                 if (filterSelect.value === "outages" && store.color === "white") {
                     return false;
                 }
 
+                if (!filterText) return true;
+
+                const siteNum = (store["Site #"] || "").toLowerCase();
+                const siteName = (store.SiteName || "").toLowerCase();
+                const city = (store.City || "").toLowerCase();
+
                 return (
-                    store["Site #"].toLowerCase().includes(filterText) ||
-                    store.SiteName.toLowerCase().includes(filterText) ||
-                    store.City.toLowerCase().includes(filterText)
+                    siteNum.includes(filterText) ||
+                    siteName.includes(filterText) ||
+                    city.includes(filterText)
                 );
-            })
-            .forEach(store => {
-                let div = document.createElement("div");
-                div.className = "store-item";
+            });
 
-                div.innerHTML = `
-                    <b>${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
-                    ${store.City}, ${store.State}<br>
-                    <span style="color:${store.color}">● ${store.color.toUpperCase()}</span>
-                `;
+        if (filteredStores.length === 0) {
+            storeListDiv.innerHTML = `<div style="padding: 10px; color: #999; text-align: center;">No stores found</div>`;
+            return;
+        }
 
-                div.onclick = () => {
-                    let marker = markers[store["Site #"]];
+        filteredStores.forEach(store => {
+            let div = document.createElement("div");
+            div.className = "store-item";
+
+            div.innerHTML = `
+                <b>${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
+                ${store.City}, ${store.State}<br>
+                <span style="color:${store.color || "white"}">● ${(store.color || "white").toUpperCase()}</span>
+            `;
+
+            div.onclick = () => {
+                let marker = markers[store["Site #"]];
+                if (marker) {
                     map.setView(marker.getLatLng(), 14);
                     marker.openPopup();
-                };
+                } else {
+                    console.warn("Marker not found for store:", store["Site #"]);
+                }
+            };
 
-                storeListDiv.appendChild(div);
-            });
+            storeListDiv.appendChild(div);
+        });
     }
 
     renderStoreList();
@@ -342,21 +468,30 @@ function initMap(stores) {
     async function checkForUpdate() {
         try {
             const response = await fetch("outages.json", { cache: "no-store" });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
             const text = await response.text();
             const hash = btoa(text);
 
             if (lastHash && lastHash !== hash) {
-                location.reload();
+                console.log("Map data updated, reloading...");
+                showUpdateNotification();
             }
 
             lastHash = hash;
 
         } catch (err) {
-            console.error("Auto-refresh check failed:", err);
+            console.warn("Auto-refresh check failed:", err);
+            // Don't show error to user, just log it
         }
     }
 
+    // Check for updates every 30 seconds
     setInterval(checkForUpdate, 30000);
+    // Initial check after 5 seconds
+    setTimeout(checkForUpdate, 5000);
 }
 </script>
 
