@@ -1,12 +1,12 @@
 [
   {
-    "storeNumber": "0000",
+    "storeNumber": "0test",
     "storeName": "CORPORATE",
     "address": "BOWLING GREEN, Kentucky",
     "provider": "BOWLING GREEN MUNICIPAL UTILITIES",
     "providerWebsite": "https://outages.bgmu.com/",
     "distanceMiles": "",
-    "lat": 36.93251,
+    "lat": 36.9001,
     "lon": -86.42179,
     "outageLat": "",
     "outageLon": "",
