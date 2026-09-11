@@ -184,7 +184,6 @@
             <div id="filterBadge"><span id="filterText"></span><button id="clearFilterBtn" title="Clear filter">✕</button></div>
         </div>
         <div>
-            <button id="summaryBtn" class="header-btn">Summary Dashboards</button>
             <button id="defaultViewBtn" class="header-btn" title="Reset to default view">Default view</button>
         </div>
     </div>
@@ -423,14 +422,9 @@ Promise.all([
 
     initMap(stores);
 
-    // hook up dashboard button
-    document.getElementById('summaryBtn').addEventListener('click', () => {
-        document.getElementById('storeList').style.display = 'none';
-        document.getElementById('dashboardPanel').style.display = 'block';
-        renderDashboard(stores);
-    });
-
     document.getElementById('closeDashboard').addEventListener('click', () => {
+        // when closing dashboard, return to default list
+        clearFilter();
         document.getElementById('dashboardPanel').style.display = 'none';
         document.getElementById('storeList').style.display = 'block';
     });
@@ -745,7 +739,8 @@ function initMap(stores) {
     filterSelect.addEventListener("change", () => {
         const val = filterSelect.value;
         if (val === 'summary') {
-            // open dashboard panel
+            // open dashboard panel - clear filters and return to default list when dashboard closes
+            clearFilter();
             document.getElementById('storeList').style.display = 'none';
             document.getElementById('dashboardPanel').style.display = 'block';
             renderDashboard(stores);
