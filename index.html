@@ -486,6 +486,22 @@ legend.addTo(map);
 
 
         marker.addTo(outageLayer);
+        
+        if (store.color === "red" || store.color === "yellow") {
+
+    const radiusMiles =
+        store.color === "red"
+            ? 0.5
+            : 1;
+
+    L.circle([lat, lon], {
+        radius: radiusMiles * 1609.34,
+        color: store.color,
+        fillColor: store.color,
+        fillOpacity: 0.15,
+        weight: 2
+    }).addTo(impactLayer);
+}
         markers[store["Site #"]] = marker;
     });
 
