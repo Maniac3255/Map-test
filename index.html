@@ -85,6 +85,28 @@
             background:#2b2b2b;color:white;border:1px solid #666;padding:6px 8px;border-radius:6px;font-size:14px;cursor:pointer;
         }
 
+        #filterBadge {
+            display: none;
+            background: rgba(25, 118, 210, 0.12);
+            color: #bbdefb;
+            border: 1px solid rgba(25,118,210,0.25);
+            padding: 6px 8px;
+            border-radius: 14px;
+            font-size: 13px;
+            align-items: center;
+            gap: 8px;
+            display: inline-flex;
+        }
+
+        #clearFilterBtn {
+            background: transparent;
+            border: none;
+            color: #bbdefb;
+            cursor: pointer;
+            font-weight: 700;
+            margin-left: 6px;
+        }
+
         #filterSelect, #searchBar {
             width: 95%;
             padding: 8px;
@@ -159,6 +181,7 @@
         <div id="headerLeft">
             <h2 style="margin:0 0 0 0;">All Stores</h2>
             <button id="toggleBtn">▼</button>
+            <div id="filterBadge"><span id="filterText"></span><button id="clearFilterBtn" title="Clear filter">✕</button></div>
         </div>
         <div>
             <button id="summaryBtn" class="header-btn">Summary Dashboards</button>
@@ -169,6 +192,7 @@
     <select id="filterSelect">
         <option value="all">All Stores</option>
         <option value="outages">Outages Only (Red + Yellow)</option>
+        <option value="summary">Summary Dashboards</option>
     </select>
 
     <input id="searchBar" type="text" placeholder="Search store #, name, city...">
@@ -612,7 +636,42 @@ function initMap(stores) {
     let storeListDiv = document.getElementById("storeList");
     let filterSelect = document.getElementById("filterSelect");
 
+    // track current applied extraFilter for clearing and badge
+    window.currentExtraFilter = null;
+
+    function setFilterBadge(text) {
+        const badge = document.getElementById('filterBadge');
+        const txt = document.getElementById('filterText');
+        if (text) {
+            txt.textContent = text;
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.style.display = 'none';
+            txt.textContent = '';
+        }
+    }
+
+    function clearFilter() {
+        try {
+            window.currentExtraFilter = null;
+            setFilterBadge(null);
+            document.getElementById('searchBar').value = '';
+            document.getElementById('filterSelect').value = 'all';
+            renderStoreList();
+            // reset map
+            map.setView(USA_CENTER, USA_ZOOM);
+        } catch (e) {
+            console.error('clearFilter error', e);
+            showError('Failed to clear filter');
+        }
+    }
+
+    document.getElementById('clearFilterBtn').addEventListener('click', clearFilter);
+
     function renderStoreList(filterText = "", extraFilter = null) {
+        // If called without extraFilter and there is a stored currentExtraFilter, use it
+        if (!extraFilter && window.currentExtraFilter) extraFilter = window.currentExtraFilter;
+
         storeListDiv.innerHTML = "";
 
         const filteredStores = stores
@@ -677,10 +736,27 @@ function initMap(stores) {
     renderStoreList();
 
     document.getElementById("searchBar").addEventListener("input", e => {
+        // typing clears any dashboard-applied filter badge (search is a different filter)
+        window.currentExtraFilter = null;
+        setFilterBadge(null);
         renderStoreList(e.target.value.toLowerCase());
     });
 
     filterSelect.addEventListener("change", () => {
+        const val = filterSelect.value;
+        if (val === 'summary') {
+            // open dashboard panel
+            document.getElementById('storeList').style.display = 'none';
+            document.getElementById('dashboardPanel').style.display = 'block';
+            renderDashboard(stores);
+            // reset select back to all to avoid staying on 'summary'
+            filterSelect.value = 'all';
+            return;
+        }
+
+        // regular filter change clears dashboard filters
+        window.currentExtraFilter = null;
+        setFilterBadge(null);
         renderStoreList(document.getElementById("searchBar").value.toLowerCase());
     });
 
@@ -693,12 +769,18 @@ function initMap(stores) {
             filterSelect.value = 'all';
 
             let extraFilter = null;
+            let badgeText = '';
             if (type === 'state') {
                 extraFilter = s => ((s.State || '').toLowerCase() === (key || '').toLowerCase());
+                badgeText = `State: ${key}`;
             } else if (type === 'provider') {
                 const lowerKey = (key || '').toLowerCase();
                 extraFilter = s => ((s['Vendor Name'] || '').toLowerCase() === lowerKey) || ((s.providerWebsite || '').toLowerCase().includes(lowerKey));
+                badgeText = `Provider: ${key}`;
             }
+
+            window.currentExtraFilter = extraFilter;
+            setFilterBadge(badgeText);
 
             // re-render list with filter
             renderStoreList('', extraFilter);
@@ -742,6 +824,8 @@ function initMap(stores) {
     // Default view button handling (reset to USA view)
     const defaultViewBtn = document.getElementById("defaultViewBtn");
     defaultViewBtn.addEventListener("click", () => {
+        // clear any filters as well
+        clearFilter();
         map.setView(USA_CENTER, USA_ZOOM);
     });
 
