@@ -662,7 +662,7 @@ legend.addTo(map);
    LOAD DATA + INIT
 --------------------------------*/
 Promise.all([
-    fetch("Sites-small.csv").then(r => r.text()),
+    fetch("Sites.csv").then(r => r.text()),
     fetch("outages.json").then(r => r.json())
 ]).then(([csvText, outages]) => {
     const stores = parseCSV(csvText);
