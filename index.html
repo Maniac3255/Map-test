@@ -403,6 +403,16 @@ const outageLayer = L.layerGroup().addTo(map);
 const impactLayer = L.layerGroup().addTo(map);
 const weatherLayer = L.layerGroup().addTo(map);
 
+const radarLayer = L.tileLayer(
+    'https://tilecache.rainviewer.com/v2/radar/latest/256/{z}/{x}/{y}/2/1_1.png',
+    {
+        opacity: 0.55,
+        attribution: 'RainViewer'
+    }
+);
+
+    radarLayer.addTo(map);
+
 L.control.layers(
     {
         "Street Map": osm
@@ -410,13 +420,13 @@ L.control.layers(
     {
         "Outages": outageLayer,
         "Impact Areas": impactLayer,
-        "Weather Alerts": weatherLayer
+        "Weather Alerts": weatherLayer,
+        "Weather Radar": radarLayer
     },
     {
         position: 'topleft'
     }
 ).addTo(map);
-``
 
     // Reset map view to USA
 document.getElementById("resetViewBtn").onclick = () => {
