@@ -171,6 +171,7 @@
     <div id="sidebarHeader">
         <div id="headerLeft">
             <h2 style="margin:0 0 0 0;">All Stores</h2>
+            <button class="header-btn" onclick="showAllStores()">All Stores</button>
             <button id="toggleBtn">▼</button>
             <div id="filterBadge"><span id="filterText"></span></div>
         </div>
@@ -236,6 +237,38 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+// existing map setup code
+// existing marker creation code
+// existing filter functions
+// existing zoom functions
+
+function showAllStores() {
+    try {
+        const filterSelect = document.getElementById("filterSelect");
+        if (filterSelect) filterSelect.value = "all";
+
+        const searchBar = document.getElementById("searchBar");
+        if (searchBar) searchBar.value = "";
+
+        markers.forEach(m => {
+            if (!map.hasLayer(m)) m.addTo(map);
+        });
+
+        if (typeof renderStoreList === "function" && window.storesData) {
+            renderStoreList(window.storesData);
+        }
+
+        map.setView([39.8283, -98.5795], 4);
+
+    } catch (err) {
+        console.error("Error in showAllStores():", err);
+    }
+}
+
+</script>
 
 <script>
 // Show error message
