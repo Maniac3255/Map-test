@@ -23,7 +23,8 @@ SCE_URL = (
 # LOAD STORE DATA (ALL STORES)
 # ==========================================
 
-sites = pd.read_csv("Sites.csv")
+sites = pd.read_csv("Sites.csv").fillna("")
+sites["Vendor Link"] = sites["Vendor Link"].fillna("")
 print(f"Total Stores Loaded: {len(sites)}")
 
 # ==========================================
@@ -159,7 +160,10 @@ for _, row in sites.iterrows():
         "storeName": row["SiteName"],
         "address": f"{row['City']}, {row['State']}",
         "provider": row["Vendor Name"],
-        "providerWebsite": row["Vendor Link"],
+        "providerWebsite": (
+            "" if pd.isna(row["Vendor Link"])
+            else str(row["Vendor Link"])
+),
 
         "distanceMiles": info["distanceMiles"],
 
@@ -195,6 +199,11 @@ print(f"Impacted Sites: {len(impacted_sites)}")
 # ==========================================
 # WRITE OUTAGES.JSON
 # ==========================================
+
+for store in map_data:
+    for key, value in store.items():
+        if pd.isna(value):
+            store[key] = ""
 
 with open("outages.json", "w") as f:
     json.dump(map_data, f, indent=2)
