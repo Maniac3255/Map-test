@@ -332,6 +332,9 @@ function initMap(stores) {
 
         let marker = L.marker([lat, lon], { icon });
 
+        // Build popup content without showing raw coordinates and include outage/vendor link
+        const outageLinkHTML = store.providerWebsite ? `\n            <b>Outage Map:</b> <a href=\"${store.providerWebsite}\" target=\"_blank\" rel=\"noopener noreferrer\">View Outage/Provider Site</a><br>` : "";
+
         marker.bindPopup(`
             <b>Store ${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
             ${store.City}, ${store.State}<br><br>
@@ -341,8 +344,7 @@ function initMap(stores) {
             <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
             <b>Distance to Outage:</b> ${store.distanceMiles || "N/A"}<br><br>
 
-            <b>Store Location:</b> ${store.Latitude.toFixed(4)}, ${store.Longitude.toFixed(4)}<br>
-            <b>Outage Location:</b> ${store.outageLat || "N/A"}, ${store.outageLon || "N/A"}<br>
+            ${outageLinkHTML}
         `);
 
         marker.addTo(map);
@@ -387,10 +389,14 @@ function initMap(stores) {
             let div = document.createElement("div");
             div.className = "store-item";
 
+            // Include outage/vendor link in the list as well (small clickable text)
+            const listLink = store.providerWebsite ? `<div style="margin-top:6px;"><a href=\"${store.providerWebsite}\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"color:#9ec9ff;\">Open Outage/Provider Map</a></div>` : "";
+
             div.innerHTML = `
                 <b>${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
                 ${store.City}, ${store.State}<br>
                 <span style="color:${store.color || "white"}">● ${(store.color || "white").toUpperCase()}</span>
+                ${listLink}
             `;
 
             div.onclick = () => {
