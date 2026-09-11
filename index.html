@@ -117,7 +117,8 @@
         .dash-card p { margin:0; font-size:20px; font-weight:700; }
 
         .dash-list { margin-top:8px; }
-        .dash-list-item { padding:6px 0; border-bottom:1px dashed #333; font-size:13px; }
+        .dash-list-item { padding:6px 0; border-bottom:1px dashed #333; font-size:13px; cursor:pointer; }
+        .dash-list-item:hover { background:#2a2a2a; }
 
         #errorMessage {
             position: fixed;
@@ -310,6 +311,13 @@ function renderDashboard(stores) {
         const div = document.createElement('div');
         div.className = 'dash-list-item';
         div.textContent = `${st}: ${cnt}`;
+        div.title = `Filter map/list to ${st}`;
+        div.onclick = () => {
+            // close dashboard and filter map
+            document.getElementById('dashboardPanel').style.display = 'none';
+            document.getElementById('storeList').style.display = 'block';
+            if (window.applyFilter) window.applyFilter('state', st);
+        };
         byStateDiv.appendChild(div);
     });
 
@@ -321,6 +329,12 @@ function renderDashboard(stores) {
         const div = document.createElement('div');
         div.className = 'dash-list-item';
         div.textContent = `${p}: ${cnt}`;
+        div.title = `Filter map/list to ${p}`;
+        div.onclick = () => {
+            document.getElementById('dashboardPanel').style.display = 'none';
+            document.getElementById('storeList').style.display = 'block';
+            if (window.applyFilter) window.applyFilter('provider', p);
+        };
         byProvDiv.appendChild(div);
     });
 
@@ -498,11 +512,16 @@ function mergeOutageData(stores, outages) {
 }
 
 function initMap(stores) {
+    // expose minimal APP object for cross-function interactions (dashboard -> map/list)
+    window.APP = window.APP || {};
+    window.APP.stores = stores;
+
     // default USA view
     const USA_CENTER = [37.5, -95.5];
     const USA_ZOOM = 5;
 
     let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
+    window.APP.map = map;
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
@@ -513,6 +532,7 @@ function initMap(stores) {
     };
 
     let markers = {};
+    window.APP.markers = markers;
     let circles = {}; // store shaded outage circle overlays per store
     let skippedCount = 0;
 
@@ -592,12 +612,16 @@ function initMap(stores) {
     let storeListDiv = document.getElementById("storeList");
     let filterSelect = document.getElementById("filterSelect");
 
-    function renderStoreList(filterText = "") {
+    function renderStoreList(filterText = "", extraFilter = null) {
         storeListDiv.innerHTML = "";
 
         const filteredStores = stores
             .filter(store => {
                 if (filterSelect.value === "outages" && store.color === "white") {
+                    return false;
+                }
+
+                if (extraFilter && !extraFilter(store)) {
                     return false;
                 }
 
@@ -647,6 +671,9 @@ function initMap(stores) {
         });
     }
 
+    // expose renderStoreList for dashboard filters
+    window.APP.renderStoreList = renderStoreList;
+
     renderStoreList();
 
     document.getElementById("searchBar").addEventListener("input", e => {
@@ -656,6 +683,49 @@ function initMap(stores) {
     filterSelect.addEventListener("change", () => {
         renderStoreList(document.getElementById("searchBar").value.toLowerCase());
     });
+
+    // applyFilter: invoked when a dashboard row is clicked
+    window.applyFilter = function(type, key) {
+        try {
+            const searchBar = document.getElementById('searchBar');
+            const filterSelect = document.getElementById('filterSelect');
+            searchBar.value = '';
+            filterSelect.value = 'all';
+
+            let extraFilter = null;
+            if (type === 'state') {
+                extraFilter = s => ((s.State || '').toLowerCase() === (key || '').toLowerCase());
+            } else if (type === 'provider') {
+                const lowerKey = (key || '').toLowerCase();
+                extraFilter = s => ((s['Vendor Name'] || '').toLowerCase() === lowerKey) || ((s.providerWebsite || '').toLowerCase().includes(lowerKey));
+            }
+
+            // re-render list with filter
+            renderStoreList('', extraFilter);
+
+            // fit map to results
+            const matched = stores.filter(s => extraFilter ? extraFilter(s) : true);
+            const latlngs = matched.map(s => {
+                const m = markers[s['Site #']];
+                return m ? m.getLatLng() : null;
+            }).filter(Boolean);
+
+            if (latlngs.length) {
+                const bounds = L.latLngBounds(latlngs).pad(0.15);
+                map.fitBounds(bounds);
+
+                // open first marker popup
+                const first = matched[0];
+                const firstMarker = markers[first['Site #']];
+                if (firstMarker) firstMarker.openPopup();
+            } else {
+                showError('No stores found for selection');
+            }
+        } catch (e) {
+            console.error('applyFilter error', e);
+            showError('Failed to apply filter');
+        }
+    };
 
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("toggleBtn");
