@@ -404,13 +404,17 @@ function initMap(stores) {
         let marker = L.marker([lat, lon], { icon });
 
         marker.bindPopup(`
-            <b>Store ${store["Site #"]} – ${store.SiteName}</b><br>
-            ${store.City}, ${store.State}<br><br>
-            <b>Status:</b> ${store.status}<br>
-            <b>ETA:</b> ${store.etr || "N/A"}<br>
-            <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br><br>
-            ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
-        `);
+    <b>Store ${store["Site #"]} – ${store.SiteName}</b><br>
+    <b>Address:</b> ${store.Location || "N/A"}<br>
+    ${store.City}, ${store.State}<br><br>
+
+    <b>Status:</b> ${store.status}<br>
+    <b>ETA:</b> ${store.etr || "N/A"}<br>
+    <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br><br>
+
+    ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
+`);
+
 
         marker.addTo(map);
         markers[store["Site #"]] = marker;
@@ -443,12 +447,14 @@ function initMap(stores) {
             let div = document.createElement("div");
             div.className = "store-item";
 
-            div.innerHTML = `
-                <b>${store["Site #"]} – ${store.SiteName}</b><br>
-                ${store.City}, ${store.State}<br>
-                <span style="color:${store.color}">● ${store.color.toUpperCase()}</span><br>
-                ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank" style="color:#9ec9ff;">Outage Map</a>` : ""}
-            `;
+          div.innerHTML = `
+    <b>${store["Site #"]} – ${store.SiteName}</b><br>
+    <b>Address:</b> ${store.Location || "N/A"}<br>
+    ${store.City}, ${store.State}<br>
+    <span style="color:${store.color}">● ${store.color.toUpperCase()}</span><br>
+    ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank" style="color:#9ec9ff;">Outage Map</a>` : ""}
+`;
+
 
             div.onclick = () => {
                 let marker = markers[store["Site #"]];
