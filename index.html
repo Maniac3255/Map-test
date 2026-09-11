@@ -22,7 +22,7 @@
         }
 
         #sidebar {
-            width: 320px;
+            width: 360px;
             background: #1e1e1e;
             color: white;
             border-left: 1px solid #444;
@@ -69,6 +69,8 @@
             align-items: center;
         }
 
+        #headerLeft { display:flex; align-items:center; gap:8px; }
+
         #toggleBtn {
             background: none;
             border: none;
@@ -79,14 +81,8 @@
             color: white;
         }
 
-        #viewSelect {
-            background: #2b2b2b;
-            color: white;
-            border: 1px solid #666;
-            padding: 6px 8px;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
+        .header-btn {
+            background:#2b2b2b;color:white;border:1px solid #666;padding:6px 8px;border-radius:6px;font-size:14px;cursor:pointer;
         }
 
         #filterSelect, #searchBar {
@@ -112,6 +108,16 @@
         .store-item:hover {
             background: #3a3a3a;
         }
+
+        /* Dashboard styles */
+        #dashboardPanel { display: none; }
+        .dash-cards { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+        .dash-card { background:#262626; padding:10px; border-radius:6px; flex:1 1 48%; min-width:140px; border:1px solid #3a3a3a; }
+        .dash-card h3 { margin:0 0 6px 0; font-size:14px; }
+        .dash-card p { margin:0; font-size:20px; font-weight:700; }
+
+        .dash-list { margin-top:8px; }
+        .dash-list-item { padding:6px 0; border-bottom:1px dashed #333; font-size:13px; }
 
         #errorMessage {
             position: fixed;
@@ -149,12 +155,14 @@
 
 <div id="sidebar">
     <div id="sidebarHeader">
-        <div style="display:flex;align-items:center;">
-            <h2 style="margin:0 10px 0 0;">All Stores</h2>
+        <div id="headerLeft">
+            <h2 style="margin:0 0 0 0;">All Stores</h2>
             <button id="toggleBtn">▼</button>
         </div>
-        <!-- Right-side default view button -->
-        <button id="defaultViewBtn" title="Reset to default view" style="background:#2b2b2b;color:white;border:1px solid #666;padding:6px 8px;border-radius:6px;font-size:14px;cursor:pointer;">Default view</button>
+        <div>
+            <button id="summaryBtn" class="header-btn">Summary Dashboards</button>
+            <button id="defaultViewBtn" class="header-btn" title="Reset to default view">Default view</button>
+        </div>
     </div>
 
     <select id="filterSelect">
@@ -164,6 +172,46 @@
 
     <input id="searchBar" type="text" placeholder="Search store #, name, city...">
 
+    <div id="dashboardPanel">
+        <div class="dash-cards">
+            <div class="dash-card">
+                <h3>Total Stores</h3>
+                <p id="totalStores">-</p>
+            </div>
+            <div class="dash-card">
+                <h3>Current Outages</h3>
+                <p id="totalOutages">-</p>
+            </div>
+            <div class="dash-card">
+                <h3>Unique Providers</h3>
+                <p id="uniqueProviders">-</p>
+            </div>
+            <div class="dash-card">
+                <h3>Last Snapshot</h3>
+                <p id="lastSnapshot">-</p>
+            </div>
+        </div>
+
+        <div>
+            <h3 style="margin:6px 0 6px 0;font-size:14px;">Outages by State</h3>
+            <div id="byState" class="dash-list"></div>
+        </div>
+
+        <div>
+            <h3 style="margin:6px 0 6px 0;font-size:14px;">Outages by Provider</h3>
+            <div id="byProvider" class="dash-list"></div>
+        </div>
+
+        <div style="margin-top:10px;">
+            <h3 style="margin:6px 0 6px 0;font-size:14px;">24–48h Outage Trend</h3>
+            <canvas id="trendChart" width="320" height="160"></canvas>
+        </div>
+
+        <div style="text-align:right;margin-top:8px;">
+            <button id="closeDashboard" class="header-btn">Back to list</button>
+        </div>
+    </div>
+
     <div id="storeList"></div>
 </div>
 
@@ -172,6 +220,7 @@
 <div id="updateNotification">Map data updated. Reloading...</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
 // Show error message
@@ -193,6 +242,127 @@ function showUpdateNotification() {
     }, 2000);
 }
 
+const SNAPSHOT_KEY = 'outageSnapshots_v1';
+const SNAPSHOT_WINDOW_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+function loadSnapshots() {
+    try {
+        const raw = localStorage.getItem(SNAPSHOT_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        console.warn('Failed to load snapshots', e);
+        return [];
+    }
+}
+
+function saveSnapshots(arr) {
+    try {
+        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(arr));
+    } catch (e) {
+        console.warn('Failed to save snapshots', e);
+    }
+}
+
+function saveSnapshot(count) {
+    const snaps = loadSnapshots();
+    const now = Date.now();
+    snaps.push({ ts: now, count: count });
+    // prune older than 48h
+    const cutoff = now - SNAPSHOT_WINDOW_MS;
+    const pruned = snaps.filter(s => s.ts >= cutoff);
+    saveSnapshots(pruned);
+}
+
+function computeAggregates(stores) {
+    const totalStores = stores.length;
+    const outageStores = stores.filter(s => s.color && s.color !== 'white');
+    const totalOutages = outageStores.length;
+
+    const byState = {};
+    const byProvider = {};
+
+    outageStores.forEach(s => {
+        const st = s.State || 'Unknown';
+        const prov = s['Vendor Name'] || s.providerWebsite || 'Unknown';
+        byState[st] = (byState[st] || 0) + 1;
+        byProvider[prov] = (byProvider[prov] || 0) + 1;
+    });
+
+    return { totalStores, totalOutages, byState, byProvider };
+}
+
+let trendChart = null;
+
+function renderDashboard(stores) {
+    const agg = computeAggregates(stores);
+    document.getElementById('totalStores').textContent = agg.totalStores;
+    document.getElementById('totalOutages').textContent = agg.totalOutages;
+    document.getElementById('uniqueProviders').textContent = Object.keys(agg.byProvider).length;
+
+    const lastSnap = loadSnapshots().slice(-1)[0];
+    document.getElementById('lastSnapshot').textContent = lastSnap ? new Date(lastSnap.ts).toLocaleString() : 'N/A';
+
+    // render top states
+    const stateEntries = Object.entries(agg.byState).sort((a,b) => b[1]-a[1]);
+    const byStateDiv = document.getElementById('byState');
+    byStateDiv.innerHTML = '';
+    stateEntries.slice(0,10).forEach(([st, cnt]) => {
+        const div = document.createElement('div');
+        div.className = 'dash-list-item';
+        div.textContent = `${st}: ${cnt}`;
+        byStateDiv.appendChild(div);
+    });
+
+    // render top providers
+    const provEntries = Object.entries(agg.byProvider).sort((a,b) => b[1]-a[1]);
+    const byProvDiv = document.getElementById('byProvider');
+    byProvDiv.innerHTML = '';
+    provEntries.slice(0,10).forEach(([p, cnt]) => {
+        const div = document.createElement('div');
+        div.className = 'dash-list-item';
+        div.textContent = `${p}: ${cnt}`;
+        byProvDiv.appendChild(div);
+    });
+
+    // draw trend chart from snapshots
+    const snaps = loadSnapshots();
+    const cutoff = Date.now() - SNAPSHOT_WINDOW_MS;
+    const filtered = snaps.filter(s => s.ts >= cutoff);
+    const labels = filtered.map(s => new Date(s.ts).toLocaleString());
+    const data = filtered.map(s => s.count);
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    if (trendChart) {
+        trendChart.data.labels = labels;
+        trendChart.data.datasets[0].data = data;
+        trendChart.update();
+    } else {
+        trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Active outages',
+                    data: data,
+                    backgroundColor: 'rgba(255,99,132,0.2)',
+                    borderColor: 'rgba(255,99,132,1)',
+                    borderWidth: 1,
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { display: true, title: { display: false } },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+}
+
 Promise.all([
     fetch("Sites-small.csv").then(r => {
         if (!r.ok) throw new Error(`Failed to load Sites-small.csv: ${r.status}`);
@@ -208,7 +378,25 @@ Promise.all([
         throw new Error("No valid stores found in CSV data");
     }
     mergeOutageData(stores, outages);
+
+    // save a startup snapshot of current outages
+    const currentOutages = stores.filter(s => s.color && s.color !== 'white').length;
+    saveSnapshot(currentOutages);
+
     initMap(stores);
+
+    // hook up dashboard button
+    document.getElementById('summaryBtn').addEventListener('click', () => {
+        document.getElementById('storeList').style.display = 'none';
+        document.getElementById('dashboardPanel').style.display = 'block';
+        renderDashboard(stores);
+    });
+
+    document.getElementById('closeDashboard').addEventListener('click', () => {
+        document.getElementById('dashboardPanel').style.display = 'none';
+        document.getElementById('storeList').style.display = 'block';
+    });
+
 }).catch(err => {
     console.error("Fatal error:", err);
     showError(`Error loading map data: ${err.message}`);
@@ -535,6 +723,9 @@ function initMap(stores) {
 
             if (lastHash && lastHash !== hash) {
                 console.log("Map data updated, reloading...");
+                // save a snapshot before reloading
+                const currentOutages = stores.filter(s => s.color && s.color !== 'white').length;
+                saveSnapshot(currentOutages);
                 showUpdateNotification();
             }
 
