@@ -181,6 +181,20 @@ for _, row in sites.iterrows():
         # Color classification
         "color": info["color"]
     })
+# ==========================================
+# CREATE IMPACTED_SITES.JSON (ONLY ACTIVE OUTAGES)
+# ==========================================
+
+impacted_sites = [store for store in map_data if store["color"] != "white"]
+
+with open("impacted_sites.json", "w") as f:
+    json.dump(impacted_sites, f, indent=2)
+
+print(f"Impacted Sites: {len(impacted_sites)}")
+
+# ==========================================
+# WRITE OUTAGES.JSON
+# ==========================================
 
 with open("outages.json", "w") as f:
     json.dump(map_data, f, indent=2)
