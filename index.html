@@ -385,10 +385,10 @@ function initMap(stores) {
 
     let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
 
-    const osm = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-            attribution: "&copy; OpenStreetMap contributors"
+  const osm = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+        attribution: "&copy; OpenStreetMap contributors"
         }
     );
 
@@ -457,6 +457,7 @@ function initMap(stores) {
     };
 
     let markers = {};
+}};
 
     stores.forEach(store => {
         let lat = store.Latitude;
