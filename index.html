@@ -381,8 +381,31 @@ function initMap(stores) {
     const USA_CENTER = [37.5, -95.5];
     const USA_ZOOM = 5;
 
-    let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
+
+const osm = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+        attribution: '&copy; OpenStreetMap contributors'
+    }
+);
+
+osm.addTo(map);
+
+const outageLayer = L.layerGroup().addTo(map);
+const impactLayer = L.layerGroup().addTo(map);
+const weatherLayer = L.layerGroup().addTo(map);
+
+L.control.layers(
+    {
+        "Street Map": osm
+    },
+    {
+        "Outages": outageLayer,
+        "Impact Areas": impactLayer,
+        "Weather Alerts": weatherLayer
+    }
+).addTo(map);
 
     // Reset map view to USA
 document.getElementById("resetViewBtn").onclick = () => {
@@ -462,7 +485,7 @@ legend.addTo(map);
 `);
 
 
-        marker.addTo(map);
+        marker.addTo(outageLayer);
         markers[store["Site #"]] = marker;
     });
 
