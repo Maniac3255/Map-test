@@ -424,9 +424,10 @@ Promise.all([
 
     document.getElementById('closeDashboard').addEventListener('click', () => {
         // when closing dashboard, return to default list
-        clearFilter();
         document.getElementById('dashboardPanel').style.display = 'none';
         document.getElementById('storeList').style.display = 'block';
+        document.getElementById('filterSelect').value = 'all';
+        renderStoreList();
     });
 
 }).catch(err => {
