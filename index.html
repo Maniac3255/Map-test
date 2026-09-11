@@ -338,7 +338,6 @@ function renderDashboard(stores) {
         <h3>Outages by Provider</h3>
         <div id="byProvider" class="dash-list"></div>
 
-
         <h3>24–48h Outage Trend</h3>
         <canvas id="trendChart" width="320" height="160"></canvas>
     `;
@@ -379,77 +378,76 @@ function renderDashboard(stores) {
    MAP INITIALIZATION
 --------------------------------*/
 function initMap(stores) {
-
     const USA_CENTER = [37.5, -95.5];
     const USA_ZOOM = 5;
 
-    let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
+let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
 
-  const osm = L.tileLayer(
+const osm = L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
-        attribution: "&copy; OpenStreetMap contributors"
-        }
-    );
+        attribution: '&copy; OpenStreetMap contributors'
+    }
+);
 
-    osm.addTo(map);
+osm.addTo(map);
 
-    const outageLayer = L.layerGroup().addTo(map);
-    const impactLayer = L.layerGroup().addTo(map);
+const outageLayer = L.layerGroup().addTo(map);
+const impactLayer = L.layerGroup().addTo(map);
+const weatherLayer = L.layerGroup().addTo(map);
 
-    L.control.layers(
-        {
-            "Street Map": osm
-        },
-        {
-            "Outages": outageLayer,
-            "Impact Areas": impactLayer
-        },
-        {
-            position: "topleft"
-        }
-    ).addTo(map);
+L.control.layers(
+    {
+        "Street Map": osm
+    },
+    {
+        "Outages": outageLayer,
+        "Impact Areas": impactLayer,
+        "Weather Alerts": weatherLayer
+    }
+).addTo(map);
 
-    document.getElementById("resetViewBtn").onclick = () => {
-        map.setView([37.5, -95.5], 5);
-    };
+    // Reset map view to USA
+document.getElementById("resetViewBtn").onclick = () => {
+    map.setView([37.5, -95.5], 5);
+};
+    
+let legend = L.control({ position: "bottomleft" });
 
-    let legend = L.control({ position: "bottomleft" });
+legend.onAdd = function () {
+    let div = L.DomUtil.create("div", "legend");
 
-    legend.onAdd = function () {
+    div.style.background = "#1e1e1e";
+    div.style.color = "white";
+    div.style.padding = "10px";
+    div.style.borderRadius = "6px";
+    div.style.lineHeight = "1.6";
+    div.style.boxShadow = "0 0 5px rgba(0,0,0,0.4)";
+    div.style.fontSize = "13px";
 
-        let div = L.DomUtil.create("div", "legend");
+    div.innerHTML = `
+        <div style="display:flex;align-items:center;">
+            <span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
+            Outage (0–0.5 miles)
+        </div>
 
-        div.style.background = "#1e1e1e";
-        div.style.color = "white";
-        div.style.padding = "10px";
-        div.style.borderRadius = "6px";
-        div.style.lineHeight = "1.6";
-        div.style.boxShadow = "0 0 5px rgba(0,0,0,0.4)";
-        div.style.fontSize = "13px";
+        <div style="display:flex;align-items:center;">
+            <span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
+            Possible Outage (0.5–1 mile)
+        </div>
 
-        div.innerHTML = `
-            <div style="display:flex;align-items:center;">
-                <span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
-                Outage (0–0.5 miles)
-            </div>
+        <div style="display:flex;align-items:center;">
+            <span style="background:white;width:14px;height:14px;display:inline-block;margin-right:8px;border:1px solid #999;"></span>
+            No Outage
+        </div>
+    `;
 
-            <div style="display:flex;align-items:center;">
-                <span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
-                Possible Outage (0.5–1 mile)
-            </div>
+    return div;
+};
 
-            <div style="display:flex;align-items:center;">
-                <span style="background:white;width:14px;height:14px;display:inline-block;margin-right:8px;border:1px solid #999;"></span>
-                No Outage
-            </div>
-        `;
+legend.addTo(map);
 
-        return div;
-    };
-
-    legend.addTo(map);
-
+    
     const iconColors = {
         red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
         yellow: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png",
@@ -457,7 +455,6 @@ function initMap(stores) {
     };
 
     let markers = {};
-}};
 
     stores.forEach(store => {
         let lat = store.Latitude;
@@ -488,25 +485,9 @@ function initMap(stores) {
 `);
 
 
-    marker.addTo(outageLayer);
-
-if (store.color === "red" || store.color === "yellow") {
-
-    const radiusMiles =
-        store.color === "red"
-            ? 0.5
-            : 1;
-
-    L.circle([lat, lon], {
-        radius: radiusMiles * 1609.34,
-        color: store.color,
-        fillColor: store.color,
-        fillOpacity: 0.15,
-        weight: 2
-    }).addTo(impactLayer);
-}
-
-markers[store["Site #"]] = marker;
+        marker.addTo(outageLayer);
+        markers[store["Site #"]] = marker;
+    });
 
     /* ------------------------------
        STORE LIST RENDER
