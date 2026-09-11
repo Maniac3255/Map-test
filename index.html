@@ -325,6 +325,7 @@ function initMap(stores) {
     };
 
     let markers = {};
+    let circles = {}; // store shaded outage circle overlays per store
     let skippedCount = 0;
 
     stores.forEach(store => {
@@ -370,6 +371,30 @@ function initMap(stores) {
 
         marker.addTo(map);
         markers[store["Site #"]] = marker;
+
+        // If we have a numeric distance (in miles) and the store is marked as an outage, draw a faded shaded circle
+        const miles = parseFloat(store.distanceMiles);
+        if (!isNaN(miles) && miles > 0 && store.color && store.color !== "white") {
+            // choose center: prefer outage location if provided, else store location
+            const centerLat = (store.outageLat && !isNaN(parseFloat(store.outageLat))) ? parseFloat(store.outageLat) : store.Latitude;
+            const centerLon = (store.outageLon && !isNaN(parseFloat(store.outageLon))) ? parseFloat(store.outageLon) : store.Longitude;
+
+            if (!isNaN(centerLat) && !isNaN(centerLon)) {
+                const radiusMeters = miles * 1609.34; // miles -> meters
+                const fillColor = store.color === 'red' ? '#ff0000' : (store.color === 'yellow' ? '#ffea00' : '#999');
+
+                const circle = L.circle([centerLat, centerLon], {
+                    radius: radiusMeters,
+                    color: fillColor,
+                    weight: 1,
+                    fillColor: fillColor,
+                    fillOpacity: 0.12,
+                    interactive: false
+                }).addTo(map);
+
+                circles[store["Site #"]] = circle;
+            }
+        }
     });
 
     if (skippedCount > 0) {
