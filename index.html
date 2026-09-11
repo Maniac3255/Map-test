@@ -98,15 +98,6 @@
             display: inline-flex;
         }
 
-        #clearFilterBtn {
-            background: transparent;
-            border: none;
-            color: #bbdefb;
-            cursor: pointer;
-            font-weight: 700;
-            margin-left: 6px;
-        }
-
         #filterSelect, #searchBar {
             width: 95%;
             padding: 8px;
@@ -181,7 +172,7 @@
         <div id="headerLeft">
             <h2 style="margin:0 0 0 0;">All Stores</h2>
             <button id="toggleBtn">▼</button>
-            <div id="filterBadge"><span id="filterText"></span><button id="clearFilterBtn" title="Clear filter">✕</button></div>
+            <div id="filterBadge"><span id="filterText"></span></div>
         </div>
         <div>
             <button id="defaultViewBtn" class="header-btn" title="Reset to default view">Default view</button>
@@ -660,8 +651,6 @@ function initMap(stores) {
             showError('Failed to clear filter');
         }
     }
-
-    document.getElementById('clearFilterBtn').addEventListener('click', clearFilter);
 
     function renderStoreList(filterText = "", extraFilter = null) {
         // If called without extraFilter and there is a stored currentExtraFilter, use it
