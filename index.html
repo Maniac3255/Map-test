@@ -420,12 +420,53 @@ L.control.layers(
     },
     {
         "Outages": outageLayer,
+        "Impact Areas": impactLayer,
         "Weather Alerts": weatherLayer
     },
     {
         position: "topleft"
     }
 ).addTo(map);
+
+    async function loadWeatherAlerts() {
+
+    try {
+
+        const response = await fetch(
+            "https://api.weather.gov/alerts/active"
+        );
+
+        const data = await response.json();
+
+        weatherLayer.clearLayers();
+
+        data.features.forEach(alert => {
+
+            if (!alert.geometry) return;
+
+            const props = alert.properties;
+
+            L.geoJSON(alert.geometry, {
+                style: {
+                    color: "#ff6600",
+                    weight: 2,
+                    fillOpacity: 0.15
+                }
+            })
+            .bindPopup(`
+                <b>${props.event}</b><br>
+                Area: ${props.areaDesc}<br>
+                Severity: ${props.severity}<br>
+                Expires: ${props.expires || "Unknown"}
+            `)
+            .addTo(weatherLayer);
+
+        });
+
+    } catch (err) {
+        console.log("Weather alert load failed", err);
+    }
+}
 
     // Reset map view to USA
 document.getElementById("resetViewBtn").onclick = () => {
@@ -466,6 +507,7 @@ legend.onAdd = function () {
 };
 
 legend.addTo(map);
+    loadWeatherAlerts();
 
     
     const iconColors = {
@@ -613,6 +655,7 @@ legend.addTo(map);
 
     setInterval(checkForUpdate, 30000);
     setTimeout(checkForUpdate, 5000);
+    setInterval(loadWeatherAlerts, 300000);
 }
 
 /* ------------------------------
