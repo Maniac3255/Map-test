@@ -75,8 +75,18 @@
             font-size: 22px;
             cursor: pointer;
             padding: 0;
-            margin: 0;
+            margin: 0 8px 0 0;
             color: white;
+        }
+
+        #viewSelect {
+            background: #2b2b2b;
+            color: white;
+            border: 1px solid #666;
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
         }
 
         #filterSelect, #searchBar {
@@ -139,8 +149,15 @@
 
 <div id="sidebar">
     <div id="sidebarHeader">
-        <h2>All Stores</h2>
-        <button id="toggleBtn">▼</button>
+        <div style="display:flex;align-items:center;">
+            <h2 style="margin:0 10px 0 0;">All Stores</h2>
+            <button id="toggleBtn">▼</button>
+        </div>
+        <!-- Right-side view control -->
+        <select id="viewSelect" title="Map view options">
+            <option value="default">View: Current</option>
+            <option value="usa">Reset to USA</option>
+        </select>
     </div>
 
     <select id="filterSelect">
@@ -296,7 +313,11 @@ function mergeOutageData(stores, outages) {
 }
 
 function initMap(stores) {
-    let map = L.map("map").setView([37.5, -95.5], 5);
+    // default USA view
+    const USA_CENTER = [37.5, -95.5];
+    const USA_ZOOM = 5;
+
+    let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
@@ -434,6 +455,17 @@ function initMap(stores) {
     collapseBubble.onclick = () => {
         sidebar.classList.remove("collapsed");
     };
+
+    // View select handling (reset to USA view)
+    const viewSelect = document.getElementById("viewSelect");
+    viewSelect.addEventListener("change", (e) => {
+        const val = e.target.value;
+        if (val === "usa") {
+            map.setView(USA_CENTER, USA_ZOOM);
+            // reset select back to default label
+            setTimeout(() => { viewSelect.value = "default"; }, 300);
+        }
+    });
 
     let legend = L.control({ position: "bottomleft" });
 
