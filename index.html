@@ -396,8 +396,8 @@ function renderDashboard(stores) {
    MAP INITIALIZATION
 --------------------------------*/
 function initMap(stores) {
-   const USA_CENTER = [38.5, -96];
-    const USA_ZOOM = 4;
+    const USA_CENTER = [37.5, -95.5];
+    const USA_ZOOM = 5;
 
 let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
 
@@ -469,10 +469,8 @@ L.control.layers(
 }
 
     // Reset map view to USA
-document.getE*ementById("resetViewBtn").onclick * () => {
-    map.fitBounds(group.g*tBounds(), {
-        padding: [50,*50]
-    });
+document.getElementById("resetViewBtn").onclick = () => {
+    map.setView([37.5, -95.5], 5);
 };
     
 let legend = L.control({ position: "bottomleft" });
@@ -552,14 +550,6 @@ legend.addTo(map);
         marker.addTo(outageLayer);
         markers[store["Site #"]] = marker;
     });
-   
-/* Auto-fit map to all store markers */
-const group = new L.featureGroup(Object.values(markers));
-
-map.fitBounds(group.getBounds(), {
-    padding: [50, 50]
-});
-
 
     /* ------------------------------
        STORE LIST RENDER
