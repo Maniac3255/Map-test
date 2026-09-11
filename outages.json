@@ -1,5 +1,14 @@
 [
   {
+  "storeNumber": "14",
+  "color": "red",
+  "status": "TEST OUTAGE",
+  "distanceMiles": 0.2,
+  "etr": "Testing",
+  "lastUpdated": "Now",
+  "providerWebsite": "https://example.com"
+},
+  {
     "storeNumber": "0000",
     "storeName": "CORPORATE",
     "address": "BOWLING GREEN, Kentucky",
