@@ -400,6 +400,7 @@ const osm = L.tileLayer(
 osm.addTo(map);
 
 const outageLayer = L.layerGroup().addTo(map);
+const impactLayer = L.layerGroup().addTo(map);
 const weatherLayer = L.layerGroup().addTo(map);
 
     async function loadWeatherAlerts() {
