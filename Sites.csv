@@ -31,15 +31,15 @@
 0056,FPL,https://www.fplmaps.com/,St. Augustine FL,600 Outlet Mall Blvd - Ste 102,St. Augustine,FLORIDA,32080,N/A,29.839,-81.357
 0058,CITY OF ROBERTSDALE,http://www.robertsdale.org/utilities-information,Robertsdale AL,21282 State Hwy 59 South,ROBERTSDALE,ALABAMA,36567,No Dedicated Outage Map,30.542,-87.709
 0062,UNITIL,http://unitil.muni.maps.sienatech.com/,Chichester NH,2300 Buffalo Rd,ROCHESTER,NEW YORK,14624,N/A,43.125,-77.74
-0063,Georgia Power Co,N/A,Pooler GA (Savannah),129 Continental Blvd,POOLER,GEORGIA,31322,N/A,32.114,-81.244
+0063,Georgia Power Co,"",Pooler GA (Savannah),129 Continental Blvd,POOLER,GEORGIA,31322,N/A,32.114,-81.244
 0064,NATIONAL GRID,https://www.nationalgridus.com/MA-Home/Outage-Central/Outage-Map,Syracuse NY,7030 Interstate Island Road,SYRACUSE,NEW YORK,13209,N/A,43.082,-76.238
-0065,Jersey Central Power & Light,N/A,Lakewood NJ,1359 River Avenue,LAKEWOOD,NEW JERSEY,8701,N/A,40.094,-74.217
+0065,Jersey Central Power & Light,"",Lakewood NJ,1359 River Avenue,LAKEWOOD,NEW JERSEY,8701,N/A,40.094,-74.217
 0066,VILLAGE OF CHURCHVILLE,https://churchvilleny.gov/churchville-village-electric/,Churchville NY,1000 Sanford Road Churchville,CHURCHVILLE,NEW YORK,14428,No Dedicated Outage Map,43.105,-77.885
 0069,JOHNSON COUNTY REMC,https://jcremc.outagemap.coop/,Greenwood IN (Indianapolis),"303 Sheek Road, Suite 2",GREENWOOD,INDIANA,46143,N/A,39.572,-86.072
 0072,DTE ENERGY,https://outage.dteenergy.com/map,Grand Rapids MI,"201 76th St Sw Unit A,",GRAND RAPIDS,MICHIGAN,49548,N/A,42.896,-85.673
 0074,NORTH LITTLE ROCK ELECTRIC,https://outagemap.nlrelectric.com/,LITTLE ROCK,9801 Diamond Dr,NORTH LITTLE ROCK,ARKANSAS,72117,N/A,34.836,-92.178
 0079,COBB EMC,https://outagemap.cobbemc.com/,Woodstock GA,505 Parkway 575,WOODSTOCK,GEORGIA,30188,N/A,34.09,-84.505
-0084,Georgia Power Co,N/A,MACON,225 W E GREEN JR PKWY,BYRON,GEORGIA,31008,N/A,32.653,-83.761
+0084,Georgia Power Co,"",MACON,225 W E GREEN JR PKWY,BYRON,GEORGIA,31008,N/A,32.653,-83.761
 0087,CITY OF ROSEVILLE,https://www.roseville.ca.gov/electric_utility/safety/outages.php,Roseville CA,1029 Orlando Av,ROSEVILLE,CALIFORNIA,95661,N/A,38.752,-121.271
 0088,ALABAMA POWER,https://outagemap.alabamapower.com/,Anniston AL (Oxford),20 GARRET Circle,ANNISTON,ALABAMA,36207,N/A,33.661,-85.826
 0090,PG&E,https://www.pge.com/outagestatus,Fresno CA,3672 South Maple Avenue -RV Sales,FRESNO,CALIFORNIA,93725,N/A,36.691,-119.781
@@ -58,10 +58,10 @@
 0148,WE ENERGIES,https://www.we-energies.com/outagemapext/,Saukville WI,800 East Green Bay Avenue,SAUKVILLE,WISCONSIN,53080,N/A,43.383,-87.94
 0155,BOONE ELECTRIC COOPERATIVE,https://nis.booneelectric.com/dmsoutagemap/default.html,Columbia MO,8877 Interstate 70 Drive Northeast,COLUMBIA,MISSOURI,65202,N/A,38.996,-92.235
 0157,EVERGY,https://outagemap.evergy.com/,Grain Valley MO (Kansas City),3001 Northeast Jefferson Road Grain,GRAIN VALLEY,MISSOURI,64029,N/A,39.018,-94.172
-0158,TXU Energy,N/A,Lubbock TX,1605 S LOOP 289,LUBBOCK,TEXAS,79423,Retail Provider - Uses Utility Outage Maps,33.578,-101.862
+0158,TXU Energy,"",Lubbock TX,1605 S LOOP 289,LUBBOCK,TEXAS,79423,Retail Provider - Uses Utility Outage Maps,33.578,-101.862
 0160,NORTH CENTRAL ELECTRIC COOPERATIVE,https://outages.northcentralelectric.com/outages,Olive Branch MS,8150 New Craft Road Olive Branch,OLIVE BRANCH,MISSISSIPPI,38654,N/A,34.9349,-89.7861
 0162,CEDAR FALLS UTILITIES,https://www.cfu.net/utilities/electric-service/live-power-outage-map,Cedar Falls IA,7805 Ace Place Cedar Falls,CEDAR FALLS,IOWA,50613,N/A,42.5709,-92.5308
-0163,BLACK HILLS ENERGY,N/A,Rapid City SD,10400 Recreational Drive Summerset,RAPID CITY,SOUTH DAKOTA,57703,N/A,44.2048,-103.373
+0163,BLACK HILLS ENERGY,"",Rapid City SD,10400 Recreational Drive Summerset,RAPID CITY,SOUTH DAKOTA,57703,N/A,44.2048,-103.373
 0164,TOLEDO EDISON,https://outages-oh.firstenergycorp.com/,Rossford,28000 SPORTSMANS DR,ROSSFORD,OHIO,43460,N/A,41.5345,-83.5657
 0166,ENTERGY,https://www.myentergy.com/s/outagemap,Jackson MS,4601 I-55 South Frontage Road,JACKSON,MISSISSIPPI,39212,N/A,32.2486,-90.1843
 0167,EASTERN IOWA LIGHT & POWER COOPERATIVE,https://easterniowa.outagemap.coop/,Davenport IA,14044 110TH AVE,DAVENPORT,IOWA,52803,N/A,41.5661,-90.4707
@@ -70,7 +70,7 @@
 0182,RICHMOND POWER & LIGHT,https://ebilling.rp-l.com/maps/OutageWebMap/,Richmond IN,2250 Williamsburg Pike Richmond,RICHMOND,INDIANA,47374,N/A,39.8285,-84.8506
 0183,DUKE ENERGY,https://outagemap.duke-energy.com/,Marion NC,1885 US 70 West Marion,MARION,NORTH CAROLINA,28752,N/A,35.6787,-82.0282
 0184,CITY OF CONCORD,https://outagemap.concordnc.gov/,Concord NC,6600 Bruton Smith BLVD-RV #24,CONCORD,NORTH CAROLINA,28027,N/A,35.3521,-80.7112
-0187,SOUTHWESTERN ELECTRIC POWER,N/A,Bossier City LA (Shreveport),3625 Industrial Drive,BOSSIER CITY,LOUISIANA,71112,N/A,32.4568,-93.6694
+0187,SOUTHWESTERN ELECTRIC POWER,"",Bossier City LA (Shreveport),3625 Industrial Drive,BOSSIER CITY,LOUISIANA,71112,N/A,32.4568,-93.6694
 0189,COAST ELECTRIC,https://outages.coastelectric.coop/,Biloxi MS,12020 Shrinners  Boulevard Biloxi,BILOXI,MISSISSIPPI,39532,N/A,30.456,-88.8853
 0190,XCEL ENERGY,https://co.my.xcelenergy.com/s/outage-safety/outage-map,Monticello MN,3887 Chelsea Road West,MONTICELLO,MINNESOTA,55362,N/A,45.3201,-93.8376
 0191,PUBLIC SERVICE COMPANY OF OK,https://outagemap.psoklahoma.com/,Tulsa OK,9005 East Skelly Drive Tulsa,TULSA,OKLAHOMA,74129,N/A,36.1045,-95.8762
@@ -100,7 +100,7 @@
 0263,SOUTH CENTRAL ELECTRIC ASSOCIATION,https://proxy.star-mapping.com/SouthCentralPublic/Maps/SystemMap,Madelia MN,84601 Olson Drive Madelia,MADELIA,MINNESOTA,56062,N/A,44.0384,-94.4045
 0264,PEOPLES ENERGY COOP.,https://peoplesrec.outagemap.coop/,Rochester MN,1280 Lake Shady Ave,ROCHESTER,MINNESOTA,55906,N/A,44.0367,-92.4452
 0267,AMEREN MISSOURI,https://outagemap.ameren.com/external/default.html,Cape Girardeau MO,49 Airport Rd Cape Girardeau,CAPE GIRARDEAU,MISSOURI,63703,N/A,37.2288,-89.5706
-0268,BLACK HILLS ENERGY,N/A,Cheyenne WY,8910 Hutchins Drive Cheyenne,CHEYENNE,WYOMING,82007,N/A,41.0947,-104.9368
+0268,BLACK HILLS ENERGY,"",Cheyenne WY,8910 Hutchins Drive Cheyenne,CHEYENNE,WYOMING,82007,N/A,41.0947,-104.9368
 0269,LINCOLN ELECTRIC SYSTEMS,https://lincolnelectric.outagemap.coop/,Lincoln NE,6340 Arbor Rd Lincoln,LINCOLN,NEBRASKA,68517,N/A,40.747,-96.6335
 0274,PACIFIC POWER,https://www.pacificpower.net/outages-safety.html,Medford OR,938 Chevy Way Medford,MEDFORD,OREGON,97504,N/A,42.3817,-122.8726
 0276,DOMINION ENERGY SOUTH CAROLINA,https://outagemap.dominionenergysc.com/,Ridgeland SC,401 Sycamore Drive Ridgeland,RIDGELAND,SOUTH CAROLINA,29936,N/A,32.4702,-80.9808
@@ -133,7 +133,7 @@
 0346,SNOHOMISH COUNTY PUBLIC UTILITY DISTRICT NO. 1,https://outagemap.snopud.com/,Marysville WA,15855 Smokey Point Blvd Marysville,MARYSVILLE,WASHINGTON,98271,N/A,48.1397,-122.1768
 0354,CLAY ELECTRIC COOPERATIVE INC,https://clayelectric.outagemap.coop/,Orange Park FL,"1150 Blanding Blvd,",ORANGE PARK,FLORIDA,32065,N/A,30.1668,-81.7507
 0359,BENTON UTILITIES,https://bentonutilities.outagemap.coop/,Benton. AR,19501 | 30,SHERWOOD,ARKANSAS,72117,N/A,34.8322,-92.1993
-0362,Georgia Power Co,N/A,Byron,100 Suncoast Dr,BYRON,GEORGIA,31008,N/A,32.6538,-83.7421
+0362,Georgia Power Co,"",Byron,100 Suncoast Dr,BYRON,GEORGIA,31008,N/A,32.6538,-83.7421
 0364,WISCONSIN PUBLIC SERVICE CORP,https://www.wisconsinpublicservice.com/outagesummary/view/outagegrid?ref=nf,Green Bay WI,1956 Bond St - RV Service,GREEN BAY,WISCONSIN,54303,N/A,26.6748,-81.7995
 0371,NRG ENERGY INC,https://www.nrg.com/resources/outages.html,Lewisville,1212 N Stemmons Freeway,LEWISVILLE,TEXAS,75067,Retail Provider - Uses Utility Outage Maps,30.546,-84.454
 0376,CITY UTILITIES OF SPRINGFIELD,https://outagemap.cityutilities.net/,Springfield,836 N Glenstone Ave,SPRINGFIELD,MISSOURI,65802,N/A,37.2177,-93.2619
@@ -151,11 +151,11 @@
 0641,AES INDIANA,https://myaccount.aesindiana.com/outages/outagemap.html,INDIANAPOLIS,5702 E 86TH ST,INDIANAPOLIS,INDIANA,46250,N/A,39.9121,-86.0728
 0644,DTE ENERGY,https://outage.dteenergy.com/map,Port Huron MI,4055 24th Avenue,FORT GRATIOT,MICHIGAN,48059,N/A,43.0508,-82.4878
 0646,NATIONAL GRID,https://www.nationalgridus.com/MA-Home/Outage-Central/Outage-Map,Cicero / SYRACUSE,5864 Carmenica Drive,CICERO,NEW YORK,13039,N/A,43.1778,-75.9749
-0649,Georgia Power Co,N/A,AUGUSTA,145 Mason McKnight Jr Pkwy,AUGUSTA,GEORGIA,30907,N/A,33.5152,-82.0877
+0649,Georgia Power Co,"",AUGUSTA,145 Mason McKnight Jr Pkwy,AUGUSTA,GEORGIA,30907,N/A,33.5152,-82.0877
 0650,JACKSON ENERGY AUTHORITY,https://www.jaxenergy.com/outage-center,JACKSON,1523 Vann Drive,JACKSON,TENNESSEE,38305,N/A,35.6732,-88.8565
 0659,EVERGY,https://outagemap.evergy.com/,Wichita,3928 S Oak Street,WICHITA,KANSAS,67217,N/A,37.6199,-97.337
 0662,CONNEXUS ENERGY,https://experience.arcgis.com/experience/3ef36487143d4dc28dad813f667a40d9,Forest Lake,14640 W FREEWAY DR,COLUMBUS,MINNESOTA,55025,N/A,45.2718,-93.0109
-0686,AMEREN Illinois,N/A,Marion,2480 Blue Heron Dr,MARION,ILLINOIS,62959,N/A,37.7418,-88.9477
+0686,AMEREN Illinois,"",Marion,2480 Blue Heron Dr,MARION,ILLINOIS,62959,N/A,37.7418,-88.9477
 0687,CLECO POWER LLC,https://cleco.datacapable.com/map/,Breaux Bridge LA,2310 N Frontage Rd,BREAUX BRIDGE,LOUISIANA,70517,N/A,30.29728955,-91.91260533
 0694,EVERSOURCE,https://outagemap.eversource.com/external/default.html,Hatfield MA,188 Wet Street Route 5 West Hatfield,HATFIELD,MASSACHUSETTS,01088,N/A,42.390785,-72.632627
 0697,CENTRAL HUDSON GAS AND ELECTRIC CORPORATION,https://outagemap.cenhud.com/,Albany NY,12634 Route 9 West West Coxsackie,ALBANY,NEW YORK,12288,N/A,42.389552,-73.828608
