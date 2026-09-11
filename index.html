@@ -379,6 +379,42 @@ function initMap(stores) {
     let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
+let legend = L.control({ position: "bottomleft" });
+
+legend.onAdd = function () {
+    let div = L.DomUtil.create("div", "legend");
+
+    div.style.background = "#1e1e1e";
+    div.style.color = "white";
+    div.style.padding = "10px";
+    div.style.borderRadius = "6px";
+    div.style.lineHeight = "1.6";
+    div.style.boxShadow = "0 0 5px rgba(0,0,0,0.4)";
+    div.style.fontSize = "13px";
+
+    div.innerHTML = `
+        <div style="display:flex;align-items:center;">
+            <span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
+            Outage (0–0.5 miles)
+        </div>
+
+        <div style="display:flex;align-items:center;">
+            <span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
+            Possible Outage (0.5–1 mile)
+        </div>
+
+        <div style="display:flex;align-items:center;">
+            <span style="background:white;width:14px;height:14px;display:inline-block;margin-right:8px;border:1px solid #999;"></span>
+            No Outage
+        </div>
+    `;
+
+    return div;
+};
+
+legend.addTo(map);
+
+    
     const iconColors = {
         red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
         yellow: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png",
