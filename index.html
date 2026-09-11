@@ -385,119 +385,77 @@ function renderDashboard(stores) {
    MAP INITIALIZATION
 --------------------------------*/
 function initMap(stores) {
+
     const USA_CENTER = [37.5, -95.5];
     const USA_ZOOM = 5;
 
-let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
+    let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
 
-const outageLayer = L.layerGroup().addTo(map);
-const impactLayer = L.layerGroup().addTo(map);
-const weatherLayer = L.layerGroup().addTo(map);
+    const osm = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+            attribution: "&copy; OpenStreetMap contributors"
+        }
+    );
 
-    async function loadWeatherAlerts() {
+    osm.addTo(map);
 
-    try {
+    const outageLayer = L.layerGroup().addTo(map);
+    const impactLayer = L.layerGroup().addTo(map);
 
-        const response = await fetch(
-            "https://api.weather.gov/alerts/active"
-        );
+    L.control.layers(
+        {
+            "Street Map": osm
+        },
+        {
+            "Outages": outageLayer,
+            "Impact Areas": impactLayer
+        },
+        {
+            position: "topleft"
+        }
+    ).addTo(map);
 
-        const data = await response.json();
+    document.getElementById("resetViewBtn").onclick = () => {
+        map.setView([37.5, -95.5], 5);
+    };
 
-        weatherLayer.clearLayers();
+    let legend = L.control({ position: "bottomleft" });
 
-        data.features.forEach(alert => {
+    legend.onAdd = function () {
 
-            if (!alert.geometry) return;
+        let div = L.DomUtil.create("div", "legend");
 
-            const layer = L.geoJSON(alert.geometry, {
-                style: {
-                    color: "orange",
-                    weight: 2,
-                    fillOpacity: 0.15
-                }
-            });
-            layer.addTo(weatherLayer);
-});
-    } catch (err) {
-console.log("Weather alert load failed", err);
-    }
-}
+        div.style.background = "#1e1e1e";
+        div.style.color = "white";
+        div.style.padding = "10px";
+        div.style.borderRadius = "6px";
+        div.style.lineHeight = "1.6";
+        div.style.boxShadow = "0 0 5px rgba(0,0,0,0.4)";
+        div.style.fontSize = "13px";
 
-            const props = alert.properties;
+        div.innerHTML = `
+            <div style="display:flex;align-items:center;">
+                <span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
+                Outage (0–0.5 miles)
+            </div>
 
-            layer.bindPopup(`
-                <b>${props.event}</b><br>
-                Area: ${props.areaDesc}<br>
-                Severity: ${props.severity}<br>
-                Expires: ${props.expires || "Unknown"}
-            `);
+            <div style="display:flex;align-items:center;">
+                <span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
+                Possible Outage (0.5–1 mile)
+            </div>
 
-            layer.addTo(weatherLayer);
+            <div style="display:flex;align-items:center;">
+                <span style="background:white;width:14px;height:14px;display:inline-block;margin-right:8px;border:1px solid #999;"></span>
+                No Outage
+            </div>
+        `;
 
-        });
+        return div;
+    };
 
-    } catch (err) {
-        console.log("Weather alert load failed", err);
-    }
-}
+    legend.addTo(map);
 
-    loadWeatherAlerts();
-
-L.control.layers(
-    {
-        "Street Map": osm
-    },
-    {
-        "Outages": outageLayer,
-        "Weather Alerts": weatherLayer,
-    },
-    {
-        position: 'topleft'
-    }
-).addTo(map);
-
-    // Reset map view to USA
-document.getElementById("resetViewBtn").onclick = () => {
-    map.setView([37.5, -95.5], 5);
-};
-    
-let legend = L.control({ position: "bottomleft" });
-
-legend.onAdd = function () {
-    let div = L.DomUtil.create("div", "legend");
-
-    div.style.background = "#1e1e1e";
-    div.style.color = "white";
-    div.style.padding = "10px";
-    div.style.borderRadius = "6px";
-    div.style.lineHeight = "1.6";
-    div.style.boxShadow = "0 0 5px rgba(0,0,0,0.4)";
-    div.style.fontSize = "13px";
-
-    div.innerHTML = `
-        <div style="display:flex;align-items:center;">
-            <span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
-            Outage (0–0.5 miles)
-        </div>
-
-        <div style="display:flex;align-items:center;">
-            <span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
-            Possible Outage (0.5–1 mile)
-        </div>
-
-        <div style="display:flex;align-items:center;">
-            <span style="background:white;width:14px;height:14px;display:inline-block;margin-right:8px;border:1px solid #999;"></span>
-            No Outage
-        </div>
-    `;
-
-    return div;
-};
-
-legend.addTo(map);
-
-    
     const iconColors = {
         red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
         yellow: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png",
@@ -535,8 +493,9 @@ legend.addTo(map);
 `);
 
 
-        marker.addTo(outageLayer);
-        if (store.color === "red" || store.color === "yellow") {
+    marker.addTo(outageLayer);
+
+if (store.color === "red" || store.color === "yellow") {
 
     const radiusMiles =
         store.color === "red"
@@ -551,8 +510,8 @@ legend.addTo(map);
         weight: 2
     }).addTo(impactLayer);
 }
-        markers[store["Site #"]] = marker;
-    });
+
+markers[store["Site #"]] = marker;
 
     /* ------------------------------
        STORE LIST RENDER
