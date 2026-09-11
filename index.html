@@ -417,6 +417,12 @@ const weatherLayer = L.layerGroup().addTo(map);
                     fillOpacity: 0.15
                 }
             });
+            layer.addTo(weatherLayer);
+});
+    } catch (err) {
+console.log("Weather alert load failed", err);
+    }
+}
 
             const props = alert.properties;
 
