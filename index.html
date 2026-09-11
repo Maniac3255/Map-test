@@ -443,14 +443,14 @@ const weatherLayer = L.layerGroup().addTo(map);
         console.log("Weather alert load failed", err);
     }
 }
-
+/*
 const radarLayer = L.tileLayer(
     "https://tile-a.weather.gc.ca/geomet/?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=RADAR_1KM_RRAI&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&FORMAT=image/png",
     {
         opacity: 0.5
     }
 );
-
+*/
     radarLayer.addTo(map);
     loadWeatherAlerts();
 
