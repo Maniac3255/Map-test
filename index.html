@@ -356,8 +356,11 @@ function initMap(stores) {
         // Build popup content without showing raw coordinates and include outage/vendor link
         const outageLinkHTML = store.providerWebsite ? `\n            <b>Outage Map:</b> <a href=\"${store.providerWebsite}\" target=\"_blank\" rel=\"noopener noreferrer\">View Outage/Provider Site</a><br>` : "";
 
+        const addressHTML = store.Location ? `\n            <b>Address:</b> ${store.Location}<br>` : "";
+
         marker.bindPopup(`
             <b>Store ${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
+            ${addressHTML}
             ${store.City}, ${store.State}<br><br>
 
             <b>Status:</b> ${store.status}<br>
