@@ -1,166 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Store Outage Map</title>
+<meta charset="UTF-8" />
+<title>Store Outage Map</title>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-        }
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+    }
 
-        #map {
-            flex: 1;
-            height: 100%;
-        }
+    #map {
+        flex: 1;
+        height: 100%;
+    }
 
-        #sidebar {
-            width: 360px;
-            background: #1e1e1e;
-            color: white;
-            border-left: 1px solid #444;
-            padding: 10px;
-            overflow-y: auto;
-            height: 100%;
-            transition: transform 0.3s ease;
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            z-index: 9999;
-        }
+    /* RIGHT SIDEBAR */
+    #sidebar {
+        width: 360px;
+        background: #1e1e1e;
+        color: white;
+        border-left: 1px solid #444;
+        padding: 10px;
+        overflow-y: auto;
+        height: 100%;
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 9999;
+        transition: transform 0.3s ease;
+    }
 
-        #sidebar.collapsed {
-            transform: translateX(100%);
-        }
+    #sidebar.collapsed {
+        transform: translateX(100%);
+    }
 
-        #collapseBubble {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #1e1e1e;
-            color: white;
-            border: 1px solid #444;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            z-index: 10000;
-            font-size: 22px;
-        }
+    #collapseBubble {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #1e1e1e;
+        color: white;
+        border: 1px solid #444;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        z-index: 10000;
+        font-size: 22px;
+    }
 
-        #sidebar.collapsed + #collapseBubble {
-            display: flex;
-        }
+    #sidebar.collapsed + #collapseBubble {
+        display: flex;
+    }
 
-        #sidebarHeader {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    #sidebarHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
 
-        #headerLeft { display:flex; align-items:center; gap:8px; }
+    #toggleBtn {
+        background: none;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+        padding: 0;
+        margin-left: 8px;
+        color: white;
+    }
 
-        #toggleBtn {
-            background: none;
-            border: none;
-            font-size: 22px;
-            cursor: pointer;
-            padding: 0;
-            margin: 0 8px 0 0;
-            color: white;
-        }
+    .header-btn {
+        background:#2b2b2b;
+        color:white;
+        border:1px solid #666;
+        padding:6px 8px;
+        border-radius:6px;
+        font-size:14px;
+        cursor:pointer;
+    }
 
-        .header-btn {
-            background:#2b2b2b;color:white;border:1px solid #666;padding:6px 8px;border-radius:6px;font-size:14px;cursor:pointer;
-        }
+    /* REMOVE BLUE DOT */
+    #filterBadge {
+        display: none;
+    }
 
-        #filterBadge {
-            display: test;
-            background: rgba(25, 118, 210, 0.12);
-            color: #bbdefb;
-            border: 1px solid rgba(25,118,210,0.25);
-            padding: 6px 8px;
-            border-radius: 14px;
-            font-size: 13px;
-            align-items: center;
-            gap: 8px;
-            display: inline-flex;
-        }
+    #filterSelect {
+        width: 95%;
+        padding: 8px;
+        margin: 10px 0;
+        border-radius: 6px;
+        border: 1px solid #666;
+        background: #2b2b2b;
+        color: white;
+    }
 
-        #filterSelect, #searchBar {
-            width: 95%;
-            padding: 8px;
-            margin: 10px 0;
-            border-radius: 6px;
-            border: 1px solid #666;
-            background: #2b2b2b;
-            color: white;
-        }
+    #searchBar {
+        width: 95%;
+        padding: 8px;
+        margin: 10px 0;
+        border-radius: 6px;
+        border: 1px solid #666;
+        background: #2b2b2b;
+        color: white;
+    }
 
-        .store-item {
-            padding: 8px;
-            margin: 6px 0;
-            background: #2b2b2b;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 1px solid #555;
-            color: white;
-        }
+    .store-item {
+        padding: 8px;
+        margin: 6px 0;
+        background: #2b2b2b;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid #555;
+        color: white;
+    }
 
-        .store-item:hover {
-            background: #3a3a3a;
-        }
+    .store-item:hover {
+        background: #3a3a3a;
+    }
 
-        /* Dashboard styles */
-        #dashboardPanel { display: none; }
-        .dash-cards { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
-        .dash-card { background:#262626; padding:10px; border-radius:6px; flex:1 1 48%; min-width:140px; border:1px solid #3a3a3a; }
-        .dash-card h3 { margin:0 0 6px 0; font-size:14px; }
-        .dash-card p { margin:0; font-size:20px; font-weight:700; }
+    /* BOTTOM DASHBOARD */
+    #bottomDashboard {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 300px;
+        background: #1e1e1e;
+        border-top: 1px solid #444;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        z-index: 9999;
+    }
 
-        .dash-list { margin-top:8px; }
-        .dash-list-item { padding:6px 0; border-bottom:1px dashed #333; font-size:13px; cursor:pointer; }
-        .dash-list-item:hover { background:#2a2a2a; }
+    #bottomDashboard.expanded {
+        transform: translateY(0);
+    }
 
-        #errorMessage {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #d32f2f;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 6px;
-            display: none;
-            z-index: 10001;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
+    #dashboardHandle {
+        position: absolute;
+        top: -32px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1e1e1e;
+        border: 1px solid #444;
+        width: 140px;
+        height: 32px;
+        border-radius: 16px 16px 0 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        font-size: 14px;
+        color: white;
+    }
 
-        #updateNotification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1976d2;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 6px;
-            display: none;
-            z-index: 10001;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-    </style>
+    #dashboardContent {
+        padding: 12px;
+        overflow-y: auto;
+        height: calc(100% - 12px);
+    }
+
+    /* DASHBOARD CARDS */
+    .dash-cards { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .dash-card { background:#262626; padding:10px; border-radius:6px; flex:1 1 48%; min-width:140px; border:1px solid #3a3a3a; }
+    .dash-card h3 { margin:0 0 6px 0; font-size:14px; }
+    .dash-card p { margin:0; font-size:20px; font-weight:700; }
+
+    .dash-list { margin-top:8px; }
+    .dash-list-item { padding:6px 0; border-bottom:1px dashed #333; font-size:13px; cursor:pointer; }
+    .dash-list-item:hover { background:#2a2a2a; }
+
+</style>
 </head>
 
 <body>
@@ -169,333 +190,94 @@
 
 <div id="sidebar">
     <div id="sidebarHeader">
-        <div id="headerLeft">
-            <h2 style="margin:0 0 0 0;">All Stores</h2>
-            <button id="toggleBtn">▼</button>
-            <div id="filterBadge"><span id="filterText"></span></div>
-        </div>
-        <div>
-            <button id="defaultViewBtn" class="header-btn" title="Reset to default view">Default view</button>
-        </div>
+        <h2 style="margin:0;">All Stores</h2>
+        <button id="toggleBtn">▼</button>
     </div>
 
     <select id="filterSelect">
         <option value="all">All Stores</option>
-        <option value="outages">Outages Only (Red + Yellow)</option>
-        <option value="summary">Summary Dashboards</option>
+        <option value="outages">Outages Only</option>
     </select>
 
     <input id="searchBar" type="text" placeholder="Search store #, name, city...">
-
-    <div id="dashboardPanel">
-        <div class="dash-cards">
-            <div class="dash-card">
-                <h3>Total Stores</h3>
-                <p id="totalStores">-</p>
-            </div>
-            <div class="dash-card">
-                <h3>Current Outages</h3>
-                <p id="totalOutages">-</p>
-            </div>
-            <div class="dash-card">
-                <h3>Unique Providers</h3>
-                <p id="uniqueProviders">-</p>
-            </div>
-            <div class="dash-card">
-                <h3>Last Snapshot</h3>
-                <p id="lastSnapshot">-</p>
-            </div>
-        </div>
-
-        <div>
-            <h3 style="margin:6px 0 6px 0;font-size:14px;">Outages by State</h3>
-            <div id="byState" class="dash-list"></div>
-        </div>
-
-        <div>
-            <h3 style="margin:6px 0 6px 0;font-size:14px;">Outages by Provider</h3>
-            <div id="byProvider" class="dash-list"></div>
-        </div>
-
-        <div style="margin-top:10px;">
-            <h3 style="margin:6px 0 6px 0;font-size:14px;">24–48h Outage Trend</h3>
-            <canvas id="trendChart" width="320" height="160"></canvas>
-        </div>
-
-        <div style="text-align:right;margin-top:8px;">
-            <button id="closeDashboard" class="header-btn">Back to list</button>
-        </div>
-    </div>
 
     <div id="storeList"></div>
 </div>
 
 <div id="collapseBubble">►</div>
-<div id="errorMessage"></div>
-<div id="updateNotification">Map data updated. Reloading...</div>
+
+<!-- BOTTOM DASHBOARD -->
+<div id="bottomDashboard">
+    <div id="dashboardHandle">▲ Dashboard</div>
+    <div id="dashboardContent"></div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-// Show error message
+/* ------------------------------
+   ERROR + NOTIFICATION HANDLING
+--------------------------------*/
 function showError(message) {
-    const errorDiv = document.getElementById("errorMessage");
-    errorDiv.textContent = message;
-    errorDiv.style.display = "block";
-    setTimeout(() => {
-        errorDiv.style.display = "none";
-    }, 5000);
+    alert(message);
 }
 
-// Show update notification
 function showUpdateNotification() {
-    const notifDiv = document.getElementById("updateNotification");
-    notifDiv.style.display = "block";
-    setTimeout(() => {
-        location.reload();
-    }, 2000);
+    alert("Map data updated. Reloading...");
+    location.reload();
 }
 
+/* ------------------------------
+   SNAPSHOT STORAGE
+--------------------------------*/
 const SNAPSHOT_KEY = 'outageSnapshots_v1';
-const SNAPSHOT_WINDOW_MS = 48 * 60 * 60 * 1000; // 48 hours
+const SNAPSHOT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 function loadSnapshots() {
     try {
         const raw = localStorage.getItem(SNAPSHOT_KEY);
         return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-        console.warn('Failed to load snapshots', e);
+    } catch {
         return [];
     }
 }
 
 function saveSnapshots(arr) {
-    try {
-        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(arr));
-    } catch (e) {
-        console.warn('Failed to save snapshots', e);
-    }
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(arr));
 }
 
 function saveSnapshot(count) {
     const snaps = loadSnapshots();
     const now = Date.now();
-    snaps.push({ ts: now, count: count });
-    // prune older than 48h
+    snaps.push({ ts: now, count });
     const cutoff = now - SNAPSHOT_WINDOW_MS;
-    const pruned = snaps.filter(s => s.ts >= cutoff);
-    saveSnapshots(pruned);
+    saveSnapshots(snaps.filter(s => s.ts >= cutoff));
 }
 
-function computeAggregates(stores) {
-    const totalStores = stores.length;
-    const outageStores = stores.filter(s => s.color && s.color !== 'white');
-    const totalOutages = outageStores.length;
-
-    const byState = {};
-    const byProvider = {};
-
-    outageStores.forEach(s => {
-        const st = s.State || 'Unknown';
-        const prov = s['Vendor Name'] || s.providerWebsite || 'Unknown';
-        byState[st] = (byState[st] || 0) + 1;
-        byProvider[prov] = (byProvider[prov] || 0) + 1;
-    });
-
-    return { totalStores, totalOutages, byState, byProvider };
-}
-
-let trendChart = null;
-
-function renderDashboard(stores) {
-    const agg = computeAggregates(stores);
-    document.getElementById('totalStores').textContent = agg.totalStores;
-    document.getElementById('totalOutages').textContent = agg.totalOutages;
-    document.getElementById('uniqueProviders').textContent = Object.keys(agg.byProvider).length;
-
-    const lastSnap = loadSnapshots().slice(-1)[0];
-    document.getElementById('lastSnapshot').textContent = lastSnap ? new Date(lastSnap.ts).toLocaleString() : 'N/A';
-
-    // render top states
-    const stateEntries = Object.entries(agg.byState).sort((a,b) => b[1]-a[1]);
-    const byStateDiv = document.getElementById('byState');
-    byStateDiv.innerHTML = '';
-    stateEntries.slice(0,10).forEach(([st, cnt]) => {
-        const div = document.createElement('div');
-        div.className = 'dash-list-item';
-        div.textContent = `${st}: ${cnt}`;
-        div.title = `Filter map/list to ${st}`;
-        div.onclick = () => {
-            // close dashboard and filter map
-            document.getElementById('dashboardPanel').style.display = 'none';
-            document.getElementById('storeList').style.display = 'block';
-            if (window.applyFilter) window.applyFilter('state', st);
-        };
-        byStateDiv.appendChild(div);
-    });
-
-    // render top providers
-    const provEntries = Object.entries(agg.byProvider).sort((a,b) => b[1]-a[1]);
-    const byProvDiv = document.getElementById('byProvider');
-    byProvDiv.innerHTML = '';
-    provEntries.slice(0,10).forEach(([p, cnt]) => {
-        const div = document.createElement('div');
-        div.className = 'dash-list-item';
-        div.textContent = `${p}: ${cnt}`;
-        div.title = `Filter map/list to ${p}`;
-        div.onclick = () => {
-            document.getElementById('dashboardPanel').style.display = 'none';
-            document.getElementById('storeList').style.display = 'block';
-            if (window.applyFilter) window.applyFilter('provider', p);
-        };
-        byProvDiv.appendChild(div);
-    });
-
-    // draw trend chart from snapshots
-    const snaps = loadSnapshots();
-    const cutoff = Date.now() - SNAPSHOT_WINDOW_MS;
-    const filtered = snaps.filter(s => s.ts >= cutoff);
-    const labels = filtered.map(s => new Date(s.ts).toLocaleString());
-    const data = filtered.map(s => s.count);
-
-    const ctx = document.getElementById('trendChart').getContext('2d');
-    if (trendChart) {
-        trendChart.data.labels = labels;
-        trendChart.data.datasets[0].data = data;
-        trendChart.update();
-    } else {
-        trendChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Active outages',
-                    data: data,
-                    backgroundColor: 'rgba(255,99,132,0.2)',
-                    borderColor: 'rgba(255,99,132,1)',
-                    borderWidth: 1,
-                    tension: 0.3,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { display: true, title: { display: false } },
-                    y: { beginAtZero: true }
-                }
-            }
-        });
-    }
-}
-
-Promise.all([
-    fetch("Sites-small.csv").then(r => {
-        if (!r.ok) throw new Error(`Failed to load Sites-small.csv: ${r.status}`);
-        return r.text();
-    }),
-    fetch("outages.json").then(r => {
-        if (!r.ok) throw new Error(`Failed to load outages.json: ${r.status}`);
-        return r.json();
-    })
-]).then(([csvText, outages]) => {
-    const stores = parseCSV(csvText);
-    if (stores.length === 0) {
-        throw new Error("No valid stores found in CSV data");
-    }
-    mergeOutageData(stores, outages);
-
-    // save a startup snapshot of current outages
-    const currentOutages = stores.filter(s => s.color && s.color !== 'white').length;
-    saveSnapshot(currentOutages);
-
-    initMap(stores);
-
-    document.getElementById('closeDashboard').addEventListener('click', () => {
-        // when closing dashboard, return to default list
-        document.getElementById('dashboardPanel').style.display = 'none';
-        document.getElementById('storeList').style.display = 'block';
-        document.getElementById('filterSelect').value = 'all';
-        renderStoreList();
-    });
-
-}).catch(err => {
-    console.error("Fatal error:", err);
-    showError(`Error loading map data: ${err.message}`);
-    document.getElementById("map").innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#d32f2f;font-size:18px;">
-            <div style="text-align:center;">
-                <p>Failed to load map data</p>
-                <p style="font-size:14px;">${err.message}</p>
-                <button onclick="location.reload()" style="padding:10px 20px;margin-top:10px;background:#d32f2f;color:white;border:none;border-radius:4px;cursor:pointer;">
-                    Retry
-                </button>
-            </div>
-        </div>
-    `;
-});
-
+/* ------------------------------
+   CSV PARSER
+--------------------------------*/
 function parseCSV(text) {
-    if (!text || text.trim().length === 0) {
-        throw new Error("CSV file is empty");
-    }
+    const lines = text.trim().split("\n");
+    const headers = lines[0].split(",").map(h => h.trim());
 
-    const lines = text.trim().split("\n").filter(line => line.trim());
-
-    if (lines.length < 2) {
-        throw new Error("CSV file must contain headers and at least one data row");
-    }
-
-    // Split headers safely
-    const headerLine = lines[0];
-    const headers = headerLine
-        .match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
-        .map(h => h.replace(/"/g, "").trim());
-
-    if (headers.length === 0) {
-        throw new Error("Invalid CSV headers");
-    }
-
-    return lines.slice(1).map((line, rowIndex) => {
-        if (!line.trim()) return null;
-
-        // Split respecting quoted commas
-        const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
-        if (!cols || cols.length === 0) {
-            console.warn(`Skipping row ${rowIndex + 2}: unable to parse`);
-            return null;
-        }
-
+    return lines.slice(1).map(line => {
+        const cols = line.split(",");
         let obj = {};
-        headers.forEach((h, i) => {
-            obj[h] = cols[i]?.replace(/"/g, "").trim() || "";
-        });
+        headers.forEach((h, i) => obj[h] = cols[i]?.trim() || "");
 
-        // Validate required fields
-        if (!obj["Site #"] || !obj.SiteName) {
-            console.warn(`Skipping row ${rowIndex + 2}: missing required fields`);
-            return null;
-        }
-
-        // Clean coordinates
-        let rawLat = (obj.Latitude || "").replace(/[^\d\.\-]/g, "").trim();
-        let rawLon = (obj.Longitude || "").replace(/[^\d\.\-]/g, "").trim();
-
-        obj.Latitude = parseFloat(rawLat) || NaN;
-        obj.Longitude = parseFloat(rawLon) || NaN;
+        obj.Latitude = parseFloat(obj.Latitude) || NaN;
+        obj.Longitude = parseFloat(obj.Longitude) || NaN;
 
         return obj;
-    }).filter(Boolean);
+    });
 }
 
+/* ------------------------------
+   OUTAGE MERGE
+--------------------------------*/
 function mergeOutageData(stores, outages) {
-    if (!Array.isArray(outages)) {
-        console.warn("Outages data is not an array, treating all stores as no outage");
-        outages = [];
-    }
-
     stores.forEach(store => {
         const match = outages.find(o => o.storeNumber == store["Site #"]);
 
@@ -511,28 +293,90 @@ function mergeOutageData(stores, outages) {
         } else {
             store.color = "white";
             store.status = "No outage";
-            store.distanceMiles = "";
-            store.outageLat = "";
-            store.outageLon = "";
-            store.etr = "";
-            store.lastUpdated = "";
             store.providerWebsite = store["Vendor Link"] || "";
         }
     });
 }
 
-function initMap(stores) {
-    // expose minimal APP object for cross-function interactions (dashboard -> map/list)
-    window.APP = window.APP || {};
-    window.APP.stores = stores;
+/* ------------------------------
+   DASHBOARD RENDER
+--------------------------------*/
+let trendChart = null;
 
-    // default USA view
+function renderDashboard(stores) {
+    const container = document.getElementById("dashboardContent");
+    container.innerHTML = "";
+
+    const totalStores = stores.length;
+    const outageStores = stores.filter(s => s.color !== "white");
+    const totalOutages = outageStores.length;
+
+    const byState = {};
+    const byProvider = {};
+
+    outageStores.forEach(s => {
+        byState[s.State] = (byState[s.State] || 0) + 1;
+        byProvider[s["Vendor Name"]] = (byProvider[s["Vendor Name"]] || 0) + 1;
+    });
+
+    container.innerHTML += `
+        <div class="dash-cards">
+            <div class="dash-card"><h3>Total Stores</h3><p>${totalStores}</p></div>
+            <div class="dash-card"><h3>Current Outages</h3><p>${totalOutages}</p></div>
+            <div class="dash-card"><h3>Unique Providers</h3><p>${Object.keys(byProvider).length}</p></div>
+            <div class="dash-card"><h3>Last Snapshot</h3><p>${new Date().toLocaleString()}</p></div>
+        </div>
+
+        <h3>Outages by State</h3>
+        <div id="byState" class="dash-list"></div>
+
+        <h3>Outages by Provider</h3>
+        <div id="byProvider" class="dash-list"></div>
+
+        <h3>24–48h Outage Trend</h3>
+        <canvas id="trendChart" width="320" height="160"></canvas>
+    `;
+
+    const stateDiv = document.getElementById("byState");
+    Object.entries(byState).forEach(([st, cnt]) => {
+        stateDiv.innerHTML += `<div class="dash-list-item">${st}: ${cnt}</div>`;
+    });
+
+    const provDiv = document.getElementById("byProvider");
+    Object.entries(byProvider).forEach(([p, cnt]) => {
+        provDiv.innerHTML += `<div class="dash-list-item">${p}: ${cnt}</div>`;
+    });
+
+    const snaps = loadSnapshots();
+    const labels = snaps.map(s => new Date(s.ts).toLocaleString());
+    const data = snaps.map(s => s.count);
+
+    const ctx = document.getElementById("trendChart").getContext("2d");
+    trendChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels,
+            datasets: [{
+                label: "Active outages",
+                data,
+                backgroundColor: "rgba(255,99,132,0.2)",
+                borderColor: "rgba(255,99,132,1)",
+                borderWidth: 1,
+                tension: 0.3,
+                fill: true
+            }]
+        }
+    });
+}
+
+/* ------------------------------
+   MAP INITIALIZATION
+--------------------------------*/
+function initMap(stores) {
     const USA_CENTER = [37.5, -95.5];
     const USA_ZOOM = 5;
 
     let map = L.map("map").setView(USA_CENTER, USA_ZOOM);
-    window.APP.map = map;
-
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
     const iconColors = {
@@ -542,25 +386,15 @@ function initMap(stores) {
     };
 
     let markers = {};
-    window.APP.markers = markers;
-    let circles = {}; // store shaded outage circle overlays per store
-    let skippedCount = 0;
 
     stores.forEach(store => {
-        let lat = store.outageLat ? parseFloat(store.outageLat) : store.Latitude;
-        let lon = store.outageLon ? parseFloat(store.outageLon) : store.Longitude;
+        let lat = store.Latitude;
+        let lon = store.Longitude;
 
-        if (isNaN(lat) || isNaN(lon)) {
-            console.warn("Skipping store due to invalid coordinates:", store["Site #"], lat, lon);
-            skippedCount++;
-            return;
-        }
-
-        // Fallback for unknown colors
-        const markerColor = store.color && iconColors[store.color] ? store.color : "white";
+        if (isNaN(lat) || isNaN(lon)) return;
 
         let icon = L.icon({
-            iconUrl: iconColors[markerColor],
+            iconUrl: iconColors[store.color] || iconColors.white,
             shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
             iconSize: [25, 41],
             iconAnchor: [12, 41],
@@ -569,135 +403,51 @@ function initMap(stores) {
 
         let marker = L.marker([lat, lon], { icon });
 
-        // Build popup content without showing raw coordinates and include outage/vendor link
-        const outageLinkHTML = store.providerWebsite ? `\n            <b>Outage Map:</b> <a href="${store.providerWebsite}" target="_blank" rel="noopener noreferrer">View Outage/Provider Site</a><br>\n        ` : "";
-
-        const addressHTML = store.Location ? `\n            <b>Address:</b> ${store.Location}<br>` : "";
-
         marker.bindPopup(`
-            <b>Store ${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
-            ${addressHTML}
+            <b>Store ${store["Site #"]} – ${store.SiteName}</b><br>
             ${store.City}, ${store.State}<br><br>
-
             <b>Status:</b> ${store.status}<br>
             <b>ETA:</b> ${store.etr || "N/A"}<br>
-            <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
-            <b>Distance to Outage:</b> ${store.distanceMiles || "N/A"}<br><br>
-
-            ${outageLinkHTML}
+            <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br><br>
+            ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
         `);
 
         marker.addTo(map);
         markers[store["Site #"]] = marker;
-
-        // If we have a numeric distance (in miles) and the store is marked as an outage, draw a faded shaded circle
-        const miles = parseFloat(store.distanceMiles);
-        if (!isNaN(miles) && miles > 0 && store.color && store.color !== "white") {
-            // choose center: prefer outage location if provided, else store location
-            const centerLat = (store.outageLat && !isNaN(parseFloat(store.outageLat))) ? parseFloat(store.outageLat) : store.Latitude;
-            const centerLon = (store.outageLon && !isNaN(parseFloat(store.outageLon))) ? parseFloat(store.outageLon) : store.Longitude;
-
-            if (!isNaN(centerLat) && !isNaN(centerLon)) {
-                const radiusMeters = miles * 1609.34; // miles -> meters
-                const fillColor = store.color === 'red' ? '#ff0000' : (store.color === 'yellow' ? '#ffea00' : '#999');
-
-                const circle = L.circle([centerLat, centerLon], {
-                    radius: radiusMeters,
-                    color: fillColor,
-                    weight: 1,
-                    fillColor: fillColor,
-                    fillOpacity: 0.12,
-                    interactive: false
-                }).addTo(map);
-
-                circles[store["Site #"]] = circle;
-            }
-        }
     });
 
-    if (skippedCount > 0) {
-        console.warn(`${skippedCount} stores skipped due to invalid data`);
-    }
+    /* ------------------------------
+       STORE LIST RENDER
+    --------------------------------*/
+    const storeListDiv = document.getElementById("storeList");
+    const filterSelect = document.getElementById("filterSelect");
 
-    let storeListDiv = document.getElementById("storeList");
-    let filterSelect = document.getElementById("filterSelect");
-
-    // track current applied extraFilter for clearing and badge
-    window.currentExtraFilter = null;
-
-    function setFilterBadge(text) {
-        const badge = document.getElementById('filterBadge');
-        const txt = document.getElementById('filterText');
-        if (text) {
-            txt.textContent = text;
-            badge.style.display = 'inline-flex';
-        } else {
-            badge.style.display = 'none';
-            txt.textContent = '';
-        }
-    }
-
-    function clearFilter() {
-        try {
-            window.currentExtraFilter = null;
-            setFilterBadge(null);
-            document.getElementById('searchBar').value = '';
-            document.getElementById('filterSelect').value = 'all';
-            renderStoreList();
-            // reset map
-            map.setView(USA_CENTER, USA_ZOOM);
-        } catch (e) {
-            console.error('clearFilter error', e);
-            showError('Failed to clear filter');
-        }
-    }
-
-    function renderStoreList(filterText = "", extraFilter = null) {
-        // If called without extraFilter and there is a stored currentExtraFilter, use it
-        if (!extraFilter && window.currentExtraFilter) extraFilter = window.currentExtraFilter;
-
+    function renderStoreList(filterText = "") {
         storeListDiv.innerHTML = "";
 
-        const filteredStores = stores
-            .filter(store => {
-                if (filterSelect.value === "outages" && store.color === "white") {
-                    return false;
-                }
+        const filtered = stores.filter(s => {
+            if (filterSelect.value === "outages" && s.color === "white") return false;
 
-                if (extraFilter && !extraFilter(store)) {
-                    return false;
-                }
+            const siteNum = s["Site #"].toLowerCase();
+            const siteName = s.SiteName.toLowerCase();
+            const city = s.City.toLowerCase();
 
-                if (!filterText) return true;
+            return (
+                siteNum.includes(filterText) ||
+                siteName.includes(filterText) ||
+                city.includes(filterText)
+            );
+        });
 
-                const siteNum = (store["Site #"] || "").toLowerCase();
-                const siteName = (store.SiteName || "").toLowerCase();
-                const city = (store.City || "").toLowerCase();
-
-                return (
-                    siteNum.includes(filterText) ||
-                    siteName.includes(filterText) ||
-                    city.includes(filterText)
-                );
-            });
-
-        if (filteredStores.length === 0) {
-            storeListDiv.innerHTML = `<div style="padding: 10px; color: #999; text-align: center;">No stores found</div>`;
-            return;
-        }
-
-        filteredStores.forEach(store => {
+        filtered.forEach(store => {
             let div = document.createElement("div");
             div.className = "store-item";
 
-            // Include outage/vendor link in the list as well (small clickable text)
-            const listLink = store.providerWebsite ? `<div style="margin-top:6px;"><a href="${store.providerWebsite}" target="_blank" rel="noopener noreferrer" style="color:#9ec9ff;">Open Outage Map</a></div>` : "";
-
             div.innerHTML = `
-                <b>${store["Site #"].replace(/^0+/, "")} – ${store.SiteName}</b><br>
+                <b>${store["Site #"]} – ${store.SiteName}</b><br>
                 ${store.City}, ${store.State}<br>
-                <span style="color:${store.color || "white"}">● ${(store.color || "white").toUpperCase()}</span>
-                ${listLink}
+                <span style="color:${store.color}">● ${store.color.toUpperCase()}</span><br>
+                ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank" style="color:#9ec9ff;">Outage Map</a>` : ""}
             `;
 
             div.onclick = () => {
@@ -705,8 +455,6 @@ function initMap(stores) {
                 if (marker) {
                     map.setView(marker.getLatLng(), 14);
                     marker.openPopup();
-                } else {
-                    console.warn("Marker not found for store:", store["Site #"]);
                 }
             };
 
@@ -714,179 +462,79 @@ function initMap(stores) {
         });
     }
 
-    // expose renderStoreList for dashboard filters
-    window.APP.renderStoreList = renderStoreList;
-
     renderStoreList();
 
     document.getElementById("searchBar").addEventListener("input", e => {
-        // typing clears any dashboard-applied filter badge (search is a different filter)
-        window.currentExtraFilter = null;
-        setFilterBadge(null);
         renderStoreList(e.target.value.toLowerCase());
     });
 
     filterSelect.addEventListener("change", () => {
-        const val = filterSelect.value;
-        if (val === 'all') {
-            // "All Stores" is selected - return to default list view
-            clearFilter();
-            return;
-        }
-        
-        if (val === 'summary') {
-            // open dashboard panel - clear filters and return to default list when dashboard closes
-            clearFilter();
-            document.getElementById('storeList').style.display = 'none';
-            document.getElementById('dashboardPanel').style.display = 'block';
-            renderDashboard(stores);
-            // reset select back to all to avoid staying on 'summary'
-            filterSelect.value = 'all';
-            return;
-        }
-
-        // regular filter change clears dashboard filters
-        window.currentExtraFilter = null;
-        setFilterBadge(null);
         renderStoreList(document.getElementById("searchBar").value.toLowerCase());
     });
 
-    // applyFilter: invoked when a dashboard row is clicked
-    window.applyFilter = function(type, key) {
-        try {
-            const searchBar = document.getElementById('searchBar');
-            const filterSelect = document.getElementById('filterSelect');
-            searchBar.value = '';
-            filterSelect.value = 'all';
-
-            let extraFilter = null;
-            let badgeText = '';
-            if (type === 'state') {
-                extraFilter = s => ((s.State || '').toLowerCase() === (key || '').toLowerCase());
-                badgeText = `State: ${key}`;
-            } else if (type === 'provider') {
-                const lowerKey = (key || '').toLowerCase();
-                extraFilter = s => ((s['Vendor Name'] || '').toLowerCase() === lowerKey) || ((s.providerWebsite || '').toLowerCase().includes(lowerKey));
-                badgeText = `Provider: ${key}`;
-            }
-
-            window.currentExtraFilter = extraFilter;
-            setFilterBadge(badgeText);
-
-            // re-render list with filter
-            renderStoreList('', extraFilter);
-
-            // fit map to results
-            const matched = stores.filter(s => extraFilter ? extraFilter(s) : true);
-            const latlngs = matched.map(s => {
-                const m = markers[s['Site #']];
-                return m ? m.getLatLng() : null;
-            }).filter(Boolean);
-
-            if (latlngs.length) {
-                const bounds = L.latLngBounds(latlngs).pad(0.15);
-                map.fitBounds(bounds);
-
-                // open first marker popup
-                const first = matched[0];
-                const firstMarker = markers[first['Site #']];
-                if (firstMarker) firstMarker.openPopup();
-            } else {
-                showError('No stores found for selection');
-            }
-        } catch (e) {
-            console.error('applyFilter error', e);
-            showError('Failed to apply filter');
-        }
-    };
-
+    /* ------------------------------
+       SIDEBAR COLLAPSE
+    --------------------------------*/
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("toggleBtn");
     const collapseBubble = document.getElementById("collapseBubble");
 
-    toggleBtn.onclick = () => {
-        sidebar.classList.add("collapsed");
+    toggleBtn.onclick = () => sidebar.classList.add("collapsed");
+    collapseBubble.onclick = () => sidebar.classList.remove("collapsed");
+
+    /* ------------------------------
+       BOTTOM DASHBOARD
+    --------------------------------*/
+    const bottomDash = document.getElementById("bottomDashboard");
+    const dashHandle = document.getElementById("dashboardHandle");
+
+    dashHandle.onclick = () => {
+        bottomDash.classList.toggle("expanded");
+        if (bottomDash.classList.contains("expanded")) {
+            renderDashboard(stores);
+        }
     };
 
-    collapseBubble.onclick = () => {
-        sidebar.classList.remove("collapsed");
-    };
-
-    // Default view button handling (reset to USA view)
-    const defaultViewBtn = document.getElementById("defaultViewBtn");
-    defaultViewBtn.addEventListener("click", () => {
-        // clear any filters as well
-        clearFilter();
-        map.setView(USA_CENTER, USA_ZOOM);
-    });
-
-    let legend = L.control({ position: "bottomleft" });
-
-    legend.onAdd = function () {
-        let div = L.DomUtil.create("div", "legend");
-
-        div.style.background = "#1e1e1e";
-        div.style.color = "white";
-        div.style.padding = "10px";
-        div.style.borderRadius = "6px";
-        div.style.lineHeight = "1.6";
-        div.style.boxShadow = "0 0 5px rgba(0,0,0,0.4)";
-
-        div.innerHTML = `
-            <div style="display:flex;align-items:center;">
-                <span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
-                Outage (0–0.5 miles)
-            </div>
-
-            <div style="display:flex;align-items:center;">
-                <span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
-                Possible Outage (0.5–1 mile)
-            </div>
-
-            <div style="display:flex;align-items:center;">
-                <span style="background:white;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;border:1px solid #999;"></span>
-                No Outage
-            </div>
-        `;
-
-        return div;
-    };
-
-    legend.addTo(map);
-
+    /* ------------------------------
+       AUTO-REFRESH OUTAGES.JSON
+    --------------------------------*/
     let lastHash = null;
 
     async function checkForUpdate() {
         try {
             const response = await fetch("outages.json", { cache: "no-store" });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
             const text = await response.text();
             const hash = btoa(text);
 
             if (lastHash && lastHash !== hash) {
-                console.log("Map data updated, reloading...");
-                // save a snapshot before reloading
-                const currentOutages = stores.filter(s => s.color && s.color !== 'white').length;
+                const currentOutages = stores.filter(s => s.color !== "white").length;
                 saveSnapshot(currentOutages);
                 showUpdateNotification();
             }
 
             lastHash = hash;
-
-        } catch (err) {
-            console.warn("Auto-refresh check failed:", err);
-            // Don't show error to user, just log it
-        }
+        } catch {}
     }
 
-    // Check for updates every 30 seconds
     setInterval(checkForUpdate, 30000);
-    // Initial check after 5 seconds
     setTimeout(checkForUpdate, 5000);
 }
+
+/* ------------------------------
+   LOAD DATA + INIT
+--------------------------------*/
+Promise.all([
+    fetch("Sites-small.csv").then(r => r.text()),
+    fetch("outages.json").then(r => r.json())
+]).then(([csvText, outages]) => {
+    const stores = parseCSV(csvText);
+    mergeOutageData(stores, outages);
+
+    const currentOutages = stores.filter(s => s.color !== "white").length;
+    saveSnapshot(currentOutages);
+
+    initMap(stores);
+});
 </script>
 
 </body>
