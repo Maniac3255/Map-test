@@ -445,10 +445,9 @@ const weatherLayer = L.layerGroup().addTo(map);
 }
 
 const radarLayer = L.tileLayer(
-    "https://tilecache.rainviewer.com/v2/radar/latest/256/{z}/{x}/{y}/2/1_1.png",
+    "https://tile-a.weather.gc.ca/geomet/?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=RADAR_1KM_RRAI&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&FORMAT=image/png",
     {
-        opacity: 0.55,
-        attribution: "RainViewer"
+        opacity: 0.5
     }
 );
 
