@@ -321,11 +321,11 @@
     .store-popup-title { margin-bottom:6px; font-weight:700; }
     .store-popup-row { margin-top:3px; }
 
-    /* RESPONSIVE BROWSER SIZING */
+    /* RESPONSIVE LAYOUT: changes available space, not map zoom */
     @media (max-width:1200px) {
       :root {
-        --sidebar-width: 330px;
-        --dashboard-height: 300px;
+        --sidebar-width:330px;
+        --dashboard-height:300px;
       }
       .dash-cards { grid-template-columns:repeat(2,minmax(140px,1fr)); }
       .dashboard-grid { grid-template-columns:1fr 1fr; }
@@ -334,8 +334,8 @@
 
     @media (max-width:1000px) {
       :root {
-        --sidebar-width: 310px;
-        --dashboard-height: 285px;
+        --sidebar-width:310px;
+        --dashboard-height:285px;
       }
       .dashboard-grid { grid-template-columns:1fr; }
       .dashboard-section:last-child { grid-column:auto; }
@@ -354,7 +354,6 @@
 
     @media (max-width:520px) {
       :root { --dashboard-height:min(66vh,340px); }
-      .dash-cards { grid-template-columns:1fr 1fr; }
       #dashboardContent { padding:10px; }
       .state-marker-container { transform:scale(.88); transform-origin:center; }
     }
@@ -545,38 +544,37 @@
       resetUSA();
       map.on("drag",()=>map.panInsideBounds(CONFIG.usaBounds,{animate:false}));
       observeMapContainerSize();
-      setTimeout(()=>resizeMapToBrowser({refitUSA:true}),250);
+      setTimeout(()=>{
+        map.invalidateSize({animate:false,pan:false});
+        resetUSA();
+      },250);
     }
 
     function resetUSA(){ if(map) map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false}); }
 
-    function resizeMapToBrowser(options={}) {
+    function resizeMapToBrowser() {
       if(!map) return;
 
-      const refitUSA = options.refitUSA !== false;
       clearTimeout(responsiveResizeTimer);
-
       responsiveResizeTimer=setTimeout(() => {
-        map.invalidateSize({animate:false,pan:false});
+        /* Preserve the exact center and zoom while recalculating map dimensions. */
+        const currentCenter=map.getCenter();
+        const currentZoom=map.getZoom();
 
-        /* Refit only in the national view. Keep a selected state or store in place. */
-        if(refitUSA && !selectedState && !exactStoreMarker) {
-          resetUSA();
-        }
+        map.invalidateSize({animate:false,pan:false});
+        map.setView(currentCenter,currentZoom,{animate:false,reset:true});
 
         if(trendChart && typeof trendChart.resize === "function") {
           trendChart.resize();
         }
-      },120);
+      },100);
     }
 
     function observeMapContainerSize() {
       if(!map || typeof ResizeObserver === "undefined") return;
-
       if(mapResizeObserver) mapResizeObserver.disconnect();
-      mapResizeObserver=new ResizeObserver(() => {
-        resizeMapToBrowser({refitUSA:true});
-      });
+
+      mapResizeObserver=new ResizeObserver(() => resizeMapToBrowser());
       mapResizeObserver.observe(document.getElementById("map"));
     }
 
@@ -839,7 +837,7 @@
       document.body.classList.toggle("sidebar-collapsed",collapsed);
       document.getElementById("sidebar").setAttribute("aria-hidden",collapsed?"true":"false");
       document.getElementById("sidebarTab").setAttribute("aria-expanded",collapsed?"false":"true");
-      setTimeout(()=>resizeMapToBrowser({refitUSA:true}),CONFIG.transitionMs+30);
+      setTimeout(()=>resizeMapToBrowser(),CONFIG.transitionMs+30);
     }
 
     function toggleDashboard(){
@@ -847,7 +845,7 @@
       dash.classList.toggle("expanded",open);document.body.classList.toggle("dashboard-open",open);
       document.getElementById("dashboardHandle").setAttribute("aria-expanded",String(open));
       document.getElementById("dashboardArrow").textContent=open?"▼":"▲";
-      if(open)renderDashboard();setTimeout(()=>resizeMapToBrowser({refitUSA:true}),CONFIG.transitionMs+30);
+      if(open)renderDashboard();setTimeout(()=>resizeMapToBrowser(),CONFIG.transitionMs+30);
     }
 
     function wireUI(){
@@ -857,8 +855,8 @@
       document.getElementById("searchBar").oninput=renderStoreList;
       document.getElementById("searchBar").onkeydown=e=>{if(e.key==="Enter"){const f=filteredStores();if(f.length===1)focusStore(f[0])}};
       document.getElementById("dashboardHandle").onclick=toggleDashboard;
-      window.addEventListener("resize",()=>resizeMapToBrowser({refitUSA:true}));
-      window.addEventListener("orientationchange",()=>setTimeout(()=>resizeMapToBrowser({refitUSA:true}),250));
+      window.addEventListener("resize",resizeMapToBrowser);
+      window.addEventListener("orientationchange",()=>setTimeout(resizeMapToBrowser,250));
     }
 
     async function fetchText(file){const r=await fetch(file,{cache:"no-store"});if(!r.ok)throw new Error(`${file}: HTTP ${r.status}`);return r.text()}
