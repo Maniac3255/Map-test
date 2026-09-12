@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Store Outage Map — Stores + NOAA Radar</title>
+  <title>Store Outage Map — Test 1 (NOAA WMS exposed)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
   <style>
     html,body { height:100%; margin:0; padding:0; font-family:Arial, sans-serif; background:#0f0f0f; color:#fff; }
     #map { position:absolute; top:0; left:0; right:360px; bottom:0; transition:right 0.28s ease; z-index:1; }
@@ -67,10 +66,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Full index: stores + NOAA radar overlay (no API key)
-     - Shows individual store markers
-     - Adds NOAA NowCOAST radar WMS overlay with toggle and opacity control
-     - Keeps sidebar collapse and search/filter behavior
+  /* Full index for Test 1: expose NOAA WMS as window.radarWms and request time=latest.
+     This file intentionally adds the radar layer to the map for testing.
+     If NowCOAST returns 403 due to origin restrictions, use the RainViewer fallback or a proxy.
   */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
@@ -194,7 +192,6 @@
     map.createPane('tilePane');
     map.createPane('storePane'); map.getPane('storePane').style.zIndex = 450;
     map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
-    // radar pane will be created below when adding NOAA layer
 
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
@@ -202,7 +199,7 @@
     weatherLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
     storeLayer = L.layerGroup([], { pane: 'storePane' }).addTo(map);
 
-    // main layer control (store the control so radar snippet can add overlay)
+    // main layer control
     window._customLayerControl = L.control.layers({ "Street Map": osm }, { "Outages": outageLayer, "Weather Alerts": weatherLayer }, { position: "topleft" }).addTo(map);
 
     const legend = L.control({ position: "bottomleft" });
@@ -230,7 +227,7 @@
       } catch(e){}
     })();
 
-    // --- NOAA radar WMS overlay (no API key) ---
+    // --- Test 1: Expose NOAA WMS globally and request time=latest ---
     try {
       if (!map.getPane('radarPane')) {
         map.createPane('radarPane');
@@ -238,27 +235,34 @@
         map.getPane('radarPane').style.pointerEvents = 'none'; // allow clicks to pass through
       }
 
-      const NOAA_WMS_URL = "https://nowcoast.noaa.gov/wms/com.esri.wms.Esrimap/obs";
-      const NOAA_WMS_LAYER = "RAS_Radar_Nexrad_Reflectivity";
-
-      const radarWms = L.tileLayer.wms(NOAA_WMS_URL, {
+      // Expose radarWms globally for console testing
+      window.radarWms = L.tileLayer.wms("https://nowcoast.noaa.gov/wms/com.esri.wms.Esrimap/obs", {
         pane: 'radarPane',
-        layers: NOAA_WMS_LAYER,
+        layers: "RAS_Radar_Nexrad_Reflectivity",
         format: 'image/png',
         transparent: true,
+        time: 'latest', // request latest frame
         attribution: 'NOAA / NWS / NowCOAST',
         opacity: 0.6,
         maxZoom: 12
       });
 
-      // add overlay to existing control
+      // Add to layer control so user can toggle
       if (window._customLayerControl && typeof window._customLayerControl.addOverlay === "function") {
-        window._customLayerControl.addOverlay(radarWms, "NOAA Radar (Reflectivity)");
+        window._customLayerControl.addOverlay(window.radarWms, "NOAA Radar (Reflectivity)");
       } else {
-        L.control.layers({}, { "NOAA Radar (Reflectivity)": radarWms }, { position: "topleft" }).addTo(map);
+        L.control.layers({}, { "NOAA Radar (Reflectivity)": window.radarWms }, { position: "topleft" }).addTo(map);
       }
 
-      // small UI control for opacity and toggle
+      // Add radar to map immediately for testing
+      try {
+        window.radarWms.addTo(map);
+        console.log("window.radarWms added to map for testing");
+      } catch(e) {
+        console.warn("Failed to add radarWms to map:", e);
+      }
+
+      // Small UI control for opacity and toggle (exposed to user)
       (function createRadarOpacityControl(){
         const container = L.DomUtil.create('div', 'radar-opacity-control');
         container.style.background = 'rgba(20,20,20,0.85)';
@@ -270,8 +274,8 @@
         container.innerHTML = `
           <div style="display:flex;align-items:center;gap:8px;">
             <label style="white-space:nowrap;">Radar</label>
-            <input id="radarOpacity" type="range" min="0" max="100" value="${Math.round((radarWms.options.opacity||0.6)*100)}" style="width:120px;">
-            <button id="radarToggleBtn" style="background:#1a73e8;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Show</button>
+            <input id="radarOpacity" type="range" min="0" max="100" value="${Math.round((window.radarWms.options.opacity||0.6)*100)}" style="width:120px;">
+            <button id="radarToggleBtn" style="background:#1a73e8;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Hide</button>
           </div>
         `;
         const control = L.control({ position: 'topright' });
@@ -283,42 +287,40 @@
 
         slider.addEventListener('input', (e) => {
           const v = Number(e.target.value) / 100;
-          radarWms.setOpacity(v);
+          if (window.radarWms) window.radarWms.setOpacity(v);
         });
 
-        let radarVisible = false;
+        let radarVisible = map.hasLayer(window.radarWms);
         toggleBtn.addEventListener('click', (e) => {
           if (radarVisible) {
-            map.removeLayer(radarWms);
+            if (window.radarWms && map.hasLayer(window.radarWms)) map.removeLayer(window.radarWms);
             toggleBtn.textContent = 'Show';
             radarVisible = false;
             stopRadarAutoRefresh();
           } else {
-            radarWms.addTo(map);
+            if (window.radarWms && !map.hasLayer(window.radarWms)) window.radarWms.addTo(map);
             toggleBtn.textContent = 'Hide';
             radarVisible = true;
             startRadarAutoRefresh();
           }
         });
-
-        // start with radar off
-        // radarWms.addTo(map); // do not auto-add
       })();
 
-      // auto-refresh logic (cache-buster)
+      // Auto-refresh logic (cache-buster)
       const RADAR_REFRESH_MS = 30_000;
       let radarRefreshTimer = null;
 
       function refreshRadarLayer() {
         try {
-          // simple cache-buster by toggling a query param
-          const base = NOAA_WMS_URL.split('?')[0];
+          const base = "https://nowcoast.noaa.gov/wms/com.esri.wms.Esrimap/obs";
           const newUrl = base + '?_cb=' + Date.now();
-          radarWms.setUrl(newUrl);
+          if (window.radarWms && typeof window.radarWms.setUrl === 'function') {
+            window.radarWms.setUrl(newUrl);
+          }
         } catch (e) {
-          if (map.hasLayer(radarWms)) {
-            map.removeLayer(radarWms);
-            setTimeout(() => map.addLayer(radarWms), 200);
+          if (window.radarWms && map.hasLayer(window.radarWms)) {
+            map.removeLayer(window.radarWms);
+            setTimeout(() => map.addLayer(window.radarWms), 200);
           }
         }
       }
@@ -326,19 +328,22 @@
       function startRadarAutoRefresh() {
         if (radarRefreshTimer) clearInterval(radarRefreshTimer);
         radarRefreshTimer = setInterval(() => {
-          if (map.hasLayer(radarWms)) refreshRadarLayer();
+          if (window.radarWms && map.hasLayer(window.radarWms)) refreshRadarLayer();
         }, RADAR_REFRESH_MS);
       }
       function stopRadarAutoRefresh() {
         if (radarRefreshTimer) { clearInterval(radarRefreshTimer); radarRefreshTimer = null; }
       }
 
-      // add attribution
+      // Start auto-refresh now that radar is added
+      startRadarAutoRefresh();
+
+      // Add attribution
       try { map.attributionControl.addAttribution('Radar: NOAA NowCOAST'); } catch(e){}
     } catch (e) {
       console.warn("NOAA radar integration failed", e);
     }
-    // --- end NOAA radar snippet ---
+    // --- end Test 1 radar snippet ---
 
     setTimeout(()=> map.invalidateSize(), 300);
 
