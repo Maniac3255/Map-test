@@ -2,676 +2,233 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Store Outage Map</title>
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
-
-  <!-- Leaflet -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  >
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <style>
     :root {
       --sidebar-width: 360px;
       --dashboard-height: 320px;
       --transition-speed: 0.28s;
-
-      --dark-background: #101214;
-      --panel-background: #15181b;
-      --panel-border: #2d3238;
-      --input-background: #202329;
-
-      --text-primary: #ffffff;
-      --text-secondary: #b9c0c8;
-
-      --blue: #1976d2;
-      --blue-hover: #2585df;
-
-      --outage-red: #e53935;
-      --possible-yellow: #fbc02d;
-      --normal-gray: #707780;
+      --panel: #15181b;
+      --panel-border: #30353b;
+      --input: #20242a;
+      --red: #e53935;
+      --yellow: #fbc02d;
+      --gray: #707780;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
+    html, body { width:100%; height:100%; margin:0; overflow:hidden; font-family:Arial,Helvetica,sans-serif; background:#101214; }
+    button, input, select { font:inherit; }
 
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: Arial, Helvetica, sans-serif;
-      background: var(--dark-background);
-      color: var(--text-primary);
-    }
-
-    button,
-    input,
-    select {
-      font: inherit;
-    }
-
-    /* --------------------------------------------------
-       MAP
-    -------------------------------------------------- */
-
+    /* MAP */
     #map {
-      position: absolute;
-      inset: 0 var(--sidebar-width) 0 0;
-      z-index: 1;
-      background: #dce3e8;
-      transition: right var(--transition-speed) ease;
+      position:absolute;
+      inset:0 var(--sidebar-width) 0 0;
+      z-index:1;
+      background:#dce3e8;
+      transition:right var(--transition-speed) ease, bottom var(--transition-speed) ease;
     }
+    body.sidebar-collapsed #map { right:0; }
+    body.dashboard-open #map { bottom:var(--dashboard-height); }
 
-    body.sidebar-collapsed #map {
-      right: 0;
-    }
-
-    /* --------------------------------------------------
-       RIGHT SIDEBAR
-    -------------------------------------------------- */
-
+    /* RIGHT PANEL */
     #sidebar {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-
-      width: var(--sidebar-width);
-      padding: 14px;
-
-      overflow-y: auto;
-      overflow-x: hidden;
-
-      background: var(--panel-background);
-      border-left: 1px solid var(--panel-border);
-
-      z-index: 1000;
-
-      transform: translateX(0);
-      transition: transform var(--transition-speed) ease;
+      position:absolute;
+      top:0;
+      right:0;
+      bottom:0;
+      width:var(--sidebar-width);
+      padding:14px;
+      overflow-y:auto;
+      overflow-x:hidden;
+      color:#fff;
+      background:var(--panel);
+      border-left:1px solid var(--panel-border);
+      z-index:1000;
+      transform:translateX(0);
+      transition:transform var(--transition-speed) ease;
     }
+    body.sidebar-collapsed #sidebar { transform:translateX(100%); }
 
-    body.sidebar-collapsed #sidebar {
-      transform: translateX(100%);
+    #sidebarHeader { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    #sidebarHeader h2 { margin:0; font-size:20px; }
+    #sidebarSubtitle { margin-top:4px; color:#b9c0c8; font-size:12px; }
+    .header-actions { display:flex; gap:6px; }
+    .header-btn { padding:7px 9px; color:#fff; background:var(--input); border:1px solid #3a4149; border-radius:6px; cursor:pointer; }
+    .header-btn:hover { background:#2a2f36; }
+
+    /* Rounded edge faces the map. The tab itself is not rotated. */
+    #sidebarTab {
+      position:absolute;
+      top:50%;
+      right:var(--sidebar-width);
+      min-height:118px;
+      padding:12px 8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      writing-mode:vertical-rl;
+      text-orientation:mixed;
+      transform:translateY(-50%);
+      color:#fff;
+      background:var(--panel);
+      border:1px solid var(--panel-border);
+      border-right:0;
+      border-radius:10px 0 0 10px;
+      box-shadow:-2px 2px 8px rgba(0,0,0,.28);
+      cursor:pointer;
+      user-select:none;
+      z-index:1001;
+      font-size:13px;
+      font-weight:700;
+      letter-spacing:1px;
+      transition:right var(--transition-speed) ease, background var(--transition-speed) ease;
     }
+    #sidebarTab:hover { background:#22272d; }
+    body.sidebar-collapsed #sidebarTab { right:0; }
 
-    #sidebarHeader {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .sidebar-controls { position:sticky; top:-14px; z-index:5; padding:2px 0 10px; background:var(--panel); }
+    #filterSelect, #searchBar { width:100%; margin:0 0 9px; padding:10px; color:#fff; background:var(--input); border:1px solid #3a4149; border-radius:6px; outline:none; }
+    #filterSelect:focus, #searchBar:focus { border-color:#1976d2; box-shadow:0 0 0 2px rgba(25,118,210,.18); }
+    #storeList { padding-bottom:28px; }
+    .store-item { margin:0; padding:12px 4px 12px 12px; color:#fff; background:transparent; border:0; border-bottom:1px solid var(--panel-border); cursor:pointer; }
+    .store-item:hover { background:rgba(255,255,255,.05); }
+    .store-item:focus-visible { outline:2px solid #1976d2; outline-offset:-2px; }
+    .store-title { margin-bottom:5px; font-size:14px; font-weight:700; }
+    .store-address { margin-bottom:5px; color:#b9c0c8; font-size:12px; line-height:1.4; }
+    .store-status { display:flex; align-items:center; gap:7px; margin-top:6px; font-size:12px; font-weight:700; }
+    .status-dot { width:10px; height:10px; display:inline-block; border:1px solid rgba(255,255,255,.4); border-radius:50%; }
+    .provider-link { display:inline-block; margin-top:7px; color:#64b5f6; font-size:12px; text-decoration:none; }
+    .provider-link:hover { text-decoration:underline; }
+    .no-stores { padding:30px 12px; color:#b9c0c8; text-align:center; font-size:13px; }
 
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    #sidebarHeader h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-
-    #sidebarHeaderText {
-      min-width: 0;
-    }
-
-    #sidebarSubtitle {
-      margin-top: 4px;
-      color: var(--text-secondary);
-      font-size: 12px;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .header-btn {
-      padding: 7px 9px;
-
-      color: var(--text-primary);
-      background: var(--input-background);
-
-      border: 1px solid #3a4149;
-      border-radius: 6px;
-
-      cursor: pointer;
-    }
-
-    .header-btn:hover {
-      background: #2a2f36;
-    }
-
-    /* Permanent side tab */
-
-#sidebarTab {
-  position: absolute;
-  top: 50%;
-  right: var(--sidebar-width);
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  min-height: 118px;
-  padding: 12px 8px;
-
-  writing-mode: vertical-rl;
-  transform: translateY(-50%);
-
-  color: #fff;
-  background: var(--panel-background);
-
-  border: 1px solid var(--panel-border);
-  border-right: none;
-  border-radius: 10px 0 0 10px;
-
-  box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.28);
-
-  cursor: pointer;
-  user-select: none;
-  z-index: 1001;
-
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
-
-  transition:
-    right var(--transition-speed) ease,
-    background var(--transition-speed) ease;
-}
-
-    #sidebarTab:hover {
-      background: #22272d;
-    }
-
-    body.sidebar-collapsed #sidebarTab {
-      right: 0;
-    }
-
-    .sidebar-controls {
-      position: sticky;
-      top: -14px;
-      z-index: 5;
-
-      padding-top: 2px;
-      padding-bottom: 10px;
-
-      background: var(--panel-background);
-    }
-
-    #filterSelect,
-    #searchBar {
-      width: 100%;
-      margin: 0 0 9px;
-      padding: 10px;
-
-      color: #fff;
-      background: var(--input-background);
-
-      border: 1px solid #3a4149;
-      border-radius: 6px;
-
-      outline: none;
-    }
-
-    #searchBar:focus,
-    #filterSelect:focus {
-      border-color: var(--blue);
-      box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.18);
-    }
-
-    #storeList {
-      padding-bottom: 30px;
-    }
-
-    .store-item {
-      position: relative;
-
-      margin: 0;
-      padding: 12px 4px 12px 12px;
-
-      color: #fff;
-      background: transparent;
-
-      border: none;
-      border-bottom: 1px solid var(--panel-border);
-
-      cursor: pointer;
-    }
-
-    .store-item:hover {
-      background: rgba(255, 255, 255, 0.045);
-    }
-
-    .store-item:focus-visible {
-      outline: 2px solid var(--blue);
-      outline-offset: -2px;
-    }
-
-    .store-title {
-      margin-bottom: 5px;
-      padding-right: 6px;
-
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .store-address {
-      margin-bottom: 5px;
-
-      color: var(--text-secondary);
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    .store-status {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-
-      margin-top: 6px;
-
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .status-dot {
-      display: inline-block;
-
-      width: 10px;
-      height: 10px;
-
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      border-radius: 50%;
-    }
-
-    .provider-link {
-      display: inline-block;
-      margin-top: 7px;
-
-      color: #64b5f6;
-      font-size: 12px;
-      text-decoration: none;
-    }
-
-    .provider-link:hover {
-      text-decoration: underline;
-    }
-
-    .no-stores {
-      padding: 30px 12px;
-
-      color: var(--text-secondary);
-      text-align: center;
-      font-size: 13px;
-    }
-
-    /* --------------------------------------------------
-       BOTTOM DASHBOARD
-    -------------------------------------------------- */
-
+    /* DASHBOARD */
     #bottomDashboard {
-      position: fixed;
-      right: var(--sidebar-width);
-      bottom: 0;
-      left: 0;
-
-      height: var(--dashboard-height);
-
-      color: #111;
-      background: #f4f6f8;
-
-      border-top: 1px solid #c8ced5;
-      box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.22);
-
-      z-index: 999;
-
-      transform: translateY(100%);
-      transition:
-        transform var(--transition-speed) ease,
-        right var(--transition-speed) ease;
+      position:fixed;
+      right:var(--sidebar-width);
+      bottom:0;
+      left:0;
+      height:var(--dashboard-height);
+      color:#111;
+      background:#f4f6f8;
+      border-top:1px solid #c8ced5;
+      box-shadow:0 -4px 14px rgba(0,0,0,.22);
+      z-index:999;
+      transform:translateY(100%);
+      transition:transform var(--transition-speed) ease, right var(--transition-speed) ease;
     }
-
-    body.sidebar-collapsed #bottomDashboard {
-      right: 0;
-    }
-
-    #bottomDashboard.expanded {
-      transform: translateY(0);
-    }
-
+    body.sidebar-collapsed #bottomDashboard { right:0; }
+    #bottomDashboard.expanded { transform:translateY(0); }
     #dashboardHandle {
-      position: absolute;
-      top: -38px;
-      left: 50%;
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-
-      width: 180px;
-      height: 38px;
-
-      color: #fff;
-      background: var(--panel-background);
-
-      border: 1px solid var(--panel-border);
-      border-bottom: none;
-      border-radius: 12px 12px 0 0;
-
-      transform: translateX(-50%);
-
-      cursor: pointer;
-      user-select: none;
-
-      font-size: 13px;
-      font-weight: 700;
+      position:absolute;
+      top:-38px;
+      left:50%;
+      width:180px;
+      height:38px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      color:#fff;
+      background:var(--panel);
+      border:1px solid var(--panel-border);
+      border-bottom:0;
+      border-radius:12px 12px 0 0;
+      transform:translateX(-50%);
+      cursor:pointer;
+      font-size:13px;
+      font-weight:700;
     }
+    #dashboardContent { height:100%; padding:14px; overflow:auto; }
+    .dash-cards { display:grid; grid-template-columns:repeat(4,minmax(145px,1fr)); gap:10px; margin-bottom:14px; }
+    .dash-card, .dashboard-section { background:#fff; border:1px solid #d8dde3; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.06); }
+    .dash-card { min-height:82px; padding:12px; }
+    .dash-card h3 { margin:0 0 8px; color:#4c545d; font-size:12px; text-transform:uppercase; }
+    .dash-card p { margin:0; font-size:24px; font-weight:700; }
+    .dashboard-grid { display:grid; grid-template-columns:minmax(180px,.75fr) minmax(180px,.75fr) minmax(300px,1.5fr); gap:14px; }
+    .dashboard-section { padding:12px; }
+    .dashboard-section h3 { margin:0 0 10px; font-size:14px; }
+    .dash-list-item { padding:7px 2px; border-bottom:1px solid #edf0f2; font-size:13px; cursor:pointer; }
+    .dash-list-item:hover { color:#1976d2; }
+    .chart-wrapper { position:relative; height:175px; }
 
-    #dashboardHandle:hover {
-      background: #22272d;
-    }
+    /* LEGEND */
+    .map-legend { min-width:150px; padding:10px 12px; color:#fff; background:rgba(21,24,27,.95); border:1px solid #333941; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.32); font-size:12px; line-height:1.8; }
+    .map-legend-title { margin-bottom:4px; font-size:13px; font-weight:700; }
+    .legend-row { display:flex; align-items:center; gap:8px; }
+    .legend-dot { width:11px; height:11px; display:inline-block; border:1px solid rgba(255,255,255,.55); border-radius:50%; }
 
-    #dashboardContent {
-      height: 100%;
-      padding: 14px;
-      overflow: auto;
-    }
-
-    .dash-cards {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(150px, 1fr));
-      gap: 10px;
-
-      margin-bottom: 16px;
-    }
-
-    .dash-card {
-      min-height: 88px;
-      padding: 12px;
-
-      color: #111;
-      background: #fff;
-
-      border: 1px solid #d8dde3;
-      border-radius: 8px;
-
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
-    }
-
-    .dash-card h3 {
-      margin: 0 0 9px;
-
-      color: #4c545d;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-
-    .dash-card p {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 700;
-    }
-
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: minmax(180px, 0.75fr)
-                           minmax(180px, 0.75fr)
-                           minmax(300px, 1.5fr);
-      gap: 14px;
-    }
-
-    .dashboard-section {
-      padding: 12px;
-
-      background: #fff;
-      border: 1px solid #d8dde3;
-      border-radius: 8px;
-    }
-
-    .dashboard-section h3 {
-      margin: 0 0 10px;
-      font-size: 14px;
-    }
-
-    .dash-list-item {
-      padding: 7px 2px;
-
-      border-bottom: 1px solid #edf0f2;
-
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    .dash-list-item:last-child {
-      border-bottom: none;
-    }
-
-    .dash-list-item:hover {
-      color: var(--blue);
-    }
-
-    .chart-wrapper {
-      position: relative;
-      width: 100%;
-      height: 180px;
-    }
-
-    /* --------------------------------------------------
-       LEGEND
-    -------------------------------------------------- */
-
-    .map-legend {
-      min-width: 150px;
-      padding: 10px 12px;
-
-      color: #fff;
-      background: rgba(21, 24, 27, 0.95);
-
-      border: 1px solid #333941;
-      border-radius: 8px;
-
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
-
-      font-size: 12px;
-      line-height: 1.8;
-    }
-
-    .map-legend-title {
-      margin-bottom: 4px;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .legend-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .legend-dot {
-      display: inline-block;
-
-      width: 11px;
-      height: 11px;
-
-      border: 1px solid rgba(255, 255, 255, 0.55);
-      border-radius: 50%;
-    }
-
-    /* Move legend above dashboard handle when dashboard is open. */
-
-    body.dashboard-open .leaflet-bottom {
-      bottom: var(--dashboard-height);
-      transition: bottom var(--transition-speed) ease;
-    }
-
-    body:not(.dashboard-open) .leaflet-bottom {
-      bottom: 0;
-      transition: bottom var(--transition-speed) ease;
-    }
-
-    /* --------------------------------------------------
-       CUSTOM STORE MARKERS
-    -------------------------------------------------- */
-
-    .store-marker-wrapper {
-      background: transparent;
-      border: none;
-    }
-
+    /* STORE MARKERS */
+    .store-marker-wrapper { overflow:visible !important; background:transparent; border:0; }
+    .store-marker-container { position:relative; width:58px; height:58px; overflow:visible; pointer-events:auto; }
     .store-marker-pin {
-      position: relative;
-
-      width: 24px;
-      height: 24px;
-
-      border: 3px solid #fff;
-      border-radius: 50% 50% 50% 0;
-
-      box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.55),
-        0 0 0 1px rgba(0, 0, 0, 0.3);
-
-      transform: rotate(-45deg);
+      position:absolute;
+      left:17px;
+      bottom:8px;
+      width:24px;
+      height:24px;
+      background:var(--gray);
+      border:3px solid #fff;
+      border-radius:50% 50% 50% 0;
+      box-shadow:0 2px 7px rgba(0,0,0,.75),0 0 0 1px rgba(0,0,0,.4);
+      transform:rotate(-45deg);
+      z-index:3;
     }
-
-    .store-marker-pin::after {
-      position: absolute;
-      top: 6px;
-      left: 6px;
-
-      width: 6px;
-      height: 6px;
-
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 50%;
-
-      content: "";
+    .store-marker-pin::after { position:absolute; top:6px; left:6px; width:6px; height:6px; background:#fff; border-radius:50%; content:""; }
+    .marker-red { background:var(--red); }
+    .marker-yellow { background:var(--yellow); }
+    .marker-gray { background:var(--gray); }
+    .active-outage-marker .store-marker-pin::after, .possible-outage-marker .store-marker-pin::after { display:none; }
+    .marker-symbol { position:absolute; top:1px; left:2px; width:15px; height:15px; display:flex; align-items:center; justify-content:center; color:#fff; transform:rotate(45deg); font-size:13px; font-weight:900; line-height:1; z-index:4; }
+    .outage-pulse-ring {
+      position:absolute;
+      left:9px;
+      top:9px;
+      width:40px;
+      height:40px;
+      border:4px solid var(--red);
+      border-radius:50%;
+      background:rgba(229,57,53,.22);
+      box-shadow:0 0 0 3px rgba(255,255,255,.9),0 0 16px 7px rgba(229,57,53,.65);
+      pointer-events:none;
+      z-index:1;
+      animation:outagePulse 1.6s ease-out infinite;
     }
+    .possible-outage-marker .outage-pulse-ring { border-color:var(--yellow); background:rgba(251,192,45,.23); box-shadow:0 0 0 3px rgba(255,255,255,.9),0 0 16px 7px rgba(251,192,45,.65); }
+    .active-outage-marker .store-marker-pin { left:15px; width:28px; height:28px; border-width:4px; box-shadow:0 3px 9px rgba(0,0,0,.85),0 0 12px rgba(229,57,53,.95); }
+    .active-outage-marker .marker-symbol { top:2px; left:3px; width:17px; height:17px; }
+    @keyframes outagePulse { 0%{transform:scale(.72);opacity:1} 70%{transform:scale(1.25);opacity:.35} 100%{transform:scale(1.42);opacity:0} }
+    @media (prefers-reduced-motion:reduce) { .outage-pulse-ring { animation:none; transform:scale(1); opacity:.85; } }
 
-    .marker-red {
-      background: var(--outage-red);
+    .store-popup { min-width:210px; line-height:1.45; }
+    .store-popup-title { margin-bottom:6px; font-weight:700; }
+    .store-popup-row { margin-top:3px; }
+
+    @media (max-width:800px) {
+      :root { --sidebar-width:min(90vw,360px); }
+      #map, #bottomDashboard { right:0; }
+      .dash-cards { grid-template-columns:repeat(2,minmax(120px,1fr)); }
+      .dashboard-grid { grid-template-columns:1fr; }
     }
-
-    .marker-yellow {
-      background: var(--possible-yellow);
-    }
-
-    .marker-gray {
-      background: var(--normal-gray);
-    }
-
-    /* --------------------------------------------------
-       POPUPS
-    -------------------------------------------------- */
-
-    .store-popup {
-      min-width: 210px;
-      line-height: 1.45;
-    }
-
-    .store-popup-title {
-      margin-bottom: 6px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .store-popup-row {
-      margin-top: 3px;
-    }
-
-    .store-popup a {
-      color: var(--blue);
-    }
-
-    /* --------------------------------------------------
-       MOBILE
-    -------------------------------------------------- */
-
-    @media (max-width: 800px) {
-      :root {
-        --sidebar-width: min(90vw, 360px);
-      }
-
-      #map {
-        right: 0;
-      }
-
-      #sidebar {
-        width: var(--sidebar-width);
-      }
-
-      #bottomDashboard {
-        right: 0;
-      }
-
-      .dash-cards {
-        grid-template-columns: repeat(2, minmax(120px, 1fr));
-      }
-
-      .dashboard-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-height: 600px) {
-      :root {
-        --dashboard-height: 270px;
-      }
-    }
+    @media (max-height:600px) { :root { --dashboard-height:270px; } }
   </style>
 </head>
-
 <body class="sidebar-collapsed">
-
-  <!-- Map -->
   <div id="map"></div>
 
-  <!-- Right-side store panel -->
-  <aside
-    id="sidebar"
-    role="complementary"
-    aria-label="Store outage list"
-    aria-hidden="true"
-  >
+  <aside id="sidebar" aria-label="Store outage list" aria-hidden="true">
     <div id="sidebarHeader">
-      <div id="sidebarHeaderText">
+      <div>
         <h2>Store Outages</h2>
         <div id="sidebarSubtitle">Loading stores...</div>
       </div>
-
       <div class="header-actions">
-        <button
-          id="resetMapBtn"
-          class="header-btn"
-          type="button"
-          title="Reset map to continental USA"
-        >
-          USA
-        </button>
-
-        <button
-          id="collapseSidebarBtn"
-          class="header-btn"
-          type="button"
-          title="Collapse store panel"
-          aria-label="Collapse store panel"
-        >
-          ▶
-        </button>
+        <button id="resetMapBtn" class="header-btn" type="button">USA</button>
+        <button id="collapseSidebarBtn" class="header-btn" type="button" aria-label="Collapse store panel">&#9654;</button>
       </div>
     </div>
 
@@ -682,1558 +239,331 @@
         <option value="possible">Possible Outages Only</option>
         <option value="normal">Normal Stores Only</option>
       </select>
-
-      <input
-        id="searchBar"
-        type="search"
-        placeholder="Search store, name, city, state..."
-        autocomplete="off"
-        aria-label="Search stores"
-      >
+      <input id="searchBar" type="search" placeholder="Search store, name, city, state..." autocomplete="off">
     </div>
-
     <div id="storeList"></div>
   </aside>
 
-  <!-- Permanent side tab -->
-  <button
-    id="sidebarTab"
-    type="button"
-    aria-label="Open or close store panel"
-    aria-expanded="false"
-  >
-    STORES
-  </button>
+  <button id="sidebarTab" type="button" aria-expanded="false">STORES</button>
 
-  <!-- Bottom dashboard -->
-  <section
-    id="bottomDashboard"
-    aria-label="Outage dashboard"
-  >
-    <button
-      id="dashboardHandle"
-      type="button"
-      aria-expanded="false"
-    >
-      <span id="dashboardArrow">▲</span>
-      <span>Dashboard</span>
+  <section id="bottomDashboard" aria-label="Outage dashboard">
+    <button id="dashboardHandle" type="button" aria-expanded="false">
+      <span id="dashboardArrow">&#9650;</span><span>Dashboard</span>
     </button>
-
     <div id="dashboardContent"></div>
   </section>
 
-  <!-- Leaflet -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  ></script>
-
-  <!-- Chart.js -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/chart.js"
-  ></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
     "use strict";
 
-    /* ==================================================
-       CONFIGURATION
-    ================================================== */
-
     const CONFIG = {
-      sitesFile: "Sites.csv",
-      outagesFile: "outages.json",
-
-      snapshotKey: "storeOutageSnapshots_v2",
-
-      snapshotRetentionHours: 48,
-      snapshotMinimumIntervalMinutes: 15,
-
-      sidebarTransitionMilliseconds: 280,
-
-      markerZoom: 14,
-
-      /*
-       * Continental USA working bounds.
-       *
-       * These limits prevent normal panning far into Canada,
-       * Mexico, or the surrounding oceans.
-       */
-      usaBounds: [
-        [24.2, -125.0],
-        [49.5, -66.7]
-      ],
-
-      /*
-       * A slightly tighter display boundary used for the
-       * initial Reset USA view.
-       */
-      usaDisplayBounds: [
-        [24.5, -124.8],
-        [49.3, -67.0]
-      ]
+      sitesFile:"Sites.csv",
+      outagesFile:"outages.json",
+      snapshotKey:"storeOutageSnapshots_v3",
+      snapshotRetentionHours:48,
+      snapshotMinimumIntervalMinutes:15,
+      transitionMs:280,
+      markerZoom:13,
+      usaBounds:[[24.2,-125.0],[49.5,-66.7]],
+      usaDisplayBounds:[[24.5,-124.8],[49.3,-67.0]]
     };
 
-    /* ==================================================
-       GLOBAL STATE
-    ================================================== */
+    let map=null;
+    let storeLayer=null;
+    let stores=[];
+    let markers=new Map();
+    let trendChart=null;
+    let selectedMarker=null;
 
-    let map = null;
-    let storeLayer = null;
-    let stores = [];
-    let markers = new Map();
-    let trendChart = null;
-
-    /* ==================================================
-       GENERAL HELPERS
-    ================================================== */
-
-    function safeLocalStorageGet(key) {
-      try {
-        return localStorage.getItem(key);
-      } catch (error) {
-        console.warn("Local storage could not be read:", error);
-        return null;
-      }
+    function text(v){
+      if(v===null||v===undefined) return "";
+      const s=String(v).trim();
+      return ["nan","null","undefined","n/a"].includes(s.toLowerCase()) ? "" : s;
     }
-
-    function safeLocalStorageSet(key, value) {
-      try {
-        localStorage.setItem(key, value);
-      } catch (error) {
-        console.warn("Local storage could not be updated:", error);
-      }
-    }
-
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    function normalizeText(value) {
-      if (value === null || value === undefined) {
-        return "";
-      }
-
-      const text = String(value).trim();
-
-      if (
-        text.toLowerCase() === "nan" ||
-        text.toLowerCase() === "null" ||
-        text.toLowerCase() === "undefined"
-      ) {
-        return "";
-      }
-
-      return text;
-    }
-
-    function normalizeSiteNumber(value) {
-      return normalizeText(value).replace(/\.0$/, "");
-    }
-
-    function normalizeColor(value) {
-      const color = normalizeText(value).toLowerCase();
-
-      if (
-        color === "red" ||
-        color === "outage" ||
-        color === "active" ||
-        color === "down"
-      ) {
-        return "red";
-      }
-
-      if (
-        color === "yellow" ||
-        color === "possible" ||
-        color === "warning"
-      ) {
-        return "yellow";
-      }
-
+    function siteNumber(v){ return text(v).replace(/\.0$/,""); }
+    function esc(v){ return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+    function color(v){
+      const c=text(v).toLowerCase();
+      if(["red","outage","active","down"].includes(c)) return "red";
+      if(["yellow","possible","warning"].includes(c)) return "yellow";
       return "gray";
     }
+    function statusLabel(c){ return c==="red"?"Active Outage":c==="yellow"?"Possible Outage":"Normal"; }
+    function statusHex(c){ return c==="red"?"#e53935":c==="yellow"?"#fbc02d":"#707780"; }
+    function keyOf(s){ return siteNumber(s["Site #"]??s.Site??s.site??s.storeNumber); }
+    function validCoords(lat,lon){ return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180; }
+    function storageGet(k){ try{return localStorage.getItem(k)}catch{return null} }
+    function storageSet(k,v){ try{localStorage.setItem(k,v)}catch{} }
 
-    function getStatusLabel(color) {
-      if (color === "red") {
-        return "Active Outage";
+    function parseCSVRows(raw){
+      const rows=[]; let row=[],field="",quoted=false;
+      for(let i=0;i<raw.length;i++){
+        const ch=raw[i],next=raw[i+1];
+        if(ch==='"'){
+          if(quoted&&next==='"'){field+='"';i++;} else quoted=!quoted;
+        } else if(ch===","&&!quoted){ row.push(field); field=""; }
+        else if((ch==="\n"||ch==="\r")&&!quoted){
+          if(ch==="\r"&&next==="\n") i++;
+          row.push(field); field="";
+          if(row.some(x=>String(x).trim())) rows.push(row);
+          row=[];
+        } else field+=ch;
       }
-
-      if (color === "yellow") {
-        return "Possible Outage";
-      }
-
-      return "Normal";
-    }
-
-    function getStatusColor(color) {
-      if (color === "red") {
-        return "#e53935";
-      }
-
-      if (color === "yellow") {
-        return "#fbc02d";
-      }
-
-      return "#707780";
-    }
-
-    function getStoreKey(store) {
-      return normalizeSiteNumber(
-        store["Site #"] ??
-        store.Site ??
-        store.site ??
-        store.storeNumber
-      );
-    }
-
-    function isValidCoordinate(latitude, longitude) {
-      return (
-        Number.isFinite(latitude) &&
-        Number.isFinite(longitude) &&
-        latitude >= -90 &&
-        latitude <= 90 &&
-        longitude >= -180 &&
-        longitude <= 180
-      );
-    }
-
-    /* ==================================================
-       CSV PARSER
-    ================================================== */
-
-    /*
-     * This parser supports:
-     * - commas inside quoted addresses
-     * - escaped quotes
-     * - Windows and Unix line endings
-     */
-
-    function parseCSVRows(text) {
-      const rows = [];
-
-      let row = [];
-      let field = "";
-      let insideQuotes = false;
-
-      for (let index = 0; index < text.length; index += 1) {
-        const character = text[index];
-        const nextCharacter = text[index + 1];
-
-        if (character === '"') {
-          if (insideQuotes && nextCharacter === '"') {
-            field += '"';
-            index += 1;
-          } else {
-            insideQuotes = !insideQuotes;
-          }
-
-          continue;
-        }
-
-        if (character === "," && !insideQuotes) {
-          row.push(field);
-          field = "";
-          continue;
-        }
-
-        if (
-          (character === "\n" || character === "\r") &&
-          !insideQuotes
-        ) {
-          if (character === "\r" && nextCharacter === "\n") {
-            index += 1;
-          }
-
-          row.push(field);
-
-          const rowHasContent = row.some(
-            value => String(value).trim() !== ""
-          );
-
-          if (rowHasContent) {
-            rows.push(row);
-          }
-
-          row = [];
-          field = "";
-          continue;
-        }
-
-        field += character;
-      }
-
-      row.push(field);
-
-      if (row.some(value => String(value).trim() !== "")) {
-        rows.push(row);
-      }
-
+      row.push(field); if(row.some(x=>String(x).trim())) rows.push(row);
       return rows;
     }
 
-    function parseCSV(text) {
-      if (!text || !text.trim()) {
-        return [];
-      }
-
-      const rows = parseCSVRows(text);
-
-      if (rows.length < 2) {
-        return [];
-      }
-
-      const headers = rows[0].map(header => normalizeText(header));
-
-      return rows.slice(1).map(columns => {
-        const store = {};
-
-        headers.forEach((header, index) => {
-          store[header] = normalizeText(columns[index]);
-        });
-
-        const latitudeValue =
-          store.Latitude ??
-          store.latitude ??
-          store.Lat ??
-          store.lat;
-
-        const longitudeValue =
-          store.Longitude ??
-          store.longitude ??
-          store.Lon ??
-          store.lon ??
-          store.Long ??
-          store.lng;
-
-        store.Latitude = Number.parseFloat(latitudeValue);
-        store.Longitude = Number.parseFloat(longitudeValue);
-
-        store["Site #"] = getStoreKey(store);
-
-        return store;
+    function parseCSV(raw){
+      if(!raw||!raw.trim()) return [];
+      const rows=parseCSVRows(raw); if(rows.length<2) return [];
+      const headers=rows[0].map(text);
+      return rows.slice(1).map(cols=>{
+        const s={}; headers.forEach((h,i)=>s[h]=text(cols[i]));
+        s.Latitude=Number.parseFloat(s.Latitude??s.latitude??s.Lat??s.lat);
+        s.Longitude=Number.parseFloat(s.Longitude??s.longitude??s.Lon??s.lon??s.Long??s.lng);
+        s["Site #"]=keyOf(s);
+        return s;
       });
     }
 
-    /* ==================================================
-       OUTAGE DATA
-    ================================================== */
-
-    function createOutageLookup(outages) {
-      const lookup = new Map();
-
-      outages.forEach(outage => {
-        const siteNumber = normalizeSiteNumber(
-          outage.storeNumber ??
-          outage["Site #"] ??
-          outage.site ??
-          outage.Site
-        );
-
-        if (siteNumber) {
-          lookup.set(siteNumber, outage);
-        }
-      });
-
-      return lookup;
-    }
-
-    function mergeStoresAndOutages(siteRecords, outageRecords) {
-      const outageLookup = createOutageLookup(outageRecords);
-
-      return siteRecords.map(store => {
-        const siteNumber = getStoreKey(store);
-        const outage = outageLookup.get(siteNumber);
-
-        const siteVendorLink = normalizeText(
-          store["Vendor Link"] ??
-          store.VendorLink ??
-          store.providerWebsite
-        );
-
-        if (!outage) {
-          return {
-            ...store,
-            color: "gray",
-            status: "No outage",
-            etr: "",
-            lastUpdated: "",
-            providerWebsite: siteVendorLink
-          };
-        }
-
-        return {
-          ...store,
-          color: normalizeColor(
-            outage.color ??
-            outage.statusColor ??
-            outage.severity
-          ),
-          status: normalizeText(outage.status) || "Outage reported",
-          etr: normalizeText(
-            outage.etr ??
-            outage.eta ??
-            outage.estimatedRestoration
-          ),
-          lastUpdated: normalizeText(
-            outage.lastUpdated ??
-            outage.updatedAt ??
-            outage.timestamp
-          ),
-          providerWebsite:
-            normalizeText(outage.providerWebsite) ||
-            siteVendorLink
+    function mergeData(siteRows,outageRows){
+      const lookup=new Map();
+      outageRows.forEach(o=>{ const k=siteNumber(o.storeNumber??o["Site #"]??o.site??o.Site); if(k) lookup.set(k,o); });
+      return siteRows.map(s=>{
+        const o=lookup.get(keyOf(s));
+        const vendorLink=text(s["Vendor Link"]??s.VendorLink??s.providerWebsite);
+        if(!o) return {...s,color:"gray",status:"No outage",etr:"",lastUpdated:"",providerWebsite:vendorLink};
+        return {...s,
+          color:color(o.color??o.statusColor??o.severity),
+          status:text(o.status)||"Outage reported",
+          etr:text(o.etr??o.eta??o.estimatedRestoration),
+          lastUpdated:text(o.lastUpdated??o.updatedAt??o.timestamp),
+          providerWebsite:text(o.providerWebsite)||vendorLink
         };
       });
     }
 
-    /* ==================================================
-       MAP
-    ================================================== */
-
-    function initializeMap() {
-      map = L.map("map", {
-        minZoom: 4,
-        maxZoom: 18,
-
-        maxBounds: CONFIG.usaBounds,
-        maxBoundsViscosity: 1.0,
-
-        worldCopyJump: false,
-        zoomControl: true
-      });
-
-      window.map = map;
-
-      L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          minZoom: 4,
-          maxZoom: 18,
-          noWrap: true,
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
-        }
-      ).addTo(map);
-
-      map.createPane("storeMarkerPane");
-      map.getPane("storeMarkerPane").style.zIndex = "600";
-
-      storeLayer = L.layerGroup().addTo(map);
-
-      addLegend();
-      resetMapToUSA();
-
-      /*
-       * Keep users inside the configured USA bounds.
-       */
-      map.on("drag", () => {
-        map.panInsideBounds(CONFIG.usaBounds, {
-          animate: false
-        });
-      });
-
-      setTimeout(() => {
-        map.invalidateSize();
-        resetMapToUSA();
-      }, 250);
+    function initializeMap(){
+      map=L.map("map",{minZoom:4,maxZoom:18,maxBounds:CONFIG.usaBounds,maxBoundsViscosity:1,worldCopyJump:false});
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+      map.createPane("storeMarkerPane"); map.getPane("storeMarkerPane").style.zIndex="600";
+      storeLayer=L.layerGroup().addTo(map);
+      addLegend(); resetUSA();
+      map.on("drag",()=>map.panInsideBounds(CONFIG.usaBounds,{animate:false}));
+      setTimeout(()=>{map.invalidateSize();resetUSA();},250);
     }
 
-    function resetMapToUSA() {
-      if (!map) {
-        return;
-      }
+    function resetUSA(){ if(map) map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false}); }
 
-      map.fitBounds(CONFIG.usaDisplayBounds, {
-        padding: [2, 2],
-        animate: false
-      });
-    }
-
-    /* ==================================================
-       LEGEND
-    ================================================== */
-
-    function addLegend() {
-      const legend = L.control({
-        position: "bottomleft"
-      });
-
-      legend.onAdd = function () {
-        const container = L.DomUtil.create(
-          "div",
-          "map-legend"
-        );
-
-        container.innerHTML = `
-          <div class="map-legend-title">Store Status</div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#e53935"
-            ></span>
-            Active Outage
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#fbc02d"
-            ></span>
-            Possible Outage
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#707780"
-            ></span>
-            Normal
-          </div>
-        `;
-
-        L.DomEvent.disableClickPropagation(container);
-        L.DomEvent.disableScrollPropagation(container);
-
-        return container;
+    function addLegend(){
+      const legend=L.control({position:"bottomleft"});
+      legend.onAdd=()=>{
+        const d=L.DomUtil.create("div","map-legend");
+        d.innerHTML=`<div class="map-legend-title">Store Status</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#e53935"></span>Active Outage</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#fbc02d"></span>Possible Outage</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#707780"></span>Normal</div>`;
+        L.DomEvent.disableClickPropagation(d); return d;
       };
-
       legend.addTo(map);
     }
 
-    /* ==================================================
-       MARKERS
-    ================================================== */
+    function markerPane(){ return "storeMarkerPane"; }
 
-    function createStoreIcon(color) {
-      const markerColor = normalizeColor(color);
-
+    function createStoreIcon(c){
+      c=color(c);
+      const cls=c==="red"?"active-outage-marker":c==="yellow"?"possible-outage-marker":"normal-store-marker";
+      const symbol=c==="red"?"!":c==="yellow"?"?":"";
       return L.divIcon({
-        className: "store-marker-wrapper",
-
-        html: `
-          <div
-            class="store-marker-pin marker-${markerColor}"
-            aria-hidden="true"
-          ></div>
-        `,
-
-        iconSize: [30, 30],
-
-        /*
-         * The bottom-center point is anchored to the store's
-         * exact Latitude and Longitude.
-         */
-        iconAnchor: [15, 30],
-
-        popupAnchor: [0, -31]
+        className:"store-marker-wrapper",
+        html:`<div class="store-marker-container ${cls}">${c!=="gray"?'<div class="outage-pulse-ring"></div>':""}<div class="store-marker-pin marker-${c}">${symbol?`<span class="marker-symbol">${symbol}</span>`:""}</div></div>`,
+        iconSize:[58,58], iconAnchor:[29,50], popupAnchor:[0,-47]
       });
     }
 
-    function createStorePopup(store) {
-      const siteNumber = escapeHtml(getStoreKey(store));
-      const siteName = escapeHtml(
-        normalizeText(store.SiteName ?? store.Name)
-      );
-
-      const location = escapeHtml(
-        normalizeText(
-          store.Location ??
-          store.Address ??
-          store["Street Address"]
-        ) || "N/A"
-      );
-
-      const city = escapeHtml(normalizeText(store.City));
-      const state = escapeHtml(normalizeText(store.State));
-      const zip = escapeHtml(
-        normalizeText(store.Zip ?? store.ZIP ?? store["Zip Code"])
-      );
-
-      const status = escapeHtml(
-        normalizeText(store.status) ||
-        getStatusLabel(store.color)
-      );
-
-      const etr = escapeHtml(
-        normalizeText(store.etr) || "N/A"
-      );
-
-      const lastUpdated = escapeHtml(
-        normalizeText(store.lastUpdated) || "N/A"
-      );
-
-      const providerName = escapeHtml(
-        normalizeText(
-          store["Vendor Name"] ??
-          store.Vendor ??
-          store.Provider
-        ) || "N/A"
-      );
-
-      const providerWebsite = normalizeText(
-        store.providerWebsite
-      );
-
-      return `
-        <div class="store-popup">
-          <div class="store-popup-title">
-            Store ${siteNumber}${siteName ? ` - ${siteName}` : ""}
-          </div>
-
-          <div class="store-popup-row">
-            ${location}
-          </div>
-
-          <div class="store-popup-row">
-            ${city}${city && state ? ", " : ""}${state}
-            ${zip ? ` ${zip}` : ""}
-          </div>
-
-          <div class="store-popup-row">
-            <strong>Status:</strong> ${status}
-          </div>
-
-          <div class="store-popup-row">
-            <strong>Provider:</strong> ${providerName}
-          </div>
-
-          <div class="store-popup-row">
-            <strong>ETA:</strong> ${etr}
-          </div>
-
-          <div class="store-popup-row">
-            <strong>Last Updated:</strong> ${lastUpdated}
-          </div>
-
-          ${
-            providerWebsite
-              ? `
-                <div class="store-popup-row">
-                  <a
-                    href="${escapeHtml(providerWebsite)}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open Provider Outage Map
-                  </a>
-                </div>
-              `
-              : ""
-          }
-        </div>
-      `;
+    function popupHTML(s){
+      const city=esc(text(s.City)),state=esc(text(s.State));
+      const provider=text(s["Vendor Name"]??s.Vendor??s.Provider);
+      const url=text(s.providerWebsite);
+      return `<div class="store-popup">
+        <div class="store-popup-title">Store ${esc(keyOf(s))}${text(s.SiteName??s.Name)?` - ${esc(text(s.SiteName??s.Name))}`:""}</div>
+        <div class="store-popup-row">${esc(text(s.Location??s.Address??s["Street Address"])||"N/A")}</div>
+        <div class="store-popup-row">${city}${city&&state?", ":""}${state}</div>
+        <div class="store-popup-row"><b>Status:</b> ${esc(text(s.status)||statusLabel(color(s.color)))}</div>
+        <div class="store-popup-row"><b>Provider:</b> ${esc(provider||"N/A")}</div>
+        <div class="store-popup-row"><b>ETA:</b> ${esc(text(s.etr)||"N/A")}</div>
+        <div class="store-popup-row"><b>Last Updated:</b> ${esc(text(s.lastUpdated)||"N/A")}</div>
+        ${url?`<div class="store-popup-row"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open Provider Outage Map</a></div>`:""}
+      </div>`;
     }
 
-    function createMarkers() {
-      storeLayer.clearLayers();
-      markers.clear();
+    function priorityOffset(c){ c=color(c); return c==="red"?30000:c==="yellow"?20000:0; }
 
-      let createdCount = 0;
-      let skippedCount = 0;
+    function bringStoreMarkerToFront(marker,s){
+      if(!marker) return;
+      if(selectedMarker&&selectedMarker!==marker){
+        const old=selectedMarker.options.storeData;
+        selectedMarker.setZIndexOffset(priorityOffset(old?.color));
+      }
+      selectedMarker=marker;
+      marker.setZIndexOffset(60000);
+      if(marker._icon) marker._icon.style.zIndex="60000";
+    }
 
-      stores.forEach(store => {
-        const latitude = Number(store.Latitude);
-        const longitude = Number(store.Longitude);
-
-        if (!isValidCoordinate(latitude, longitude)) {
-          skippedCount += 1;
-
-          console.warn(
-            "Store skipped because coordinates are invalid:",
-            getStoreKey(store),
-            store.Latitude,
-            store.Longitude
-          );
-
-          return;
-        }
-
-        const marker = L.marker(
-          [latitude, longitude],
-          {
-            icon: createStoreIcon(store.color),
-            pane: "storeMarkerPane",
-
-            /*
-             * Markers are not draggable, so store coordinates
-             * cannot be changed by the user.
-             */
-            draggable: false,
-
-            keyboard: true,
-            riseOnHover: true,
-
-            zIndexOffset:
-              store.color === "red"
-                ? 2000
-                : store.color === "yellow"
-                  ? 1000
-                  : 0
-          }
-        );
-
-        marker.bindPopup(createStorePopup(store), {
-          maxWidth: 330
+    function createMarkers(){
+      storeLayer.clearLayers(); markers.clear();
+      let made=0,skipped=0;
+      stores.forEach(s=>{
+        const lat=Number(s.Latitude),lon=Number(s.Longitude),c=color(s.color);
+        if(!validCoords(lat,lon)){ skipped++; console.warn("Invalid coordinates",keyOf(s),s.Latitude,s.Longitude); return; }
+        const marker=L.marker([lat,lon],{
+          icon:createStoreIcon(c), pane:markerPane(c), draggable:false, keyboard:true,
+          riseOnHover:true, riseOffset:50000, zIndexOffset:priorityOffset(c), storeData:s
         });
-
+        marker.bindPopup(popupHTML(s),{maxWidth:330,autoPan:true,autoPanPaddingTopLeft:[30,30],autoPanPaddingBottomRight:[30,30]});
+        marker.on("click",()=>{bringStoreMarkerToFront(marker,s);focusStore(s);});
+        marker.on("popupopen",()=>bringStoreMarkerToFront(marker,s));
         marker.addTo(storeLayer);
-
-        const siteNumber = getStoreKey(store);
-
-        markers.set(siteNumber, {
-          marker,
-          store
-        });
-
-        createdCount += 1;
+        markers.set(keyOf(s),{marker,store:s}); made++;
       });
-
-      console.log(
-        `Created ${createdCount} markers. Skipped ${skippedCount}.`
-      );
-
-      /*
-       * Do not call fitBounds using the store markers here.
-       * Doing so would move the map away from the USA default.
-       */
+      console.log(`Created ${made} markers; skipped ${skipped}.`);
     }
 
-    function focusStore(store) {
-      const siteNumber = getStoreKey(store);
-      const entry = markers.get(siteNumber);
-
-      if (!entry || !map) {
-        return;
-      }
-
-      map.setView(
-        entry.marker.getLatLng(),
-        CONFIG.markerZoom,
-        {
-          animate: true
-        }
-      );
-
-      entry.marker.openPopup();
-    }
-
-    /* ==================================================
-       STORE LIST
-    ================================================== */
-
-    function storeMatchesFilter(store, filterValue) {
-      const color = normalizeColor(store.color);
-
-      if (filterValue === "outages") {
-        return color === "red";
-      }
-
-      if (filterValue === "possible") {
-        return color === "yellow";
-      }
-
-      if (filterValue === "normal") {
-        return color === "gray";
-      }
-
-      return true;
-    }
-
-    function storeMatchesSearch(store, searchText) {
-      if (!searchText) {
-        return true;
-      }
-
-      const searchableFields = [
-        getStoreKey(store),
-        store.SiteName,
-        store.Name,
-        store.Location,
-        store.Address,
-        store.City,
-        store.State,
-        store["Vendor Name"],
-        store.Vendor,
-        store.Provider,
-        store.status
-      ];
-
-      const searchableText = searchableFields
-        .map(normalizeText)
-        .join(" ")
-        .toLowerCase();
-
-      return searchableText.includes(searchText);
-    }
-
-    function getFilteredStores() {
-      const filterValue =
-        document.getElementById("filterSelect").value;
-
-      const searchText =
-        document
-          .getElementById("searchBar")
-          .value
-          .trim()
-          .toLowerCase();
-
-      return stores.filter(store => {
-        return (
-          storeMatchesFilter(store, filterValue) &&
-          storeMatchesSearch(store, searchText)
-        );
+    function focusStore(s){
+      const entry=markers.get(keyOf(s)); if(!map||!entry) return;
+      const ll=entry.marker.getLatLng();
+      bringStoreMarkerToFront(entry.marker,s);
+      map.invalidateSize({animate:false,pan:false});
+      map.setView(ll,CONFIG.markerZoom,{animate:false});
+      requestAnimationFrame(()=>{
+        map.invalidateSize({animate:false,pan:false});
+        map.panTo(ll,{animate:false});
+        entry.marker.openPopup();
       });
     }
 
-    function renderStoreList() {
-      const storeList = document.getElementById("storeList");
-      const sidebarSubtitle =
-        document.getElementById("sidebarSubtitle");
-
-      const filteredStores = getFilteredStores();
-
-      storeList.innerHTML = "";
-
-      sidebarSubtitle.textContent =
-        `${filteredStores.length} of ${stores.length} stores`;
-
-      if (filteredStores.length === 0) {
-        storeList.innerHTML = `
-          <div class="no-stores">
-            No stores match the selected filter or search.
-          </div>
-        `;
-
-        return;
-      }
-
-      const fragment = document.createDocumentFragment();
-
-      filteredStores.forEach(store => {
-        const item = document.createElement("div");
-
-        item.className = "store-item";
-        item.tabIndex = 0;
-        item.setAttribute("role", "button");
-
-        const siteNumber = escapeHtml(getStoreKey(store));
-
-        const siteName = escapeHtml(
-          normalizeText(store.SiteName ?? store.Name)
-        );
-
-        const location = escapeHtml(
-          normalizeText(
-            store.Location ??
-            store.Address ??
-            store["Street Address"]
-          ) || "N/A"
-        );
-
-        const city = escapeHtml(normalizeText(store.City));
-        const state = escapeHtml(normalizeText(store.State));
-
-        const statusLabel = escapeHtml(
-          normalizeText(store.status) ||
-          getStatusLabel(store.color)
-        );
-
-        const providerWebsite = normalizeText(
-          store.providerWebsite
-        );
-
-        item.innerHTML = `
-          <div class="store-title">
-            Store ${siteNumber}${siteName ? ` - ${siteName}` : ""}
-          </div>
-
-          <div class="store-address">
-            ${location}<br>
-            ${city}${city && state ? ", " : ""}${state}
-          </div>
-
-          <div class="store-status">
-            <span
-              class="status-dot"
-              style="background:${getStatusColor(store.color)}"
-            ></span>
-
-            <span>${statusLabel}</span>
-          </div>
-
-          ${
-            providerWebsite
-              ? `
-                <a
-                  class="provider-link"
-                  href="${escapeHtml(providerWebsite)}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Provider Outage Map
-                </a>
-              `
-              : ""
-          }
-        `;
-
-        item.addEventListener("click", event => {
-          if (event.target.closest("a")) {
-            return;
-          }
-
-          focusStore(store);
-        });
-
-        item.addEventListener("keydown", event => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            focusStore(store);
-          }
-        });
-
-        fragment.appendChild(item);
-      });
-
-      storeList.appendChild(fragment);
-    }
-
-    /* ==================================================
-       SNAPSHOT HISTORY
-    ================================================== */
-
-    function loadSnapshots() {
-      try {
-        const saved = safeLocalStorageGet(CONFIG.snapshotKey);
-        const parsed = JSON.parse(saved || "[]");
-
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (error) {
-        console.warn("Snapshot history could not be parsed:", error);
-        return [];
-      }
-    }
-
-    function recordOutageSnapshot() {
-      const now = Date.now();
-
-      const retentionMilliseconds =
-        CONFIG.snapshotRetentionHours * 60 * 60 * 1000;
-
-      const minimumIntervalMilliseconds =
-        CONFIG.snapshotMinimumIntervalMinutes * 60 * 1000;
-
-      let snapshots = loadSnapshots();
-
-      /*
-       * Keep only snapshots from the last 48 hours.
-       */
-      snapshots = snapshots.filter(snapshot => {
-        return (
-          Number.isFinite(Number(snapshot.ts)) &&
-          now - Number(snapshot.ts) <= retentionMilliseconds
-        );
-      });
-
-      const lastSnapshot = snapshots.at(-1);
-
-      const activeOutageCount = stores.filter(
-        store => normalizeColor(store.color) === "red"
-      ).length;
-
-      const possibleOutageCount = stores.filter(
-        store => normalizeColor(store.color) === "yellow"
-      ).length;
-
-      if (
-        !lastSnapshot ||
-        now - Number(lastSnapshot.ts) >= minimumIntervalMilliseconds
-      ) {
-        snapshots.push({
-          ts: now,
-          active: activeOutageCount,
-          possible: possibleOutageCount,
-          count: activeOutageCount + possibleOutageCount
-        });
-      } else {
-        /*
-         * Update the most recent interval instead of creating
-         * a new point every time the page is refreshed.
-         */
-        lastSnapshot.active = activeOutageCount;
-        lastSnapshot.possible = possibleOutageCount;
-        lastSnapshot.count =
-          activeOutageCount + possibleOutageCount;
-      }
-
-      safeLocalStorageSet(
-        CONFIG.snapshotKey,
-        JSON.stringify(snapshots)
-      );
-
-      return snapshots;
-    }
-
-    /* ==================================================
-       DASHBOARD
-    ================================================== */
-
-    function buildCountMap(records, getGroupName) {
-      const countMap = new Map();
-
-      records.forEach(record => {
-        const groupName =
-          normalizeText(getGroupName(record)) || "Unknown";
-
-        countMap.set(
-          groupName,
-          (countMap.get(groupName) || 0) + 1
-        );
-      });
-
-      return [...countMap.entries()].sort(
-        (first, second) => second[1] - first[1]
-      );
-    }
-
-    function renderDashboard() {
-      const dashboardContent =
-        document.getElementById("dashboardContent");
-
-      const activeOutages = stores.filter(
-        store => normalizeColor(store.color) === "red"
-      );
-
-      const possibleOutages = stores.filter(
-        store => normalizeColor(store.color) === "yellow"
-      );
-
-      const impactedStores = stores.filter(store => {
-        const color = normalizeColor(store.color);
-
-        return color === "red" || color === "yellow";
-      });
-
-      const providerNames = new Set(
-        stores
-          .map(store =>
-            normalizeText(
-              store["Vendor Name"] ??
-              store.Vendor ??
-              store.Provider
-            )
-          )
-          .filter(Boolean)
-      );
-
-      const outagesByState = buildCountMap(
-        impactedStores,
-        store => store.State
-      );
-
-      const outagesByProvider = buildCountMap(
-        impactedStores,
-        store =>
-          store["Vendor Name"] ??
-          store.Vendor ??
-          store.Provider
-      );
-
-      dashboardContent.innerHTML = `
-        <div class="dash-cards">
-          <div class="dash-card">
-            <h3>Total Stores</h3>
-            <p>${stores.length}</p>
-          </div>
-
-          <div class="dash-card">
-            <h3>Active Outages</h3>
-            <p style="color:#d32f2f">
-              ${activeOutages.length}
-            </p>
-          </div>
-
-          <div class="dash-card">
-            <h3>Possible Outages</h3>
-            <p style="color:#b28704">
-              ${possibleOutages.length}
-            </p>
-          </div>
-
-          <div class="dash-card">
-            <h3>Unique Providers</h3>
-            <p>${providerNames.size}</p>
-          </div>
-        </div>
-
-        <div class="dashboard-grid">
-          <div class="dashboard-section">
-            <h3>Impacted Stores by State</h3>
-            <div id="outagesByState"></div>
-          </div>
-
-          <div class="dashboard-section">
-            <h3>Impacted Stores by Provider</h3>
-            <div id="outagesByProvider"></div>
-          </div>
-
-          <div class="dashboard-section">
-            <h3>48-Hour Outage Trend</h3>
-
-            <div class="chart-wrapper">
-              <canvas id="trendChart"></canvas>
-            </div>
-          </div>
-        </div>
-      `;
-
-      renderDashboardList(
-        "outagesByState",
-        outagesByState,
-        "state"
-      );
-
-      renderDashboardList(
-        "outagesByProvider",
-        outagesByProvider,
-        "provider"
-      );
-
-      renderTrendChart();
-    }
-
-    function renderDashboardList(
-      elementId,
-      entries,
-      listType
-    ) {
-      const container = document.getElementById(elementId);
-
-      if (!entries.length) {
-        container.innerHTML = `
-          <div class="dash-list-item">
-            No impacted stores
-          </div>
-        `;
-
-        return;
-      }
-
-      entries.forEach(([name, count]) => {
-        const item = document.createElement("div");
-
-        item.className = "dash-list-item";
-        item.textContent = `${name}: ${count}`;
-
-        item.addEventListener("click", () => {
-          if (listType === "state") {
-            document.getElementById("searchBar").value = name;
-            document.getElementById("filterSelect").value = "all";
-            renderStoreList();
-            setSidebarCollapsed(false);
-          }
-
-          if (listType === "provider") {
-            document.getElementById("searchBar").value = name;
-            document.getElementById("filterSelect").value = "all";
-            renderStoreList();
-            setSidebarCollapsed(false);
-          }
-        });
-
-        container.appendChild(item);
+    function filteredStores(){
+      const filter=document.getElementById("filterSelect").value;
+      const q=document.getElementById("searchBar").value.trim().toLowerCase();
+      return stores.filter(s=>{
+        const c=color(s.color);
+        const statusOK=filter==="all"||(filter==="outages"&&c==="red")||(filter==="possible"&&c==="yellow")||(filter==="normal"&&c==="gray");
+        const hay=[keyOf(s),s.SiteName,s.Name,s.Location,s.Address,s.City,s.State,s["Vendor Name"],s.Vendor,s.Provider,s.status].map(text).join(" ").toLowerCase();
+        return statusOK&&(!q||hay.includes(q));
       });
     }
 
-    function renderTrendChart() {
-      const canvas = document.getElementById("trendChart");
-
-      if (!canvas || typeof Chart === "undefined") {
-        return;
-      }
-
-      const snapshots = loadSnapshots();
-
-      const labels = snapshots.map(snapshot => {
-        return new Date(snapshot.ts).toLocaleString([], {
-          month: "numeric",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit"
-        });
+    function renderStoreList(){
+      const list=document.getElementById("storeList"),items=filteredStores();
+      document.getElementById("sidebarSubtitle").textContent=`${items.length} of ${stores.length} stores`;
+      list.innerHTML="";
+      if(!items.length){list.innerHTML='<div class="no-stores">No matching stores.</div>';return;}
+      const frag=document.createDocumentFragment();
+      items.forEach(s=>{
+        const item=document.createElement("div"); item.className="store-item"; item.tabIndex=0; item.setAttribute("role","button");
+        const city=esc(text(s.City)),state=esc(text(s.State)),url=text(s.providerWebsite),c=color(s.color);
+        item.innerHTML=`<div class="store-title">Store ${esc(keyOf(s))}${text(s.SiteName??s.Name)?` - ${esc(text(s.SiteName??s.Name))}`:""}</div>
+          <div class="store-address">${esc(text(s.Location??s.Address??s["Street Address"])||"N/A")}<br>${city}${city&&state?", ":""}${state}</div>
+          <div class="store-status"><span class="status-dot" style="background:${statusHex(c)}"></span>${esc(text(s.status)||statusLabel(c))}</div>
+          ${url?`<a class="provider-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Provider Outage Map</a>`:""}`;
+        item.addEventListener("click",e=>{if(!e.target.closest("a"))focusStore(s);});
+        item.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();focusStore(s);}});
+        frag.appendChild(item);
       });
-
-      const activeData = snapshots.map(snapshot => {
-        return Number(snapshot.active ?? snapshot.count ?? 0);
-      });
-
-      const possibleData = snapshots.map(snapshot => {
-        return Number(snapshot.possible ?? 0);
-      });
-
-      if (trendChart) {
-        trendChart.destroy();
-      }
-
-      trendChart = new Chart(canvas, {
-        type: "line",
-
-        data: {
-          labels,
-
-          datasets: [
-            {
-              label: "Active Outages",
-              data: activeData,
-
-              borderColor: "#e53935",
-              backgroundColor: "rgba(229,57,53,0.14)",
-
-              borderWidth: 2,
-              pointRadius: 2,
-              tension: 0.25,
-              fill: true
-            },
-            {
-              label: "Possible Outages",
-              data: possibleData,
-
-              borderColor: "#d4a900",
-              backgroundColor: "rgba(251,192,45,0.10)",
-
-              borderWidth: 2,
-              pointRadius: 2,
-              tension: 0.25,
-              fill: false
-            }
-          ]
-        },
-
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-
-          interaction: {
-            mode: "index",
-            intersect: false
-          },
-
-          plugins: {
-            legend: {
-              display: true,
-              position: "bottom"
-            }
-          },
-
-          scales: {
-            y: {
-              beginAtZero: true,
-
-              ticks: {
-                precision: 0
-              }
-            },
-
-            x: {
-              ticks: {
-                maxRotation: 45,
-                minRotation: 0,
-                autoSkip: true,
-                maxTicksLimit: 8
-              }
-            }
-          }
-        }
-      });
+      list.appendChild(frag);
     }
 
-    /* ==================================================
-       SIDEBAR CONTROLS
-    ================================================== */
-
-    function setSidebarCollapsed(collapsed) {
-      const sidebar = document.getElementById("sidebar");
-      const tab = document.getElementById("sidebarTab");
-
-      document.body.classList.toggle(
-        "sidebar-collapsed",
-        collapsed
-      );
-
-      sidebar.setAttribute(
-        "aria-hidden",
-        collapsed ? "true" : "false"
-      );
-
-      tab.setAttribute(
-        "aria-expanded",
-        collapsed ? "false" : "true"
-      );
-
-      setTimeout(() => {
-        if (map) {
-          map.invalidateSize({
-            animate: false
-          });
-        }
-      }, CONFIG.sidebarTransitionMilliseconds + 30);
+    function loadSnapshots(){ try{const x=JSON.parse(storageGet(CONFIG.snapshotKey)||"[]");return Array.isArray(x)?x:[]}catch{return[]} }
+    function recordSnapshot(){
+      const now=Date.now(),keep=CONFIG.snapshotRetentionHours*3600000,min=CONFIG.snapshotMinimumIntervalMinutes*60000;
+      const active=stores.filter(s=>color(s.color)==="red").length,possible=stores.filter(s=>color(s.color)==="yellow").length;
+      const snaps=loadSnapshots().filter(x=>now-Number(x.ts)<=keep); const last=snaps.at(-1);
+      if(!last||now-Number(last.ts)>=min) snaps.push({ts:now,active,possible}); else Object.assign(last,{active,possible});
+      storageSet(CONFIG.snapshotKey,JSON.stringify(snaps));
     }
 
-    function toggleSidebar() {
-      const currentlyCollapsed =
-        document.body.classList.contains("sidebar-collapsed");
-
-      setSidebarCollapsed(!currentlyCollapsed);
+    function countBy(items,fn){
+      const m=new Map();items.forEach(x=>{const k=text(fn(x))||"Unknown";m.set(k,(m.get(k)||0)+1)});return [...m].sort((a,b)=>b[1]-a[1]);
     }
 
-    /* ==================================================
-       DASHBOARD CONTROLS
-    ================================================== */
-
-    function toggleDashboard() {
-      const dashboard =
-        document.getElementById("bottomDashboard");
-
-      const dashboardHandle =
-        document.getElementById("dashboardHandle");
-
-      const dashboardArrow =
-        document.getElementById("dashboardArrow");
-
-      const openingDashboard =
-        !dashboard.classList.contains("expanded");
-
-      dashboard.classList.toggle(
-        "expanded",
-        openingDashboard
-      );
-
-      document.body.classList.toggle(
-        "dashboard-open",
-        openingDashboard
-      );
-
-      dashboardHandle.setAttribute(
-        "aria-expanded",
-        openingDashboard ? "true" : "false"
-      );
-
-      dashboardArrow.textContent =
-        openingDashboard ? "▼" : "▲";
-
-      if (openingDashboard) {
-        renderDashboard();
-      }
-
-      setTimeout(() => {
-        if (map) {
-          map.invalidateSize({
-            animate: false
-          });
-        }
-      }, CONFIG.sidebarTransitionMilliseconds + 30);
+    function renderDashboard(){
+      const active=stores.filter(s=>color(s.color)==="red"),possible=stores.filter(s=>color(s.color)==="yellow"),impacted=[...active,...possible];
+      const providers=new Set(stores.map(s=>text(s["Vendor Name"]??s.Vendor??s.Provider)).filter(Boolean));
+      const states=countBy(impacted,s=>s.State),provs=countBy(impacted,s=>s["Vendor Name"]??s.Vendor??s.Provider);
+      document.getElementById("dashboardContent").innerHTML=`<div class="dash-cards">
+        <div class="dash-card"><h3>Total Stores</h3><p>${stores.length}</p></div>
+        <div class="dash-card"><h3>Active Outages</h3><p style="color:#d32f2f">${active.length}</p></div>
+        <div class="dash-card"><h3>Possible Outages</h3><p style="color:#a77e00">${possible.length}</p></div>
+        <div class="dash-card"><h3>Unique Providers</h3><p>${providers.size}</p></div></div>
+        <div class="dashboard-grid"><div class="dashboard-section"><h3>Impacted Stores by State</h3><div id="byState"></div></div>
+        <div class="dashboard-section"><h3>Impacted Stores by Provider</h3><div id="byProvider"></div></div>
+        <div class="dashboard-section"><h3>48-Hour Outage Trend</h3><div class="chart-wrapper"><canvas id="trendChart"></canvas></div></div></div>`;
+      renderDashList("byState",states);renderDashList("byProvider",provs);renderTrend();
     }
 
-    /* ==================================================
-       UI EVENTS
-    ================================================== */
-
-    function wireUIEvents() {
-      document
-        .getElementById("sidebarTab")
-        .addEventListener("click", toggleSidebar);
-
-      document
-        .getElementById("collapseSidebarBtn")
-        .addEventListener("click", () => {
-          setSidebarCollapsed(true);
-        });
-
-      document
-        .getElementById("resetMapBtn")
-        .addEventListener("click", () => {
-          resetMapToUSA();
-
-          document.getElementById("searchBar").value = "";
-          document.getElementById("filterSelect").value = "all";
-
-          renderStoreList();
-        });
-
-      document
-        .getElementById("filterSelect")
-        .addEventListener("change", renderStoreList);
-
-      document
-        .getElementById("searchBar")
-        .addEventListener("input", renderStoreList);
-
-      document
-        .getElementById("searchBar")
-        .addEventListener("keydown", event => {
-          if (event.key !== "Enter") {
-            return;
-          }
-
-          const filteredStores = getFilteredStores();
-
-          if (filteredStores.length === 1) {
-            focusStore(filteredStores[0]);
-          }
-        });
-
-      document
-        .getElementById("dashboardHandle")
-        .addEventListener("click", toggleDashboard);
-
-      window.addEventListener("resize", () => {
-        if (map) {
-          map.invalidateSize({
-            animate: false
-          });
-        }
-      });
+    function renderDashList(id,entries){
+      const c=document.getElementById(id); if(!entries.length){c.innerHTML='<div class="dash-list-item">No impacted stores</div>';return;}
+      entries.forEach(([name,n])=>{const d=document.createElement("div");d.className="dash-list-item";d.textContent=`${name}: ${n}`;d.onclick=()=>{document.getElementById("searchBar").value=name;document.getElementById("filterSelect").value="all";renderStoreList();setSidebar(false)};c.appendChild(d)});
     }
 
-    /* ==================================================
-       DATA LOADING
-    ================================================== */
-
-    async function fetchTextFile(fileName) {
-      const response = await fetch(fileName, {
-        cache: "no-store"
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `${fileName} returned HTTP ${response.status}`
-        );
-      }
-
-      return response.text();
+    function renderTrend(){
+      const canvas=document.getElementById("trendChart"); if(!canvas||typeof Chart==="undefined")return;
+      const snaps=loadSnapshots(); if(trendChart)trendChart.destroy();
+      trendChart=new Chart(canvas,{type:"line",data:{labels:snaps.map(x=>new Date(x.ts).toLocaleString([], {month:"numeric",day:"numeric",hour:"numeric",minute:"2-digit"})),datasets:[
+        {label:"Active Outages",data:snaps.map(x=>Number(x.active||0)),borderColor:"#e53935",backgroundColor:"rgba(229,57,53,.14)",borderWidth:2,pointRadius:2,tension:.25,fill:true},
+        {label:"Possible Outages",data:snaps.map(x=>Number(x.possible||0)),borderColor:"#d4a900",borderWidth:2,pointRadius:2,tension:.25,fill:false}
+      ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{ticks:{autoSkip:true,maxTicksLimit:8}}}}});
     }
 
-    async function fetchJSONFile(fileName) {
-      const response = await fetch(fileName, {
-        cache: "no-store"
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `${fileName} returned HTTP ${response.status}`
-        );
-      }
-
-      return response.json();
+    function setSidebar(collapsed){
+      document.body.classList.toggle("sidebar-collapsed",collapsed);
+      document.getElementById("sidebar").setAttribute("aria-hidden",collapsed?"true":"false");
+      document.getElementById("sidebarTab").setAttribute("aria-expanded",collapsed?"false":"true");
+      setTimeout(()=>map&&map.invalidateSize({animate:false}),CONFIG.transitionMs+30);
     }
 
-    async function loadApplicationData() {
-      const results = await Promise.allSettled([
-        fetchTextFile(CONFIG.sitesFile),
-        fetchJSONFile(CONFIG.outagesFile)
-      ]);
-
-      const sitesResult = results[0];
-      const outagesResult = results[1];
-
-      if (sitesResult.status !== "fulfilled") {
-        throw new Error(
-          `Sites.csv could not be loaded. ${sitesResult.reason}`
-        );
-      }
-
-      const siteRecords = parseCSV(sitesResult.value);
-
-      let outageRecords = [];
-
-      if (outagesResult.status === "fulfilled") {
-        if (Array.isArray(outagesResult.value)) {
-          outageRecords = outagesResult.value;
-        } else if (
-          Array.isArray(outagesResult.value?.outages)
-        ) {
-          outageRecords = outagesResult.value.outages;
-        } else {
-          console.warn(
-            "outages.json loaded, but it was not an array."
-          );
-        }
-      } else {
-        console.warn(
-          "outages.json could not be loaded. Stores will be shown as normal.",
-          outagesResult.reason
-        );
-      }
-
-      stores = mergeStoresAndOutages(
-        siteRecords,
-        outageRecords
-      );
-
-      return stores;
+    function toggleDashboard(){
+      const dash=document.getElementById("bottomDashboard"),open=!dash.classList.contains("expanded");
+      dash.classList.toggle("expanded",open);document.body.classList.toggle("dashboard-open",open);
+      document.getElementById("dashboardHandle").setAttribute("aria-expanded",String(open));
+      document.getElementById("dashboardArrow").textContent=open?"▼":"▲";
+      if(open)renderDashboard();setTimeout(()=>map&&map.invalidateSize({animate:false}),CONFIG.transitionMs+30);
     }
 
-    /* ==================================================
-       APPLICATION START
-    ================================================== */
+    function wireUI(){
+      document.getElementById("sidebarTab").onclick=()=>setSidebar(!document.body.classList.contains("sidebar-collapsed"));
+      document.getElementById("collapseSidebarBtn").onclick=()=>setSidebar(true);
+      document.getElementById("resetMapBtn").onclick=()=>{resetUSA();document.getElementById("searchBar").value="";document.getElementById("filterSelect").value="all";renderStoreList()};
+      document.getElementById("filterSelect").onchange=renderStoreList;
+      document.getElementById("searchBar").oninput=renderStoreList;
+      document.getElementById("searchBar").onkeydown=e=>{if(e.key==="Enter"){const f=filteredStores();if(f.length===1)focusStore(f[0])}};
+      document.getElementById("dashboardHandle").onclick=toggleDashboard;
+      window.addEventListener("resize",()=>map&&map.invalidateSize({animate:false}));
+    }
 
-    async function startApplication() {
-      wireUIEvents();
-      initializeMap();
+    async function fetchText(file){const r=await fetch(file,{cache:"no-store"});if(!r.ok)throw new Error(`${file}: HTTP ${r.status}`);return r.text()}
+    async function fetchJSON(file){const r=await fetch(file,{cache:"no-store"});if(!r.ok)throw new Error(`${file}: HTTP ${r.status}`);return r.json()}
 
-      try {
-        await loadApplicationData();
-
-        createMarkers();
-        renderStoreList();
-
-        recordOutageSnapshot();
-        renderDashboard();
-
-        /*
-         * Keep the default map on the continental USA.
-         * Marker creation does not change the view.
-         */
-        resetMapToUSA();
-
-        console.log(
-          `Application loaded with ${stores.length} stores.`
-        );
-      } catch (error) {
-        console.error("Application load failed:", error);
-
-        const sidebarSubtitle =
-          document.getElementById("sidebarSubtitle");
-
-        const storeList =
-          document.getElementById("storeList");
-
-        sidebarSubtitle.textContent = "Data load failed";
-
-        storeList.innerHTML = `
-          <div class="no-stores">
-            <strong>Unable to load store data.</strong>
-            <br><br>
-            Verify that <code>Sites.csv</code>,
-            <code>outages.json</code>, and
-            <code>index.html</code> are in the same folder.
-            <br><br>
-            This page must also be opened through a web server,
-            not directly as a file.
-          </div>
-        `;
-
-        setSidebarCollapsed(false);
+    async function start(){
+      wireUI();initializeMap();
+      try{
+        const [sitesResult,outagesResult]=await Promise.allSettled([fetchText(CONFIG.sitesFile),fetchJSON(CONFIG.outagesFile)]);
+        if(sitesResult.status!=="fulfilled")throw sitesResult.reason;
+        const siteRows=parseCSV(sitesResult.value);
+        let outageRows=[];
+        if(outagesResult.status==="fulfilled") outageRows=Array.isArray(outagesResult.value)?outagesResult.value:(Array.isArray(outagesResult.value?.outages)?outagesResult.value.outages:[]);
+        stores=mergeData(siteRows,outageRows);
+        createMarkers();renderStoreList();recordSnapshot();renderDashboard();resetUSA();
+      }catch(err){
+        console.error(err);document.getElementById("sidebarSubtitle").textContent="Data load failed";
+        document.getElementById("storeList").innerHTML='<div class="no-stores"><b>Unable to load store data.</b><br><br>Keep index.html, Sites.csv, and outages.json together and open the folder through a web server.</div>';
+        setSidebar(false);
       }
     }
-
-    startApplication();
+    start();
   </script>
 </body>
 </html>
