@@ -236,70 +236,51 @@
 
 <script>
 /* ------------------------------
-   ERROR + NOTIFICATION
+   Utilities + Notifications
 --------------------------------*/
-function showError(message) {
-    alert(message);
-}
-
-function showUpdateNotification() {
-    alert("Map data updated. Reloading...");
-    location.reload();
-}
+function showError(msg) { alert(msg); }
+function showUpdateNotification() { alert("Map data updated. Reloading..."); location.reload(); }
 
 /* ------------------------------
-   SNAPSHOT STORAGE
+   Snapshot storage
 --------------------------------*/
 const SNAPSHOT_KEY = 'outageSnapshots_v1';
 const SNAPSHOT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 function loadSnapshots() {
-    try {
-        const raw = localStorage.getItem(SNAPSHOT_KEY);
-        return raw ? JSON.parse(raw) : [];
-    } catch {
-        return [];
-    }
+    try { return JSON.parse(localStorage.getItem(SNAPSHOT_KEY)) || []; }
+    catch { return []; }
 }
-
-function saveSnapshots(arr) {
-    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(arr));
-}
-
+function saveSnapshots(arr) { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(arr)); }
 function saveSnapshot(count) {
     const snaps = loadSnapshots();
-    const now = Date.now();
-    snaps.push({ ts: now, count });
-    const cutoff = now - SNAPSHOT_WINDOW_MS;
-    saveSnapshots(snaps.filter(s => s.ts >= cutoff));
+    snaps.push({ ts: Date.now(), count });
+    saveSnapshots(snaps.filter(s => s.ts >= Date.now() - SNAPSHOT_WINDOW_MS));
 }
 
 /* ------------------------------
-   CSV PARSER
+   CSV parser
 --------------------------------*/
 function parseCSV(text) {
-    const lines = text.trim().split("\n");
+    const lines = text.trim().split("\n").filter(Boolean);
+    if (!lines.length) return [];
     const headers = lines[0].split(",").map(h => h.trim());
-
     return lines.slice(1).map(line => {
         const cols = line.split(",");
-        let obj = {};
-        headers.forEach((h, i) => obj[h] = cols[i]?.trim() || "");
-
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = (cols[i] || "").trim());
         obj.Latitude = parseFloat(obj.Latitude) || NaN;
         obj.Longitude = parseFloat(obj.Longitude) || NaN;
-
         return obj;
     });
 }
 
 /* ------------------------------
-   OUTAGE MERGE
+   Merge outage data into stores
 --------------------------------*/
-function mergeOutageData(stores, outages) {
-    stores.forEach(store => {
-        const match = outages.find(o => o.storeNumber == store["Site #"]);
-
+function mergeOutageData(storesArr, outages) {
+    storesArr.forEach(store => {
+        const match = outages.find(o => String(o.storeNumber) === String(store["Site #"]));
         if (match) {
             store.color = match.color || "white";
             store.status = match.status || "Unknown";
@@ -318,219 +299,71 @@ function mergeOutageData(stores, outages) {
 }
 
 /* ------------------------------
-   GLOBALS
+   Globals
 --------------------------------*/
 let stores = [];
 let map = null;
-let markers = {};
-let trendChart = null;
+let markers = {}; // keyed by Site #
 let lastHash = null;
+let trendChart = null;
 
 /* ------------------------------
-   DASHBOARD
---------------------------------*/
-function renderDashboard(storesForDash) {
-    const container = document.getElementById("dashboardContent");
-    container.innerHTML = "";
-
-    const totalStores = storesForDash.length;
-    const outageStores = storesForDash.filter(s => s.color !== "white");
-    const totalOutages = outageStores.length;
-
-    const byState = {};
-    const byProvider = {};
-
-    outageStores.forEach(s => {
-        byState[s.State] = (byState[s.State] || 0) + 1;
-        byProvider[s["Vendor Name"]] = (byProvider[s["Vendor Name"]] || 0) + 1;
-    });
-
-    container.innerHTML += `
-        <div class="dash-cards">
-            <div class="dash-card"><h3>Total Stores</h3><p>${totalStores}</p></div>
-            <div class="dash-card"><h3>Current Outages</h3><p>${totalOutages}</p></div>
-            <div class="dash-card"><h3>Unique Providers</h3><p>${Object.keys(byProvider).length}</p></div>
-            <div class="dash-card"><h3>Last Snapshot</h3><p>${new Date().toLocaleString()}</p></div>
-        </div>
-
-        <h3>Outages by State</h3>
-        <div id="byState" class="dash-list"></div>
-
-        <h3>Outages by Provider</h3>
-        <div id="byProvider" class="dash-list"></div>
-
-        <h3>24–48h Outage Trend</h3>
-        <canvas id="trendChart" width="320" height="160"></canvas>
-    `;
-
-    const stateDiv = document.getElementById("byState");
-    Object.entries(byState).forEach(([st, cnt]) => {
-        stateDiv.innerHTML += `<div class="dash-list-item">${st}: ${cnt}</div>`;
-    });
-
-    const provDiv = document.getElementById("byProvider");
-    Object.entries(byProvider).forEach(([p, cnt]) => {
-        provDiv.innerHTML += `<div class="dash-list-item">${p}: ${cnt}</div>`;
-    });
-
-    const snaps = loadSnapshots();
-    const labels = snaps.map(s => new Date(s.ts).toLocaleString());
-    const data = snaps.map(s => s.count);
-
-    const ctx = document.getElementById("trendChart").getContext("2d");
-    trendChart = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels,
-            datasets: [{
-                label: "Active outages",
-                data,
-                backgroundColor: "rgba(255,99,132,0.2)",
-                borderColor: "rgba(255,99,132,1)",
-                borderWidth: 1,
-                tension: 0.3,
-                fill: true
-            }]
-        }
-    });
-}
-
-/* ------------------------------
-   STORE LIST
---------------------------------*/
-const storeListDiv = document.getElementById("storeList");
-const filterSelect = document.getElementById("filterSelect");
-
-function renderStoreList(filterText = "") {
-    storeListDiv.innerHTML = "";
-
-    const filtered = stores.filter(s => {
-        if (filterSelect.value === "outages" && s.color === "white") return false;
-
-        const siteNum = String(s["Site #"]).toLowerCase();
-        const siteName = String(s.SiteName || "").toLowerCase();
-        const city = String(s.City || "").toLowerCase();
-
-        return (
-            siteNum.includes(filterText) ||
-            siteName.includes(filterText) ||
-            city.includes(filterText)
-        );
-    });
-
-    filtered.forEach(store => {
-        let div = document.createElement("div");
-        div.className = "store-item";
-
-        div.innerHTML = `
-            <b>${store["Site #"]} – ${store.SiteName}</b><br>
-            <b>Address:</b> ${store.Location || "N/A"}<br>
-            ${store.City}, ${store.State}<br>
-            <span style="color:${store.color}">● ${store.color.toUpperCase()}</span><br>
-            ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank" style="color:#9ec9ff;">Outage Map</a>` : ""}
-        `;
-
-        div.onclick = () => {
-            let marker = markers[store["Site #"]];
-            if (marker) {
-                map.setView(marker.getLatLng(), 14);
-                marker.openPopup();
-            }
-        };
-
-        storeListDiv.appendChild(div);
-    });
-}
-
-function renderStoreListForState(state) {
-    storeListDiv.innerHTML = "";
-
-    const filtered = stores.filter(s => s.State === state);
-
-    filtered.forEach(store => {
-        let div = document.createElement("div");
-        div.className = "store-item";
-
-        div.innerHTML = `
-            <b>${store["Site #"]} – ${store.SiteName}</b><br>
-            <b>Address:</b> ${store.Location || "N/A"}<br>
-            ${store.City}, ${store.State}<br>
-            <span style="color:${store.color}">● ${store.color.toUpperCase()}</span><br>
-        `;
-
-        div.onclick = () => {
-            let marker = markers[store["Site #"]];
-            if (marker) {
-                map.setView(marker.getLatLng(), 14);
-                marker.openPopup();
-            }
-        };
-
-        storeListDiv.appendChild(div);
-    });
-}
-
-/* ------------------------------
-   MAP INITIALIZATION
+   Map + Drilldown behavior
 --------------------------------*/
 function initMap(storesArg) {
+    // Hide the left sidebar and collapse bubble (user requested)
+    const sb = document.getElementById("sidebar");
+    if (sb) sb.style.display = "none";
+    const cb = document.getElementById("collapseBubble");
+    if (cb) cb.style.display = "none";
+
+    // Make map container full width (in case CSS left space)
+    const mapEl = document.getElementById("map");
+    if (mapEl) {
+        mapEl.style.position = "absolute";
+        mapEl.style.top = "0";
+        mapEl.style.left = "0";
+        mapEl.style.right = "0";
+        mapEl.style.bottom = "0";
+        mapEl.style.width = "100%";
+        mapEl.style.height = "100%";
+    }
+
     const USA_CENTER = [39.0, -98.0];
     const USA_ZOOM = 4.8;
 
+    // initialize global map (do NOT redeclare with let)
     map = L.map("map").setView(USA_CENTER, USA_ZOOM);
 
-    const osm = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        { attribution: '&copy; OpenStreetMap contributors' }
-    ).addTo(map);
+    const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
     const outageLayer = L.layerGroup().addTo(map);
     const impactLayer = L.layerGroup().addTo(map);
     const weatherLayer = L.layerGroup().addTo(map);
     const stateLayer = L.layerGroup().addTo(map);
 
+    // Build state summary (counts + color)
     const storesByState = {};
-    storesArg.forEach(store => {
-        if (!storesByState[store.State]) storesByState[store.State] = [];
-        storesByState[store.State].push(store);
+    storesArg.forEach(s => {
+        if (!storesByState[s.State]) storesByState[s.State] = [];
+        storesByState[s.State].push(s);
     });
 
     const stateCenters = {
-        "IL": [40.0, -89.0],
-        "IN": [39.9, -86.3],
-        "KS": [38.5, -98.0],
-        "KY": [37.8, -85.0],
-        "LA": [31.0, -92.0],
-        "MI": [44.5, -85.5],
-        "MN": [46.0, -94.0],
-        "MO": [38.5, -92.5],
-        "MS": [32.7, -89.7],
-        "OH": [40.3, -82.8],
-        "OK": [35.5, -97.5],
-        "TN": [35.8, -86.3],
-        "TX": [31.0, -99.0],
-        "WI": [44.5, -89.5],
-        "CA": [37.2, -119.5],
-        "AZ": [34.3, -111.7],
-        "NV": [39.5, -116.6],
-        "CO": [39.0, -105.5],
-        "NM": [34.5, -106.0],
-        "NE": [41.5, -99.5],
-        "IA": [42.0, -93.5],
-        "FL": [27.8, -81.7],
-        "GA": [32.6, -83.4],
-        "NC": [35.5, -79.5],
-        "SC": [33.8, -80.9],
-        "VA": [37.5, -78.5],
-        "WV": [38.6, -80.6],
-        "PA": [41.0, -77.5],
-        "NJ": [40.1, -74.5],
-        "NY": [42.9, -75.5]
+        "IL":[40.0,-89.0],"IN":[39.9,-86.3],"KS":[38.5,-98.0],"KY":[37.8,-85.0],
+        "LA":[31.0,-92.0],"MI":[44.5,-85.5],"MN":[46.0,-94.0],"MO":[38.5,-92.5],
+        "MS":[32.7,-89.7],"OH":[40.3,-82.8],"OK":[35.5,-97.5],"TN":[35.8,-86.3],
+        "TX":[31.0,-99.0],"WI":[44.5,-89.5],"CA":[37.2,-119.5],"AZ":[34.3,-111.7],
+        "NV":[39.5,-116.6],"CO":[39.0,-105.5],"NM":[34.5,-106.0],"NE":[41.5,-99.5],
+        "IA":[42.0,-93.5],"FL":[27.8,-81.7],"GA":[32.6,-83.4],"NC":[35.5,-79.5],
+        "SC":[33.8,-80.9],"VA":[37.5,-78.5],"WV":[38.6,-80.6],"PA":[41.0,-77.5],
+        "NJ":[40.1,-74.5],"NY":[42.9,-75.5]
     };
 
     Object.keys(storesByState).forEach(state => {
         const stateStores = storesByState[state];
-
         let color = "gray";
         if (stateStores.some(s => s.color === "red")) color = "red";
         else if (stateStores.some(s => s.color === "yellow")) color = "yellow";
@@ -538,87 +371,81 @@ function initMap(storesArg) {
         const center = stateCenters[state];
         if (!center) return;
 
-        const marker = L.circleMarker(center, {
-            radius: 20,
+        const circle = L.circleMarker(center, {
+            radius: 18,
             color,
             fillColor: color,
-            fillOpacity: 0.8,
+            fillOpacity: 0.85,
             weight: 2
-        })
-        .bindTooltip(`${state}: ${stateStores.length}`, {
-            permanent: true,
-            direction: "center"
-        })
-        .addTo(stateLayer);
+        }).bindTooltip(`${state}: ${stateStores.length}`, { permanent: true, direction: "center" })
+          .addTo(stateLayer);
 
-        marker.on("click", () => {
-            map.setView(center, 7);
-            renderStoreListForState(state);
-            renderDashboard(stateStores);
+        // Drill-down: zoom to state and highlight stores in that state
+        circle.on("click", () => {
+            zoomToStateAndOpenPopups(state);
         });
     });
 
     L.control.layers(
         { "Street Map": osm },
-        {
-            "Outages": outageLayer,
-            "Impact Areas": impactLayer,
-            "Weather Alerts": weatherLayer,
-            "State Summary": stateLayer
-        },
+        { "Outages": outageLayer, "Impact Areas": impactLayer, "Weather Alerts": weatherLayer, "State Summary": stateLayer },
         { position: "topleft" }
     ).addTo(map);
 
+    // Weather alerts loader
     async function loadWeatherAlerts() {
         try {
-            const response = await fetch("https://api.weather.gov/alerts/active");
-            const data = await response.json();
-
+            const res = await fetch("https://api.weather.gov/alerts/active");
+            const data = await res.json();
             weatherLayer.clearLayers();
-
-            data.features.forEach(alert => {
+            (data.features || []).forEach(alert => {
                 if (!alert.geometry) return;
-
-                const props = alert.properties;
-
+                const props = alert.properties || {};
                 L.geoJSON(alert.geometry, {
-                    style: {
-                        color: "#ff6600",
-                        weight: 2,
-                        fillOpacity: 0.15
-                    }
-                })
-                .bindPopup(`
-                    <b>${props.event}</b><br>
-                    Area: ${props.areaDesc}<br>
-                    Severity: ${props.severity}<br>
-                    Expires: ${props.expires || "Unknown"}
-                `)
-                .addTo(weatherLayer);
+                    style: { color: "#ff6600", weight: 2, fillOpacity: 0.12 }
+                }).bindPopup(`<b>${props.event}</b><br>Area: ${props.areaDesc || ""}<br>Severity: ${props.severity || ""}<br>Expires: ${props.expires || "Unknown"}`)
+                  .addTo(weatherLayer);
             });
-        } catch (err) {
-            console.log("Weather alert load failed", err);
+        } catch (e) {
+            console.warn("Weather load failed", e);
         }
     }
-
     loadWeatherAlerts();
     setInterval(loadWeatherAlerts, 300000);
 
+    // Legend
+    const legend = L.control({ position: "bottomleft" });
+    legend.onAdd = function() {
+        const div = L.DomUtil.create("div", "legend");
+        div.style.background = "#1e1e1e";
+        div.style.color = "white";
+        div.style.padding = "10px";
+        div.style.borderRadius = "6px";
+        div.style.fontSize = "13px";
+        div.innerHTML = `
+            <div style="display:flex;align-items:center;"><span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>Outage (0–0.5 miles)</div>
+            <div style="display:flex;align-items:center;"><span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>Possible Outage (0.5–1 mile)</div>
+            <div style="display:flex;align-items:center;"><span style="background:#444;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>No Outage</div>
+        `;
+        return div;
+    };
+    legend.addTo(map);
+
+    // Marker icons
     const iconColors = {
         red: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
         yellow: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png",
         white: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png"
     };
 
+    // Create markers for each store and add to outageLayer
     markers = {};
-
     storesArg.forEach(store => {
-        let lat = store.Latitude;
-        let lon = store.Longitude;
-
+        const lat = store.Latitude;
+        const lon = store.Longitude;
         if (isNaN(lat) || isNaN(lon)) return;
 
-        let icon = L.icon({
+        const icon = L.icon({
             iconUrl: iconColors[store.color] || iconColors.white,
             shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
             iconSize: [25, 41],
@@ -626,135 +453,116 @@ function initMap(storesArg) {
             popupAnchor: [1, -34]
         });
 
-        let marker = L.marker([lat, lon], { icon });
-
-        marker.bindPopup(`
+        const m = L.marker([lat, lon], { icon }).bindPopup(`
             <b>Store ${store["Site #"]} – ${store.SiteName}</b><br>
             <b>Address:</b> ${store.Location || "N/A"}<br>
-            ${store.City}, ${store.State}<br><br>
-
-            <b>Status:</b> ${store.status}<br>
+            ${store.City || ""}, ${store.State || ""}<br><br>
+            <b>Status:</b> ${store.status || ""}<br>
             <b>ETA:</b> ${store.etr || "N/A"}<br>
-            <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br><br>
-
-            ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
+            <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
+            ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
         `);
 
-        marker.addTo(outageLayer);
-        markers[store["Site #"]] = marker;
+        m.addTo(outageLayer);
+        markers[store["Site #"]] = { marker: m, store };
     });
 
-    document.getElementById("resetViewBtn").onclick = () => {
-        map.setView([37.5, -95.5], 5);
-    };
+    // Ensure map redraws after layout changes
+    setTimeout(() => map.invalidateSize(), 300);
 
-    document.getElementById("resetStateBtn").onclick = () => {
-        map.setView(USA_CENTER, USA_ZOOM);
-        renderStoreList();
-        renderDashboard(stores);
-    };
+    // Reset buttons (if present)
+    const rv = document.getElementById("resetViewBtn");
+    if (rv) rv.onclick = () => map.setView([37.5, -95.5], 5);
+    const rs = document.getElementById("resetStateBtn");
+    if (rs) rs.onclick = () => { map.setView(USA_CENTER, USA_ZOOM); };
 
-    let legend = L.control({ position: "bottomleft" });
-
-    legend.onAdd = function () {
-        let div = L.DomUtil.create("div", "legend");
-
-        div.style.background = "#1e1e1e";
-        div.style.color = "white";
-        div.style.padding = "10px";
-        div.style.borderRadius = "6px";
-        div.style.lineHeight = "1.6";
-        div.style.boxShadow = "0 0 5px rgba(0,0,0,0.4)";
-        div.style.fontSize = "13px";
-
-        div.innerHTML = `
-            <div style="display:flex;align-items:center;">
-                <span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
-                Outage (0–0.5 miles)
-            </div>
-
-            <div style="display:flex;align-items:center;">
-                <span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>
-                Possible Outage (0.5–1 mile)
-            </div>
-
-            <div style="display:flex;align-items:center;">
-                <span style="background:white;width:14px;height:14px;display:inline-block;margin-right:8px;border:1px solid #999;"></span>
-                No Outage
-            </div>
-        `;
-
-        return div;
-    };
-
-    legend.addTo(map);
-
-    const sidebar = document.getElementById("sidebar");
-    const toggleBtn = document.getElementById("toggleBtn");
-    const collapseBubble = document.getElementById("collapseBubble");
-
-    toggleBtn.onclick = () => sidebar.classList.add("collapsed");
-    collapseBubble.onclick = () => sidebar.classList.remove("collapsed");
-
-    const bottomDash = document.getElementById("bottomDashboard");
-    const dashHandle = document.getElementById("dashboardHandle");
-
-    dashHandle.onclick = () => {
-        bottomDash.classList.toggle("expanded");
-        if (bottomDash.classList.contains("expanded")) {
-            renderDashboard(stores);
-        }
-    };
-
+    // Auto-refresh check for outages.json changes
     async function checkForUpdate() {
         try {
-            const response = await fetch("outages.json", { cache: "no-store" });
-            const text = await response.text();
-            const hash = btoa(text);
-
+            const r = await fetch("outages.json", { cache: "no-store" });
+            const txt = await r.text();
+            const hash = btoa(txt);
             if (lastHash && lastHash !== hash) {
                 const currentOutages = stores.filter(s => s.color !== "white").length;
                 saveSnapshot(currentOutages);
                 showUpdateNotification();
             }
-
             lastHash = hash;
-        } catch {}
+        } catch (e) { /* silent */ }
     }
-
     setInterval(checkForUpdate, 30000);
     setTimeout(checkForUpdate, 5000);
+
+    /* ------------------------------
+       Drill-down helper
+    --------------------------------*/
+    function zoomToStateAndOpenPopups(state) {
+        // collect markers in that state
+        const stateMarkers = Object.values(markers).filter(mObj => (mObj.store.State === state));
+        if (!stateMarkers.length) {
+            // fallback: just zoom to state center if available
+            const center = stateCenters[state];
+            if (center) map.setView(center, 7);
+            return;
+        }
+
+        // build bounds and fit
+        const latlngs = stateMarkers.map(mObj => mObj.marker.getLatLng());
+        const bounds = L.latLngBounds(latlngs);
+        map.fitBounds(bounds.pad(0.4));
+
+        // open popups sequentially with small delay so user sees them
+        stateMarkers.forEach((mObj, i) => {
+            setTimeout(() => {
+                mObj.marker.openPopup();
+            }, i * 250);
+        });
+    }
 }
 
 /* ------------------------------
-   SEARCH + FILTER WIRING
+   Search/filter wiring (kept minimal since sidebar hidden)
 --------------------------------*/
-document.getElementById("searchBar").addEventListener("input", e => {
-    renderStoreList(e.target.value.toLowerCase());
-});
+const filterSelect = document.getElementById("filterSelect");
+const searchBar = document.getElementById("searchBar");
 
-filterSelect.addEventListener("change", () => {
-    renderStoreList(document.getElementById("searchBar").value.toLowerCase());
-});
+if (searchBar) {
+    searchBar.addEventListener("input", e => {
+        // If sidebar is hidden we still allow quick zoom-to-store by site number
+        const q = e.target.value.trim().toLowerCase();
+        if (!q) return;
+        // try to find exact site #
+        const found = stores.find(s => String(s["Site #"]).toLowerCase() === q);
+        if (found && markers[found["Site #"]]) {
+            const m = markers[found["Site #"]].marker;
+            map.setView(m.getLatLng(), 14);
+            m.openPopup();
+        }
+    });
+}
 
 /* ------------------------------
-   LOAD DATA + INIT
+   Load data and initialize
 --------------------------------*/
 Promise.all([
-    fetch("Sites.csv").then(r => r.text()),
-    fetch("outages.json").then(r => r.json())
+    fetch("Sites.csv").then(r => r.text()).catch(() => ""),
+    fetch("outages.json").then(r => r.json()).catch(() => [])
 ]).then(([csvText, outages]) => {
-    stores = parseCSV(csvText);
+    stores = csvText ? parseCSV(csvText) : [];
+    if (!Array.isArray(outages)) outages = [];
     mergeOutageData(stores, outages);
 
+    // snapshot
     const currentOutages = stores.filter(s => s.color !== "white").length;
     saveSnapshot(currentOutages);
 
+    // init map
     initMap(stores);
-    renderStoreList();
+}).catch(err => {
+    console.error("Data load failed", err);
+    showError("Failed to load data files.");
 });
 </script>
 
 </body>
 </html>
-```
