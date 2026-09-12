@@ -86,47 +86,89 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-/* ------------------------------
-   Utilities + Snapshot storage
---------------------------------*/
-function showError(msg){ alert(msg); }
-function showUpdateNotification(){ alert("Map data updated. Reloading..."); location.reload(); }
+/* ============================
+   CONFIG / CONSTANTS
+   ============================ */
+const stateCenters = {
+  "IL":[40.0,-89.0],"IN":[39.9,-86.3],"KS":[38.5,-98.0],"KY":[37.8,-85.0],
+  "LA":[31.0,-92.0],"MI":[44.5,-85.5],"MN":[46.0,-94.0],"MO":[38.5,-92.5],
+  "MS":[32.7,-89.7],"OH":[40.3,-82.8],"OK":[35.5,-97.5],"TN":[35.8,-86.3],
+  "TX":[31.0,-99.0],"WI":[44.5,-89.5],"CA":[37.2,-119.5],"AZ":[34.3,-111.7],
+  "NV":[39.5,-116.6],"CO":[39.0,-105.5],"NM":[34.5,-106.0],"NE":[41.5,-99.5],
+  "IA":[42.0,-93.5],"FL":[27.8,-81.7],"GA":[32.6,-83.4],"NC":[35.5,-79.5],
+  "SC":[33.8,-80.9],"VA":[37.5,-78.5],"WV":[38.6,-80.6],"PA":[41.0,-77.5],
+  "NJ":[40.1,-74.5],"NY":[42.9,-75.5]
+};
 
 const SNAPSHOT_KEY = 'outageSnapshots_v1';
-const SNAPSHOT_WINDOW_MS = 48*60*60*1000;
+const SNAPSHOT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
-function loadSnapshots(){
-  try { return JSON.parse(localStorage.getItem(SNAPSHOT_KEY)) || []; }
-  catch { return []; }
+/* ============================
+   Safe storage helpers
+   (handles Tracking Prevention)
+   ============================ */
+function safeGetItem(key) {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    return localStorage.getItem(key);
+  } catch (e) {
+    // storage blocked (Tracking Prevention) — fail gracefully
+    return null;
+  }
 }
-function saveSnapshots(arr){ localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(arr)); }
-function saveSnapshot(count){
+function safeSetItem(key, value) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(key, value);
+  } catch (e) {
+    // ignore write errors
+  }
+}
+
+/* ============================
+   Snapshot helpers
+   ============================ */
+function loadSnapshots() {
+  try {
+    const raw = safeGetItem(SNAPSHOT_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+function saveSnapshots(arr) {
+  try { safeSetItem(SNAPSHOT_KEY, JSON.stringify(arr)); } catch {}
+}
+function saveSnapshot(count) {
   const snaps = loadSnapshots();
-  snaps.push({ ts: Date.now(), count });
-  saveSnapshots(snaps.filter(s => s.ts >= Date.now() - SNAPSHOT_WINDOW_MS));
+  const now = Date.now();
+  snaps.push({ ts: now, count });
+  const cutoff = now - SNAPSHOT_WINDOW_MS;
+  saveSnapshots(snaps.filter(s => s.ts >= cutoff));
 }
 
-/* ------------------------------
-   CSV parse + merge
---------------------------------*/
-function parseCSV(text){
-  const lines = (text||"").trim().split("\n").filter(Boolean);
-  if(!lines.length) return [];
-  const headers = lines[0].split(",").map(h=>h.trim());
-  return lines.slice(1).map(line=>{
+/* ============================
+   CSV parser + merge
+   ============================ */
+function parseCSV(text) {
+  if (!text) return [];
+  const lines = text.trim().split("\n").filter(Boolean);
+  if (!lines.length) return [];
+  const headers = lines[0].split(",").map(h => h.trim());
+  return lines.slice(1).map(line => {
     const cols = line.split(",");
     const obj = {};
-    headers.forEach((h,i)=> obj[h] = (cols[i]||"").trim());
+    headers.forEach((h, i) => obj[h] = (cols[i] || "").trim());
     obj.Latitude = parseFloat(obj.Latitude) || NaN;
     obj.Longitude = parseFloat(obj.Longitude) || NaN;
     return obj;
   });
 }
 
-function mergeOutageData(storesArr, outages){
-  (storesArr||[]).forEach(store=>{
-    const match = (outages||[]).find(o => String(o.storeNumber) === String(store["Site #"]));
-    if(match){
+function mergeOutageData(storesArr, outages) {
+  (storesArr || []).forEach(store => {
+    const match = (outages || []).find(o => String(o.storeNumber) === String(store["Site #"]));
+    if (match) {
       store.color = match.color || "white";
       store.status = match.status || "Unknown";
       store.distanceMiles = match.distanceMiles || "";
@@ -143,18 +185,18 @@ function mergeOutageData(storesArr, outages){
   });
 }
 
-/* ------------------------------
-   Globals
---------------------------------*/
+/* ============================
+   Globals (single declarations)
+   ============================ */
 let stores = [];
-let map = null;
-let markers = {}; // { site#: { marker, store } }
+let map = null;                 // global map (no shadowing)
+let markers = {};               // { site#: { marker, store } }
 let lastHash = null;
 let trendChart = null;
 
-/* ------------------------------
+/* ============================
    DOM refs
---------------------------------*/
+   ============================ */
 const storeListDiv = document.getElementById("storeList");
 const filterSelect = document.getElementById("filterSelect");
 const searchBar = document.getElementById("searchBar");
@@ -164,13 +206,12 @@ const collapseBubble = document.getElementById("collapseBubble");
 const bottomDash = document.getElementById("bottomDashboard");
 const dashHandle = document.getElementById("dashboardHandle");
 const resetStateBtn = document.getElementById("resetStateBtn");
-const resetViewBtn = document.getElementById("resetViewBtn"); // will be removed
 
-/* ------------------------------
+/* ============================
    Render store list + drilldown
---------------------------------*/
-function renderStoreList(filterText = ""){
-  if(!storeListDiv) return;
+   ============================ */
+function renderStoreList(filterText = "") {
+  if (!storeListDiv) return;
   storeListDiv.innerHTML = "";
   const q = (filterText || "").toLowerCase();
 
@@ -203,8 +244,8 @@ function renderStoreList(filterText = ""){
   });
 }
 
-function renderStoreListForState(state){
-  if(!storeListDiv) return;
+function renderStoreListForState(state) {
+  if (!storeListDiv) return;
   storeListDiv.innerHTML = "";
   const filtered = stores.filter(s => s.State === state);
   filtered.forEach(store => {
@@ -227,17 +268,23 @@ function renderStoreListForState(state){
   });
 }
 
-/* ------------------------------
-   Dashboard
---------------------------------*/
-function renderDashboard(storesForDash){
+/* ============================
+   Dashboard (minimal)
+   ============================ */
+function renderDashboard(storesForDash) {
   const container = document.getElementById("dashboardContent");
-  if(!container) return;
+  if (!container) return;
   container.innerHTML = "";
+
   const list = storesForDash || stores;
   const outageStores = list.filter(s => s.color !== "white");
-  const byState = {}, byProvider = {};
-  outageStores.forEach(s => { byState[s.State] = (byState[s.State] || 0) + 1; byProvider[s["Vendor Name"]] = (byProvider[s["Vendor Name"]] || 0) + 1; });
+  const byState = {};
+  const byProvider = {};
+
+  outageStores.forEach(s => {
+    byState[s.State] = (byState[s.State] || 0) + 1;
+    byProvider[s["Vendor Name"]] = (byProvider[s["Vendor Name"]] || 0) + 1;
+  });
 
   container.innerHTML += `
     <div class="dash-cards">
@@ -256,12 +303,17 @@ function renderDashboard(storesForDash){
     const el = document.createElement("div");
     el.className = "dash-list-item";
     el.textContent = `${st}: ${cnt}`;
-    el.onclick = () => { renderStoreListForState(st); zoomToStateAndOpenPopups(st); };
+    el.onclick = () => {
+      renderStoreListForState(st);
+      zoomToStateAndOpenPopups(st);
+    };
     stateDiv.appendChild(el);
   });
 
   const provDiv = document.getElementById("byProvider");
-  Object.entries(byProvider).forEach(([p, cnt]) => provDiv.innerHTML += `<div class="dash-list-item">${p}: ${cnt}</div>`);
+  Object.entries(byProvider).forEach(([p, cnt]) => {
+    provDiv.innerHTML += `<div class="dash-list-item">${p}: ${cnt}</div>`;
+  });
 
   try {
     const snaps = loadSnapshots();
@@ -269,15 +321,19 @@ function renderDashboard(storesForDash){
     const data = snaps.map(s => s.count);
     const ctx = document.getElementById("trendChart").getContext("2d");
     if (trendChart) trendChart.destroy();
-    trendChart = new Chart(ctx, { type: "line", data: { labels, datasets: [{ label: "Active outages", data, backgroundColor: "rgba(255,99,132,0.2)", borderColor: "rgba(255,99,132,1)", tension: 0.3 }] } });
+    trendChart = new Chart(ctx, {
+      type: "line",
+      data: { labels, datasets: [{ label: "Active outages", data, backgroundColor: "rgba(255,99,132,0.2)", borderColor: "rgba(255,99,132,1)", tension: 0.3 }] }
+    });
   } catch (e) { /* ignore chart errors */ }
 }
 
-/* ------------------------------
-   Map init + drilldown
---------------------------------*/
-function initMap(storesArg){
-  const USA_CENTER = [39.0, -98.0], USA_ZOOM = 4.8;
+/* ============================
+   Map initialization + drilldown
+   ============================ */
+function initMap(storesArg) {
+  const USA_CENTER = [39.0, -98.0];
+  const USA_ZOOM = 4.8;
 
   // create global map and expose to window for transition handler
   map = L.map("map").setView(USA_CENTER, USA_ZOOM);
@@ -290,18 +346,10 @@ function initMap(storesArg){
 
   // group stores by state
   const storesByState = {};
-  storesArg.forEach(s => { if (!storesByState[s.State]) storesByState[s.State] = []; storesByState[s.State].push(s); });
-
-  const stateCenters = {
-    "IL":[40.0,-89.0],"IN":[39.9,-86.3],"KS":[38.5,-98.0],"KY":[37.8,-85.0],
-    "LA":[31.0,-92.0],"MI":[44.5,-85.5],"MN":[46.0,-94.0],"MO":[38.5,-92.5],
-    "MS":[32.7,-89.7],"OH":[40.3,-82.8],"OK":[35.5,-97.5],"TN":[35.8,-86.3],
-    "TX":[31.0,-99.0],"WI":[44.5,-89.5],"CA":[37.2,-119.5],"AZ":[34.3,-111.7],
-    "NV":[39.5,-116.6],"CO":[39.0,-105.5],"NM":[34.5,-106.0],"NE":[41.5,-99.5],
-    "IA":[42.0,-93.5],"FL":[27.8,-81.7],"GA":[32.6,-83.4],"NC":[35.5,-79.5],
-    "SC":[33.8,-80.9],"VA":[37.5,-78.5],"WV":[38.6,-80.6],"PA":[41.0,-77.5],
-    "NJ":[40.1,-74.5],"NY":[42.9,-75.5]
-  };
+  (storesArg || []).forEach(s => {
+    if (!storesByState[s.State]) storesByState[s.State] = [];
+    storesByState[s.State].push(s);
+  });
 
   Object.keys(storesByState).forEach(state => {
     const stateStores = storesByState[state];
@@ -325,7 +373,7 @@ function initMap(storesArg){
   L.control.layers({ "Street Map": osm }, { "Outages": outageLayer, "Weather Alerts": weatherLayer, "State Summary": stateLayer }, { position: "topleft" }).addTo(map);
 
   // weather alerts
-  async function loadWeatherAlerts(){
+  async function loadWeatherAlerts() {
     try {
       const r = await fetch("https://api.weather.gov/alerts/active");
       const data = await r.json();
@@ -344,8 +392,8 @@ function initMap(storesArg){
 
   // legend
   const legend = L.control({ position: "bottomleft" });
-  legend.onAdd = function(){
-    const d = L.DomUtil.create("div","legend");
+  legend.onAdd = function () {
+    const d = L.DomUtil.create("div", "legend");
     d.style.background = "#151515"; d.style.color = "#fff"; d.style.padding = "8px"; d.style.borderRadius = "6px";
     d.innerHTML = `
       <div style="display:flex;align-items:center;"><span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>Outage</div>
@@ -364,11 +412,11 @@ function initMap(storesArg){
   };
 
   markers = {};
-  storesArg.forEach(store => {
+  (storesArg || []).forEach(store => {
     const lat = store.Latitude, lon = store.Longitude;
     if (isNaN(lat) || isNaN(lon)) return;
 
-    const icon = L.icon({ iconUrl: iconColors[store.color] || iconColors.white, shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize: [25,41], iconAnchor: [12,41], popupAnchor: [1,-34] });
+    const icon = L.icon({ iconUrl: iconColors[store.color] || iconColors.white, shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] });
 
     const m = L.marker([lat, lon], { icon }).bindPopup(`
       <b>Store ${store["Site #"]} – ${store.SiteName || ""}</b><br>
@@ -391,7 +439,7 @@ function initMap(storesArg){
   if (resetStateBtn) resetStateBtn.onclick = () => { map.setView(USA_CENTER, USA_ZOOM); renderStoreList(); renderDashboard(stores); };
 
   // auto-refresh check
-  async function checkForUpdate(){
+  async function checkForUpdate() {
     try {
       const r = await fetch("outages.json", { cache: "no-store" });
       const txt = await r.text();
@@ -407,10 +455,10 @@ function initMap(storesArg){
   setTimeout(checkForUpdate, 5000);
 
   // drill helper
-  function zoomToStateAndOpenPopups(state){
+  function zoomToStateAndOpenPopups(state) {
     const entries = Object.values(markers).filter(e => e.store.State === state);
     if (!entries.length) {
-      const center = stateCenters && stateCenters[state];
+      const center = stateCenters[state];
       if (center) map.setView(center, 7);
       return;
     }
@@ -420,29 +468,16 @@ function initMap(storesArg){
     entries.forEach((e, i) => setTimeout(() => e.marker.openPopup(), i * 200));
   }
 
-  // expose helper for other code
+  // expose helper for other code if needed
   window.zoomToStateAndOpenPopups = zoomToStateAndOpenPopups;
-
-  // local stateCenters for fallback
-  const stateCenters = {
-    "IL":[40.0,-89.0],"IN":[39.9,-86.3],"KS":[38.5,-98.0],"KY":[37.8,-85.0],
-    "LA":[31.0,-92.0],"MI":[44.5,-85.5],"MN":[46.0,-94.0],"MO":[38.5,-92.5],
-    "MS":[32.7,-89.7],"OH":[40.3,-82.8],"OK":[35.5,-97.5],"TN":[35.8,-86.3],
-    "TX":[31.0,-99.0],"WI":[44.5,-89.5],"CA":[37.2,-119.5],"AZ":[34.3,-111.7],
-    "NV":[39.5,-116.6],"CO":[39.0,-105.5],"NM":[34.5,-106.0],"NE":[41.5,-99.5],
-    "IA":[42.0,-93.5],"FL":[27.8,-81.7],"GA":[32.6,-83.4],"NC":[35.5,-79.5],
-    "SC":[33.8,-80.9],"VA":[37.5,-78.5],"WV":[38.6,-80.6],"PA":[41.0,-77.5],
-    "NJ":[40.1,-74.5],"NY":[42.9,-75.5]
-  };
 }
 
-/* ------------------------------
-   UI wiring: search, filter, sidebar, dashboard, collapse
---------------------------------*/
-// Remove/hide the Default View button if present (user requested deletion)
-if (resetViewBtn && resetViewBtn.parentNode) {
-  resetViewBtn.parentNode.removeChild(resetViewBtn);
-}
+/* ============================
+   UI wiring: search, filter, sidebar collapse, dashboard
+   ============================ */
+// Remove Default View button if present (user requested)
+const defaultBtn = document.getElementById("resetViewBtn");
+if (defaultBtn && defaultBtn.parentNode) defaultBtn.parentNode.removeChild(defaultBtn);
 
 // Search input
 if (searchBar) {
@@ -463,8 +498,8 @@ if (searchBar) {
 // Filter select
 if (filterSelect) filterSelect.addEventListener("change", () => renderStoreList((searchBar && searchBar.value) ? searchBar.value.toLowerCase() : ""));
 
-// Sidebar collapse using body-level class
-function setSidebarCollapsed(collapsed){
+// Sidebar collapse using body-level class and transitionend to invalidate map size
+function setSidebarCollapsed(collapsed) {
   if (collapsed) {
     document.body.classList.add("sidebar-collapsed");
     if (collapseBubble) collapseBubble.style.display = "flex";
@@ -473,38 +508,29 @@ function setSidebarCollapsed(collapsed){
     if (collapseBubble) collapseBubble.style.display = "none";
   }
 }
-
-// initialize collapse bubble visibility
 setSidebarCollapsed(document.body.classList.contains("sidebar-collapsed"));
 
-// toggle button
-if (toggleBtn) toggleBtn.addEventListener("click", () => {
-  const collapsed = !document.body.classList.contains("sidebar-collapsed");
-  setSidebarCollapsed(collapsed);
-});
-
-// collapse bubble to reopen
+if (toggleBtn) toggleBtn.addEventListener("click", () => setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed")));
 if (collapseBubble) collapseBubble.addEventListener("click", () => setSidebarCollapsed(false));
 
-// ensure Leaflet redraws after CSS transition (map uses right property)
 const mapEl = document.getElementById("map");
 if (mapEl) {
-  mapEl.addEventListener("transitionend", (ev) => {
+  mapEl.addEventListener("transitionend", ev => {
     if (ev.propertyName === "right" && window.map && typeof window.map.invalidateSize === "function") {
       setTimeout(() => window.map.invalidateSize(), 120);
     }
   });
 }
 
-// dashboard handle
+// Dashboard handle
 if (dashHandle && bottomDash) dashHandle.addEventListener("click", () => {
   bottomDash.classList.toggle("expanded");
   if (bottomDash.classList.contains("expanded")) renderDashboard(stores);
 });
 
-/* ------------------------------
+/* ============================
    Load data + start
---------------------------------*/
+   ============================ */
 Promise.all([
   fetch("Sites.csv").then(r => r.text()).catch(() => ""),
   fetch("outages.json").then(r => r.json()).catch(() => [])
@@ -517,7 +543,7 @@ Promise.all([
   renderStoreList();
 }).catch(err => {
   console.error("Load failed", err);
-  showError("Failed to load data files.");
+  alert("Failed to load data files.");
 });
 </script>
 
