@@ -364,6 +364,47 @@
       right:0;
     }
 
+
+    /* LIGHT OPERATIONS BASEMAP STYLE */
+    #map {
+      background:#edf0f2;
+    }
+
+    /*
+     * Keep the existing OpenStreetMap source but reduce visual noise so
+     * outage circles remain the strongest visual element. Only map tiles
+     * are filtered. Markers, controls, popups, and overlays are unaffected.
+     */
+    .leaflet-tile-pane {
+      filter:grayscale(.82) saturate(.35) brightness(1.10) contrast(.84);
+    }
+
+    .leaflet-tile {
+      transition:filter .2s ease,opacity .2s ease;
+    }
+
+    /* Give controls a clean operations-dashboard appearance. */
+    .leaflet-control-zoom a,
+    .usa-map-control,
+    .leaflet-control-layers {
+      color:#263238;
+      background:#f8fafb;
+      border-color:#c7cdd2;
+    }
+
+    .leaflet-control-zoom a:hover,
+    .usa-map-control:hover {
+      background:#ffffff;
+    }
+
+    /* Keep state summaries crisp over the desaturated map. */
+    .state-marker-badge {
+      border-color:#ffffff;
+      box-shadow:
+        0 3px 10px rgba(0,0,0,.62),
+        0 0 0 1px rgba(20,30,40,.35);
+    }
+
   </style>
 </head>
 <body class="sidebar-collapsed">
@@ -547,7 +588,7 @@
       });
       map.on("zoom",updateStateMarkerSize);
       map.on("zoomend",updateStateMarkerSize);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'Light operations styling &copy; OpenStreetMap contributors'}).addTo(map);
       map.createPane("stateMarkerPane"); map.getPane("stateMarkerPane").style.zIndex="600";
       map.createPane("exactStorePane"); map.getPane("exactStorePane").style.zIndex="750";
       stateLayer=L.layerGroup().addTo(map);
