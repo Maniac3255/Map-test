@@ -321,6 +321,31 @@
     .store-popup-title { margin-bottom:6px; font-weight:700; }
     .store-popup-row { margin-top:3px; }
 
+    /* ANIMATED STATE MARKER SIZING BY MAP ZOOM */
+    .state-marker-container {
+      transform-origin:center center;
+      transition:transform .35s cubic-bezier(.22,1,.36,1);
+      will-change:transform;
+    }
+
+    #map.state-markers-small .state-marker-container {
+      transform:scale(.58);
+    }
+
+    #map.state-markers-medium .state-marker-container {
+      transform:scale(.80);
+    }
+
+    #map.state-markers-large .state-marker-container {
+      transform:scale(1);
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      .state-marker-container {
+        transition:none;
+      }
+    }
+
     /* RESPONSIVE LAYOUT: changes available space, not map zoom */
     @media (max-width:1200px) {
       :root {
@@ -355,7 +380,6 @@
     @media (max-width:520px) {
       :root { --dashboard-height:min(66vh,340px); }
       #dashboardContent { padding:10px; }
-      .state-marker-container { transform:scale(.88); transform-origin:center; }
     }
 
     @media (max-height:700px) {
@@ -534,6 +558,7 @@
 
     function initializeMap(){
       map=L.map("map",{minZoom:4,maxZoom:18,maxBounds:CONFIG.usaBounds,maxBoundsViscosity:1,worldCopyJump:false});
+      map.on("zoomend",updateStateMarkerSize);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
       map.createPane("stateMarkerPane"); map.getPane("stateMarkerPane").style.zIndex="600";
       map.createPane("exactStorePane"); map.getPane("exactStorePane").style.zIndex="750";
@@ -547,10 +572,32 @@
       setTimeout(()=>{
         map.invalidateSize({animate:false,pan:false});
         resetUSA();
+        updateStateMarkerSize();
       },250);
     }
 
     function resetUSA(){ if(map) map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false}); }
+
+    function updateStateMarkerSize() {
+      if(!map) return;
+
+      const mapElement=document.getElementById("map");
+      const zoom=map.getZoom();
+
+      mapElement.classList.remove(
+        "state-markers-small",
+        "state-markers-medium",
+        "state-markers-large"
+      );
+
+      if(zoom<=4) {
+        mapElement.classList.add("state-markers-small");
+      } else if(zoom<=6) {
+        mapElement.classList.add("state-markers-medium");
+      } else {
+        mapElement.classList.add("state-markers-large");
+      }
+    }
 
     function resizeMapToBrowser() {
       if(!map) return;
@@ -563,6 +610,7 @@
 
         map.invalidateSize({animate:false,pan:false});
         map.setView(currentCenter,currentZoom,{animate:false,reset:true});
+        updateStateMarkerSize();
 
         if(trendChart && typeof trendChart.resize === "function") {
           trendChart.resize();
