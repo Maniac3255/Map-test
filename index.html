@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Store Outage Map — NOAA + RainViewer (minZoom 3 / maxZoom 10)</title>
+  <title>Store Outage NOC — Pushpin Markers, NOAA + RainViewer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
@@ -30,11 +30,35 @@
     .radar-vertical button { background:#1a73e8; color:#fff; border:none; padding:6px 8px; border-radius:4px; cursor:pointer; font-size:13px; }
     .leaflet-top.leaflet-left .radar-vertical-container { margin-top: 88px; margin-left: 8px; }
 
-    .leaflet-marker-icon.pulse { animation: pulse 1s infinite; transform-origin:center center; }
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+    /* Pulse animation used for active markers */
+    .leaflet-marker-icon.pulse { animation: pulse 1s infinite; transform-origin:center bottom; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+
+    /* Smooth scaling for markers; origin at bottom tip so pushpin grows upward */
+    .leaflet-marker-icon {
+      transform-origin: center bottom;
+      transition: transform 220ms cubic-bezier(.2,.9,.2,1), filter 220ms ease;
+      will-change: transform;
+    }
+
+    /* Enlarged state for outage markers */
+    .leaflet-marker-icon.enlarge {
+      transform: scale(1.35);
+      z-index: 9999 !important;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.35));
+    }
+
+    /* Slightly stronger pulse while enlarged */
+    .leaflet-marker-icon.enlarge.pulse { animation: pulse 1s infinite; }
 
     #zoomDisplay { position:absolute; left:8px; bottom:8px; z-index:6500; background:rgba(0,0,0,0.6); color:#fff; padding:6px; border-radius:6px; font-size:13px; }
     .legend { font-size:13px; }
+
+    /* Toasts for NOC alerts */
+    .noc-toast { position:fixed; right:16px; top:16px; z-index:12000; background:#222; color:#fff; padding:10px 14px; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.5); opacity:0; transform:translateY(-8px); transition:opacity .18s ease, transform .18s ease; }
+    .noc-toast.visible { opacity:1; transform:translateY(0); }
+    .noc-toast.critical { background:#8b0000; }
+    .noc-toast.warn { background:#8a6d00; }
   </style>
 </head>
 <body>
@@ -69,16 +93,19 @@
 
   <div id="zoomDisplay">Zoom 4</div>
 
+  <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Complete index.html script with:
-     - minZoom 3, maxZoom 10 (reverted)
-     - pushpin-style markers (SVG data URLs), no shadows
-     - markers scale with zoom and bring-to-front when red/yellow
-     - NOAA NowCOAST WMS attempt + RainViewer fallback
-     - sidebar, reset to All USA, search, dashboard
+  /* Full index.html — updated so outage markers enlarge when a store goes into outage.
+     Key behaviors:
+     - map supports street-level focus (click store -> zoom 15)
+     - pushpin SVG markers (no shadow image file)
+     - when a store becomes red/yellow: icon size increases, CSS 'enlarge' class added, marker brought to front and pulsing
+     - when cleared: icon and classes revert
+     - NOAA NowCOAST attempt + RainViewer fallback
   */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
@@ -119,6 +146,20 @@
   let markers = {};
   let outageLayer, storeLayer, weatherLayer, hazardLayer;
   let trendChart = null;
+  let nowcoastWms = null;
+
+  function showToast(text, severity = 'info', timeout = 8000) {
+    const container = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'noc-toast ' + (severity === 'critical' ? 'critical' : (severity === 'warn' ? 'warn' : ''));
+    t.textContent = text;
+    container.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('visible'));
+    setTimeout(() => {
+      t.classList.remove('visible');
+      setTimeout(()=> t.remove(), 300);
+    }, timeout);
+  }
 
   function renderStoreList(filterText = ""){
     const storeListDiv = document.getElementById("storeList");
@@ -146,7 +187,7 @@
       `;
       div.onclick = () => {
         const entry = markers[String(store["Site #"])];
-        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), Math.min(map.getMaxZoom(), 10)); entry.marker.openPopup(); }
+        if(entry && entry.marker) focusStoreOnMap(entry.marker);
       };
       storeListDiv.appendChild(div);
     });
@@ -194,10 +235,20 @@
     } catch(e){}
   }
 
+  function focusStoreOnMap(marker) {
+    const targetZoom = 15;
+    if (map.flyTo) {
+      map.flyTo(marker.getLatLng(), targetZoom, { duration: 0.7 });
+    } else {
+      map.setView(marker.getLatLng(), targetZoom);
+    }
+    marker.openPopup();
+  }
+
   function initMapAndLayers(){
-    // Reverted zoom limits
-    const MIN_Z = 5;
-    const MAX_Z = 11;
+    // Allow street-level focus (we use zoom 15 for store focus)
+    const MIN_Z = 3;
+    const MAX_Z = 19;
 
     const USA_CENTER = [39.0, -98.0];
     const USA_ZOOM = 4;
@@ -268,7 +319,7 @@
     let useProxy = false;
     const wmsUrl = useProxy ? PROXY_WMS_BASE : NOWCOAST_WMS_BASE;
 
-    const nowcoastWms = L.tileLayer.wms(wmsUrl, {
+    nowcoastWms = L.tileLayer.wms(wmsUrl, {
       layers: 'RAS_Radar_Nexrad_Reflectivity',
       format: 'image/png',
       transparent: true,
@@ -276,7 +327,7 @@
       attribution: 'NOAA NowCOAST',
       pane: 'radarPane',
       minZoom: MIN_Z,
-      maxZoom: Math.min(MAX_Z, 10)
+      maxZoom: 12
     });
 
     if (window._customLayerControl && typeof window._customLayerControl.addOverlay === "function") {
@@ -289,7 +340,7 @@
       opacity: 0.6,
       attribution: 'RainViewer',
       minZoom: MIN_Z,
-      maxZoom: Math.min(MAX_Z, 16),
+      maxZoom: 16,
       maxNativeZoom: 16
     });
     window._customLayerControl.addOverlay(window.rainViewerLayer, "RainViewer Radar");
@@ -298,6 +349,7 @@
       if (!map.hasLayer(window.rainViewerLayer)) window.rainViewerLayer.addTo(map);
       if (map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
       console.warn('NowCOAST tile error — switched to RainViewer fallback');
+      showToast('NOAA NowCOAST unavailable — using RainViewer fallback', 'warn', 6000);
     });
 
     // Radar source switch control
@@ -431,21 +483,23 @@
 
         const BASE_ICON = { width: 28, height: 44 };
 
-        function makeIcon(color, zoom) {
+        function makeIcon(color, zoom, enlarge=false) {
           const MIN_Z = map.getMinZoom();
-          const MAX_Z = map.getMaxZoom();
+          const MAX_Z = Math.min(map.getMaxZoom(), 19);
           const z = Math.max(MIN_Z, Math.min(MAX_Z, zoom));
           const t = (z - MIN_Z) / Math.max(0.0001, (MAX_Z - MIN_Z));
           const scale = 0.45 + 0.55 * t; // 0.45..1.0
           const w = Math.max(10, Math.round(BASE_ICON.width * scale));
           const h = Math.max(14, Math.round(BASE_ICON.height * scale));
+          const finalW = enlarge ? Math.round(w * 1.15) : w;
+          const finalH = enlarge ? Math.round(h * 1.15) : h;
           const colorHex = (color === 'red') ? '#ff4d4d' : (color === 'yellow') ? '#ffd54f' : '#6b6b6b';
           const url = pushpinDataUrl(colorHex);
           return L.icon({
             iconUrl: url,
-            iconSize: [w, h],
-            iconAnchor: [Math.round(w/2), h],
-            popupAnchor: [1, -Math.round(h*0.8)]
+            iconSize: [finalW, finalH],
+            iconAnchor: [Math.round(finalW/2), finalH],
+            popupAnchor: [1, -Math.round(finalH*0.8)]
           });
         }
 
@@ -460,7 +514,8 @@
           const lat = coords.lat, lon = coords.lon;
 
           const color = store.color === 'red' ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
-          const icon = makeIcon(color, map.getZoom());
+          const isOutage = (color === 'red' || color === 'yellow');
+          const icon = makeIcon(color, map.getZoom(), isOutage);
 
           const marker = L.marker([lat, lon], { icon, pane: (storeLayer.options && storeLayer.options.pane) ? storeLayer.options.pane : undefined });
 
@@ -474,18 +529,28 @@
             ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
           `;
           marker.bindPopup(popupHtml);
+
+          // marker click zooms to street-level (15)
+          marker.on('click', () => focusStoreOnMap(marker));
+
           marker.addTo(storeLayer);
 
           const key = String(store["Site #"] || `${store.SiteName || "store"}_${created}`);
           markers[key] = { marker, store };
 
-          // If initial state is outage, bring to front and pulse
-          if (store.color === 'red' || store.color === 'yellow') {
+          // If initial state is outage, bring to front and pulse + enlarge
+          if (isOutage) {
             try {
               marker.setZIndexOffset(1000);
               if (marker.bringToFront) marker.bringToFront();
-              const el = marker._icon;
-              if (el) el.classList.add('pulse');
+              // DOM icon may not be ready immediately; schedule class add
+              setTimeout(() => {
+                const el = marker._icon;
+                if (el) {
+                  el.classList.add('pulse');
+                  el.classList.add('enlarge');
+                }
+              }, 80);
             } catch(e){}
           }
 
@@ -499,8 +564,16 @@
           Object.values(markers).forEach(entry => {
             const store = entry.store;
             const color = store.color === 'red' ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
-            const newIcon = makeIcon(color, z);
+            const isOutage = (color === 'red' || color === 'yellow');
+            const newIcon = makeIcon(color, z, isOutage);
             try { entry.marker.setIcon(newIcon); } catch(e) {}
+            // ensure DOM classes reflect outage state
+            setTimeout(() => {
+              const el = entry.marker._icon;
+              if (!el) return;
+              if (isOutage) { el.classList.add('enlarge'); el.classList.add('pulse'); }
+              else { el.classList.remove('enlarge'); el.classList.remove('pulse'); }
+            }, 60);
           });
         }
 
@@ -570,7 +643,7 @@
     });
   })();
 
-  /* ---------- Update outage status for a store (pushpin icon, bring-to-front, pulse) ---------- */
+  /* ---------- Update outage status for a store (pushpin icon, enlarge, bring-to-front, pulse) ---------- */
   function updateOutageStatusForStore(storeNumber, newStatusObj) {
     const key = String(storeNumber);
     const entry = markers[key];
@@ -578,45 +651,61 @@
     const marker = entry.marker;
     const store = entry.store;
 
+    // update store fields
     store.color = newStatusObj.color || store.color || 'white';
     store.status = newStatusObj.status || store.status;
     store.etr = newStatusObj.etr || store.etr;
     store.lastUpdated = newStatusObj.lastUpdated || store.lastUpdated;
 
+    // compute icon size based on current zoom
     const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
-    const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 10;
+    const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 19;
     const z = map.getZoom();
     const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
     const scale = 0.45 + 0.55 * t;
-    const w = Math.max(10, Math.round(28 * scale));
-    const h = Math.max(14, Math.round(44 * scale));
+    const baseW = 28, baseH = 44;
+    const w = Math.max(10, Math.round(baseW * scale));
+    const h = Math.max(14, Math.round(baseH * scale));
+
+    const isOutage = (store.color === 'red' || store.color === 'yellow');
+    const iconW = isOutage ? Math.round(w * 1.15) : w;
+    const iconH = isOutage ? Math.round(h * 1.15) : h;
 
     const colorHex = (store.color === "red") ? '#ff4d4d' : (store.color === "yellow") ? '#ffd54f' : '#6b6b6b';
     const iconUrl = pushpinDataUrl(colorHex);
 
     const newIcon = L.icon({
       iconUrl,
-      iconSize: [w, h],
-      iconAnchor: [Math.round(w/2), h],
-      popupAnchor: [1, -Math.round(h*0.8)]
+      iconSize: [iconW, iconH],
+      iconAnchor: [Math.round(iconW/2), iconH],
+      popupAnchor: [1, -Math.round(iconH*0.8)]
     });
-    marker.setIcon(newIcon);
 
-    if (store.color === 'red' || store.color === 'yellow') {
-      try {
-        marker.setZIndexOffset(2000);
+    try { marker.setIcon(newIcon); } catch (e) { console.warn('setIcon failed', e); }
+
+    // DOM element for marker (may be undefined until marker is added to map)
+    const applyDomClasses = () => {
+      const el = marker._icon;
+      if (!el) return;
+      if (isOutage) {
+        marker.setZIndexOffset(3000);
         if (marker.bringToFront) marker.bringToFront();
-        const el = marker._icon;
-        if (el) el.classList.add('pulse');
-      } catch(e){}
-    } else {
-      try {
+        el.classList.add('pulse');
+        el.classList.add('enlarge');
+        if (store.color === 'red') showToast(`CRITICAL: Store ${store["Site #"]} outage`, 'critical', 10000);
+        else showToast(`Warning: Store ${store["Site #"]} possible outage`, 'warn', 7000);
+      } else {
         marker.setZIndexOffset(0);
-        const el = marker._icon;
-        if (el) el.classList.remove('pulse');
-      } catch(e){}
-    }
+        el.classList.remove('pulse');
+        el.classList.remove('enlarge');
+      }
+    };
 
+    // Try immediate, otherwise schedule shortly (DOM may not be ready)
+    applyDomClasses();
+    setTimeout(applyDomClasses, 120);
+
+    // Update popup content
     const popupHtml = `
       <b>Store ${store["Site #"] || ""} – ${store.SiteName || ""}</b><br>
       ${store.Location || "N/A"}<br>
@@ -626,7 +715,7 @@
       <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
       ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
     `;
-    marker.getPopup() && marker.setPopupContent(popupHtml);
+    if (marker.getPopup()) marker.setPopupContent(popupHtml);
   }
 
   /* ---------- UI wiring ---------- */
@@ -644,8 +733,7 @@
         const found = stores.find(s => String(s["Site #"]).toLowerCase() === q);
         if(found && markers[String(found["Site #"])]) {
           const m = markers[String(found["Site #"])].marker;
-          map.setView(m.getLatLng(), Math.min(map.getMaxZoom(), 10));
-          m.openPopup();
+          focusStoreOnMap(m);
         } else renderStoreList(q);
       });
     }
