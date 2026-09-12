@@ -449,54 +449,138 @@
   /* ------------------------------
      Map init and layers
   --------------------------------*/
-  function initMapAndLayers(){
-    map = L.map("map").setView([39.0, -98.0], 4.8);
-    window.map = map;
+function initMapAndLayers(){
+  map = L.map("map").setView([39.0, -98.0], 4.8);
+  window.map = map;
 
-    // create panes so state circles are on top
-    map.createPane('tilePane'); // default
-    map.createPane('storePane'); map.getPane('storePane').style.zIndex = 450;
-    map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
-    map.createPane('statePane'); map.getPane('statePane').style.zIndex = 650;
+  // create panes so state circles are on top
+  map.createPane('tilePane'); // default
+  map.createPane('storePane'); map.getPane('storePane').style.zIndex = 450;
+  map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
+  map.createPane('statePane'); map.getPane('statePane').style.zIndex = 650;
 
-    const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
-    outageLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
-    weatherLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
-    stateLayer = L.layerGroup([], { pane: 'statePane' }).addTo(map);
-    storeLayer = L.layerGroup([], { pane: 'storePane' }).addTo(map);
+  outageLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
+  weatherLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
+  stateLayer = L.layerGroup([], { pane: 'statePane' }).addTo(map);
+  storeLayer = L.layerGroup([], { pane: 'storePane' }).addTo(map);
 
-    buildStateMarkers();
+  buildStateMarkers();
 
-    L.control.layers({ "Street Map": osm }, { "Outages": outageLayer, "Weather Alerts": weatherLayer, "State Summary": stateLayer }, { position: "topleft" }).addTo(map);
+  L.control.layers({ "Street Map": osm }, { "Outages": outageLayer, "Weather Alerts": weatherLayer, "State Summary": stateLayer }, { position: "topleft" }).addTo(map);
 
-    const legend = L.control({ position: "bottomleft" });
-    legend.onAdd = function(){
-      const d = L.DomUtil.create("div","legend");
-      d.style.background = "#151515"; d.style.color = "#fff"; d.style.padding = "8px"; d.style.borderRadius = "6px";
-      d.innerHTML = `<div style="display:flex;align-items:center;"><span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>Outage</div>
-                     <div style="display:flex;align-items:center;"><span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>Possible</div>
-                     <div style="display:flex;align-items:center;"><span style="background:#6b6b6b;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>No Outage</div>`;
-      return d;
-    };
-    legend.addTo(map);
+  const legend = L.control({ position: "bottomleft" });
+  legend.onAdd = function(){
+    const d = L.DomUtil.create("div","legend");
+    d.style.background = "#151515"; d.style.color = "#fff"; d.style.padding = "8px"; d.style.borderRadius = "6px";
+    d.innerHTML = `<div style="display:flex;align-items:center;"><span style="background:red;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>Outage</div>
+                   <div style="display:flex;align-items:center;"><span style="background:yellow;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>Possible</div>
+                   <div style="display:flex;align-items:center;"><span style="background:#6b6b6b;width:14px;height:14px;display:inline-block;margin-right:8px;border-radius:3px;"></span>No Outage</div>`;
+    return d;
+  };
+  legend.addTo(map);
 
-    (async function loadWeatherAlerts(){
-      try {
-        const r = await fetch("https://api.weather.gov/alerts/active");
-        const data = await r.json();
-        weatherLayer.clearLayers();
-        (data.features || []).forEach(alert => {
-          if(!alert.geometry) return;
-          L.geoJSON(alert.geometry, { style:{ color:"#ff6600", weight:2, fillOpacity:0.12 } })
-            .bindPopup(`<b>${alert.properties?.event || "Alert"}</b><br>${alert.properties?.areaDesc || ""}`)
-            .addTo(weatherLayer);
+  (async function loadWeatherAlerts(){
+    try {
+      const r = await fetch("https://api.weather.gov/alerts/active");
+      const data = await r.json();
+      weatherLayer.clearLayers();
+      (data.features || []).forEach(alert => {
+        if(!alert.geometry) return;
+        L.geoJSON(alert.geometry, { style:{ color:"#ff6600", weight:2, fillOpacity:0.12 } })
+          .bindPopup(`<b>${alert.properties?.event || "Alert"}</b><br>${alert.properties?.areaDesc || ""}`)
+          .addTo(weatherLayer);
+      });
+    } catch(e){}
+  })();
+
+  setTimeout(()=> map.invalidateSize(), 300);
+
+  // --- Robust marker creation (runs after storeLayer exists) ---
+  (function createMarkersFromStores(){
+    try {
+      if (typeof stores === "undefined" || !Array.isArray(stores)) {
+        console.warn("No stores array found.");
+        return;
+      }
+      if (typeof storeLayer === "undefined" || !storeLayer) {
+        console.warn("storeLayer not found. Ensure this runs after storeLayer is created.");
+        return;
+      }
+
+      // reset existing markers and layer
+      markers = {};
+      storeLayer.clearLayers();
+
+      let firstLatLng = null;
+      let created = 0;
+
+      stores.forEach((store, idx) => {
+        // Accept multiple possible field names for lat/lon
+        const latRaw = store.Latitude ?? store.lat ?? store.Lat ?? store.outageLat;
+        const lonRaw = store.Longitude ?? store.lon ?? store.Long ?? store.outageLon;
+
+        const lat = Number(latRaw);
+        const lon = Number(lonRaw);
+
+        if (!isFinite(lat) || !isFinite(lon)) {
+          console.warn(`Skipping store (missing coords) [index ${idx}]`, store["Site #"] || store.SiteName || store);
+          return;
+        }
+
+        // choose icon by outage color (fallback to grey)
+        const iconUrl = (store.color === "red")
+          ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
+          : (store.color === "yellow")
+            ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
+            : "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
+
+        const icon = L.icon({
+          iconUrl,
+          shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34]
         });
-      } catch(e){}
-    })();
 
-    setTimeout(()=> map.invalidateSize(), 300);
-  }
+        const marker = L.marker([lat, lon], { icon, pane: (storeLayer.options && storeLayer.options.pane) ? storeLayer.options.pane : undefined });
+
+        const popupHtml = `
+          <b>Store ${store["Site #"] || ""} – ${store.SiteName || ""}</b><br>
+          ${store.Location || "N/A"}<br>
+          ${store.City || ""}, ${store.State || ""}<br>
+          <b>Status:</b> ${store.status || "No outage"}<br>
+          <b>ETA:</b> ${store.etr || "N/A"}<br>
+          <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
+          ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
+        `;
+
+        marker.bindPopup(popupHtml);
+        marker.addTo(storeLayer);
+
+        const key = store["Site #"] || `${store.SiteName || "store"}_${created}`;
+        markers[key] = { marker, store };
+
+        if (!firstLatLng) firstLatLng = [lat, lon];
+        created++;
+      });
+
+      console.log(`Markers created: ${created}`);
+      if (created && firstLatLng && window.map) {
+        window.map.setView(firstLatLng, Math.max(6, Math.min(12, created > 50 ? 6 : 10)));
+        const firstKey = Object.keys(markers)[0];
+        if (firstKey) markers[firstKey].marker.openPopup();
+      } else if (!created) {
+        console.warn("No markers created. Check Sites.csv parsing and Latitude/Longitude fields.");
+      }
+    } catch (err) {
+      console.error("createMarkersFromStores error:", err);
+    }
+  })();
+  // --- end marker creation ---
+}
+
 
   /* ------------------------------
      Sidebar collapse wiring (robust)
