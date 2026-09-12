@@ -619,11 +619,32 @@
 
           L.DomEvent.on(button, "click", function(event) {
             L.DomEvent.stop(event);
+
+            /* Close anything opened or selected previously. */
+            map.closePopup();
             clearStateSelection();
-            resetUSA();
-            document.getElementById("searchBar").value = "";
-            document.getElementById("filterSelect").value = "all";
+
+            /* Remove the exact store marker and any selected-state filtering. */
+            if(exactStoreLayer) exactStoreLayer.clearLayers();
+            exactStoreMarker=null;
+            selectedState="";
+
+            /* Restore every state marker to its normal severity priority. */
+            stateSummaries.forEach((summary,code) => {
+              const stateMarker=stateMarkers.get(code);
+              if(stateMarker) {
+                stateMarker.setZIndexOffset(stateOffset(summary));
+              }
+            });
+
+            /* Reset panel controls before rebuilding the nationwide list. */
+            document.getElementById("searchBar").value="";
+            document.getElementById("filterSelect").value="all";
             renderStoreList();
+
+            /* Return to the nationwide view only after all selections are cleared. */
+            resetUSA();
+            updateStateMarkerSize();
           });
 
           return button;
