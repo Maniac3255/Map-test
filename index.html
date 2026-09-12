@@ -321,6 +321,21 @@
     .store-popup-title { margin-bottom:6px; font-weight:700; }
     .store-popup-row { margin-top:3px; }
 
+    /* ANIMATED STATE MARKER SIZING BY MAP ZOOM */
+    .state-marker-container {
+      transform-origin:center center;
+      transition:transform .35s cubic-bezier(.22,1,.36,1);
+      will-change:transform;
+    }
+
+    .state-marker-container {
+      transform:scale(var(--state-marker-scale,.58));
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      .state-marker-container { transition:none; }
+    }
+
     @media (max-width:800px) {
       :root { --sidebar-width:min(90vw,360px); }
       #map, #bottomDashboard { right:0; }
@@ -328,47 +343,69 @@
       .dashboard-grid { grid-template-columns:1fr; }
     }
     @media (max-height:600px) { :root { --dashboard-height:270px; } }
-  
-    /* BLACK DOTTED STATE-OUTLINE OPERATIONS MAP */
+
+    /* PANELS OVERLAY THE MAP WITHOUT RESIZING OR SHIFTING IT */
     #map,
     body.sidebar-collapsed #map,
     body.dashboard-open #map,
     body.sidebar-collapsed.dashboard-open #map {
       position:absolute;
-      inset:0;
+      top:0;
+      right:0;
+      bottom:0;
+      left:0;
       width:100%;
       height:100%;
-      background:#050607 !important;
     }
-    #bottomDashboard,
-    body.sidebar-collapsed #bottomDashboard { right:0; }
 
-    .state-outline-label {
-      color:rgba(255,255,255,.80);
-      background:transparent;
-      border:0;
-      box-shadow:none;
-      width:104px !important;
-      font-size:10px;
-      font-weight:700;
-      line-height:1.15;
-      text-align:center;
-      text-transform:uppercase;
-      letter-spacing:.65px;
-      white-space:normal;
-      text-shadow:0 1px 2px #000,1px 0 2px #000,-1px 0 2px #000,0 -1px 2px #000;
-      pointer-events:none;
+    /* Keep the dashboard full-browser-width while it overlays the map. */
+    #bottomDashboard,
+    body.sidebar-collapsed #bottomDashboard {
+      right:0;
     }
-    .state-outline-label.state-name-small { width:74px !important; font-size:8px; letter-spacing:.25px; }
-    .leaflet-popup-content-wrapper,.leaflet-popup-tip { color:#fff; background:#15181b; }
-    .leaflet-popup-content-wrapper { border:1px solid #3a4149; box-shadow:0 4px 18px rgba(0,0,0,.68); }
-    .leaflet-popup-close-button { color:#fff !important; }
-    .leaflet-control-zoom a,.usa-map-control { color:#fff; background:#15181b; border-color:#3a4149; }
-    .leaflet-control-zoom a:hover,.usa-map-control:hover { color:#fff; background:#252a30; }
-    .leaflet-control-attribution { color:#bec5cc; background:rgba(10,11,13,.88) !important; }
-    .leaflet-control-attribution a { color:#64b5f6; }
-    .state-marker-badge { border-color:#fff; box-shadow:0 3px 10px rgba(0,0,0,.78),0 0 0 1px rgba(255,255,255,.28); }
-</style>
+
+
+    /* LIGHT OPERATIONS BASEMAP STYLE */
+    #map {
+      background:#edf0f2;
+    }
+
+    /*
+     * Keep the existing OpenStreetMap source but reduce visual noise so
+     * outage circles remain the strongest visual element. Only map tiles
+     * are filtered. Markers, controls, popups, and overlays are unaffected.
+     */
+    .leaflet-tile-pane {
+      filter:grayscale(.82) saturate(.35) brightness(1.10) contrast(.84);
+    }
+
+    .leaflet-tile {
+      transition:filter .2s ease,opacity .2s ease;
+    }
+
+    /* Give controls a clean operations-dashboard appearance. */
+    .leaflet-control-zoom a,
+    .usa-map-control,
+    .leaflet-control-layers {
+      color:#263238;
+      background:#f8fafb;
+      border-color:#c7cdd2;
+    }
+
+    .leaflet-control-zoom a:hover,
+    .usa-map-control:hover {
+      background:#ffffff;
+    }
+
+    /* Keep state summaries crisp over the desaturated map. */
+    .state-marker-badge {
+      border-color:#ffffff;
+      box-shadow:
+        0 3px 10px rgba(0,0,0,.62),
+        0 0 0 1px rgba(20,30,40,.35);
+    }
+
+  </style>
 </head>
 <body class="sidebar-collapsed">
   <div id="map"></div>
@@ -416,6 +453,12 @@
       snapshotMinimumIntervalMinutes:15,
       transitionMs:280,
       markerZoom:13,
+      /*
+       * Navigation bounds include invisible padding around the country.
+       * This lets coastal states such as MA, ME, WA, and FL reach the
+       * true screen center when selected. The USA reset view below
+       * remains tightly fitted to the continental United States.
+       */
       usaBounds:[[18.0,-140.0],[56.0,-52.0]],
       usaDisplayBounds:[[24.5,-124.8],[49.3,-67.0]]
     };
@@ -458,8 +501,6 @@
     let stateSummaries=new Map();
     let selectedState="";
     let exactStoreMarker=null;
-    let stateOutlineLayer=null;
-    let stateLabelLayer=null;
     let trendChart=null;
 
     function text(v){
@@ -535,69 +576,65 @@
     }
 
     function initializeMap(){
-      map=L.map("map",{minZoom:4,maxZoom:18,maxBounds:CONFIG.usaBounds,maxBoundsViscosity:1,worldCopyJump:false});
-      map.createPane("stateOutlinePane");
-      map.getPane("stateOutlinePane").style.zIndex="200";
-      map.createPane("stateLabelPane");
-      map.getPane("stateLabelPane").style.zIndex="250";
-      map.getPane("stateLabelPane").style.pointerEvents="none";
+      map=L.map("map",{
+        minZoom:4,
+        maxZoom:18,
+        zoomSnap:0.5,
+        zoomDelta:0.5,
+        wheelPxPerZoomLevel:90,
+        maxBounds:CONFIG.usaBounds,
+        maxBoundsViscosity:1,
+        worldCopyJump:false
+      });
+      map.on("zoom",updateStateMarkerSize);
+      map.on("zoomend",updateStateMarkerSize);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'Light operations styling &copy; OpenStreetMap contributors'}).addTo(map);
       map.createPane("stateMarkerPane"); map.getPane("stateMarkerPane").style.zIndex="600";
       map.createPane("exactStorePane"); map.getPane("exactStorePane").style.zIndex="750";
       stateLayer=L.layerGroup().addTo(map);
       exactStoreLayer=L.layerGroup().addTo(map);
-      loadBlackStateOutlineMap();
       addLegend();
       addUSAResetControl();
       resetUSA();
       map.on("drag",()=>map.panInsideBounds(CONFIG.usaBounds,{animate:false}));
-      setTimeout(()=>{map.invalidateSize();resetUSA();},250);
+      setTimeout(()=>{
+        map.invalidateSize();
+        resetUSA();
+        updateStateMarkerSize();
+      },250);
     }
 
-    function resetUSA(){ if(map) map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false}); }
+    function updateStateMarkerSize() {
+      if(!map) return;
 
-    async function loadBlackStateOutlineMap() {
-      const endpoint="https://tigerweb.geo.census.gov/arcgis/rest/services/"+
-        "TIGERweb/State_County/MapServer/0/query"+
-        "?where=1%3D1&outFields=NAME%2CSTUSAB&returnGeometry=true&outSR=4326&f=geojson";
-      try {
-        const response=await fetch(endpoint,{cache:"force-cache"});
-        if(!response.ok) throw new Error(`Boundary request returned ${response.status}`);
-        const geojson=await response.json();
-        stateOutlineLayer=L.geoJSON(geojson,{
-          pane:"stateOutlinePane",
-          style:{
-            color:"#ffffff",
-            weight:1.6,
-            opacity:.82,
-            dashArray:"2 7",
-            lineCap:"round",
-            lineJoin:"round",
-            fillColor:"#08090b",
-            fillOpacity:1
-          }
-        }).addTo(map);
+      const zoom=map.getZoom();
 
-        stateLabelLayer=L.layerGroup([], {pane:"stateLabelPane"}).addTo(map);
-        const smallStates=new Set(["CT","DE","MA","MD","NH","NJ","RI","VT"]);
-        Object.entries(STATE_CENTERS).forEach(([code,location])=>{
-          const name=STATE_NAMES[code];
-          if(!name) return;
-          const small=smallStates.has(code);
-          L.marker(location,{
-            pane:"stateLabelPane",
-            interactive:false,
-            icon:L.divIcon({
-              className:`state-outline-label${small ? " state-name-small" : ""}`,
-              html:`<span>${esc(name)}</span>`,
-              iconSize:small ? [74,26] : [104,30],
-              iconAnchor:small ? [37,13] : [52,15]
-            })
-          }).addTo(stateLabelLayer);
-        });
-        map.attributionControl.addAttribution("State boundaries: U.S. Census Bureau TIGERweb");
-      } catch(error) {
-        console.warn("State outline service unavailable",error);
-      }
+      /*
+       * Zoom 4.5 starts at 58% size.
+       * Every additional half zoom increases circles by 9%.
+       * Circles stop growing at 130% so labels remain usable.
+       */
+      const halfZoomSteps=Math.max(0,(zoom-4.5)/0.5);
+      const scale=Math.min(1.30,0.58+(halfZoomSteps*0.09));
+
+      document.documentElement.style.setProperty(
+        "--state-marker-scale",
+        scale.toFixed(2)
+      );
+    }
+
+    function resetUSA(){
+      if(!map) return;
+
+      map.fitBounds(CONFIG.usaDisplayBounds,{
+        padding:[2,2],
+        animate:false
+      });
+
+      /* Move the nationwide view inward by exactly half a zoom level. */
+      const nationwideZoom=Math.min(map.getMaxZoom(),map.getZoom()+0.5);
+      map.setZoom(nationwideZoom,{animate:false});
+      updateStateMarkerSize();
     }
 
     function addLegend(){
@@ -629,13 +666,35 @@
 
           L.DomEvent.on(button, "click", function(event) {
             L.DomEvent.stop(event);
+
+            /* Close anything opened or selected previously. */
             map.closePopup();
             clearStateSelection();
-            setSidebar(true);
-            resetUSA();
-            document.getElementById("searchBar").value = "";
-            document.getElementById("filterSelect").value = "all";
+
+            /* Remove the exact store marker and any selected-state filtering. */
+            if(exactStoreLayer) exactStoreLayer.clearLayers();
+            exactStoreMarker=null;
+            selectedState="";
+
+            /* Restore every state marker to its normal severity priority. */
+            stateSummaries.forEach((summary,code) => {
+              const stateMarker=stateMarkers.get(code);
+              if(stateMarker) {
+                stateMarker.setZIndexOffset(stateOffset(summary));
+              }
+            });
+
+            /* Reset panel controls before rebuilding the nationwide list. */
+            document.getElementById("searchBar").value="";
+            document.getElementById("filterSelect").value="all";
             renderStoreList();
+
+            /* Close the Stores panel when returning to the nationwide view. */
+            setSidebar(true);
+
+            /* Return to the nationwide view only after all selections are cleared. */
+            resetUSA();
+            updateStateMarkerSize();
           });
 
           return button;
@@ -696,6 +755,45 @@
       return severity==="red"?30000:severity==="yellow"?20000:0;
     }
 
+    function keepPopupFullyVisible(popup) {
+      if(!map || !popup) return;
+
+      requestAnimationFrame(() => {
+        const popupElement=popup.getElement();
+        const mapElement=document.getElementById("map");
+        if(!popupElement || !mapElement) return;
+
+        const popupRect=popupElement.getBoundingClientRect();
+        const mapRect=mapElement.getBoundingClientRect();
+        const safeTop=mapRect.top+85;
+        const safeLeft=mapRect.left+20;
+        const safeRight=mapRect.right-20;
+        const safeBottom=mapRect.bottom-45;
+
+        let moveX=0;
+        let moveY=0;
+
+        if(popupRect.top<safeTop) {
+          moveY=popupRect.top-safeTop;
+        } else if(popupRect.bottom>safeBottom) {
+          moveY=popupRect.bottom-safeBottom;
+        }
+
+        if(popupRect.left<safeLeft) {
+          moveX=popupRect.left-safeLeft;
+        } else if(popupRect.right>safeRight) {
+          moveX=popupRect.right-safeRight;
+        }
+
+        if(moveX!==0 || moveY!==0) {
+          map.panBy([moveX,moveY],{
+            animate:true,
+            duration:0.25
+          });
+        }
+      });
+    }
+
     function createStateMarkers() {
       stateLayer.clearLayers();
       stateMarkers.clear();
@@ -708,7 +806,17 @@
           icon:stateIcon(summary),pane:"stateMarkerPane",keyboard:true,
           riseOnHover:true,riseOffset:50000,zIndexOffset:stateOffset(summary)
         });
-        marker.bindPopup(statePopup(summary),{maxWidth:280,autoPan:true});
+        marker.bindPopup(statePopup(summary),{
+          maxWidth:280,
+          autoPan:true,
+          keepInView:true,
+          autoPanPaddingTopLeft:[25,110],
+          autoPanPaddingBottomRight:[25,55]
+        });
+
+        marker.on("popupopen",event => {
+          keepPopupFullyVisible(event.popup);
+        });
         marker.on("click",()=>selectState(summary.code,true));
         marker.addTo(stateLayer);
         stateMarkers.set(summary.code,marker);
@@ -723,19 +831,53 @@
 
     function selectState(code,openPopup=false) {
       selectedState=stateCode(code);
+
+      /* Clear prior store selection and reset the state-scoped list. */
+      map.closePopup();
+      exactStoreLayer.clearLayers();
+      exactStoreMarker=null;
       document.getElementById("searchBar").value="";
       document.getElementById("filterSelect").value="all";
       renderStoreList();
+
+      /* The Stores panel overlays the map and does not affect centering. */
       setSidebar(false);
-      exactStoreLayer.clearLayers();
-      exactStoreMarker=null;
 
       const summary=stateSummaries.get(selectedState);
       const marker=stateMarkers.get(selectedState);
+
       if(summary&&marker) {
-        map.setView(marker.getLatLng(),6,{animate:true});
+        /* Restore all state priorities before raising the selected state. */
+        stateSummaries.forEach((stateSummary,stateAbbreviation) => {
+          const stateMarker=stateMarkers.get(stateAbbreviation);
+          if(stateMarker) {
+            stateMarker.setZIndexOffset(stateOffset(stateSummary));
+          }
+        });
+
         marker.setZIndexOffset(60000);
-        if(openPopup) setTimeout(()=>marker.openPopup(),250);
+
+        /* Center the selected state bubble in the full map viewport. */
+        const stateLocation=marker.getLatLng();
+        const stateZoom=Math.max(6,map.getZoom());
+
+        map.setView(stateLocation,stateZoom,{
+          animate:true
+        });
+
+        if(openPopup) {
+          map.once("moveend",() => {
+            marker.openPopup();
+
+            /*
+             * Popup auto-pan may make a small adjustment. Re-center the
+             * selected coastal state after the popup has been measured.
+             */
+            setTimeout(() => {
+              map.panTo(stateLocation,{animate:true,duration:0.2});
+            },180);
+          });
+        }
       }
     }
 
@@ -772,7 +914,16 @@
       selectedState=stateCode(s.State);
       exactStoreLayer.clearLayers();
       exactStoreMarker=L.marker([lat,lon],{icon:exactStoreIcon(),pane:"exactStorePane",zIndexOffset:60000,keyboard:true});
-      exactStoreMarker.bindPopup(popupHTML(s),{maxWidth:330,autoPan:true,autoPanPaddingTopLeft:[30,30],autoPanPaddingBottomRight:[30,30]});
+      exactStoreMarker.bindPopup(popupHTML(s),{
+        maxWidth:330,
+        autoPan:true,
+        keepInView:true,
+        autoPanPaddingTopLeft:[30,110],
+        autoPanPaddingBottomRight:[30,55]
+      });
+      exactStoreMarker.on("popupopen",event => {
+        keepPopupFullyVisible(event.popup);
+      });
       exactStoreMarker.addTo(exactStoreLayer);
       map.invalidateSize({animate:false,pan:false});
       map.setView([lat,lon],CONFIG.markerZoom,{animate:false});
@@ -861,7 +1012,7 @@
       document.body.classList.toggle("sidebar-collapsed",collapsed);
       document.getElementById("sidebar").setAttribute("aria-hidden",collapsed?"true":"false");
       document.getElementById("sidebarTab").setAttribute("aria-expanded",collapsed?"false":"true");
-      /* Overlay panel does not resize the map. */
+      /* The panel overlays the map, so no map resize or recenter is needed. */
     }
 
     function toggleDashboard(){
@@ -870,6 +1021,7 @@
       document.getElementById("dashboardHandle").setAttribute("aria-expanded",String(open));
       document.getElementById("dashboardArrow").textContent=open?"▼":"▲";
       if(open) renderDashboard();
+      /* The dashboard overlays the map, so center and zoom remain unchanged. */
     }
 
     function wireUI(){
