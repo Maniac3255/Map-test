@@ -73,7 +73,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Full script: map with fractional zoom (min 4.5 / max 12), NOAA NowCOAST attempt + RainViewer fallback,
+  /* Full script: map with fractional zoom (min 5.5 / max 14), NOAA NowCOAST attempt + RainViewer fallback,
      marker placement with robust parsing, marker scaling by zoom (fractional), sidebar behavior,
      reset button defaults to whole USA, and simple radar controls.
   */
@@ -184,8 +184,8 @@
 
   function initMapAndLayers(){
     // Requested fractional zoom limits
-    const MIN_Z = 4.5;
-    const MAX_Z = 12;
+    const MIN_Z = 5.5;
+    const MAX_Z = 14;
 
     // Default whole USA view
     const USA_CENTER = [39.0, -98.0];
