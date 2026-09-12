@@ -153,42 +153,42 @@
 
     /* Permanent side tab */
 
-    #sidebarTab {
-      position: absolute;
-      top: 50%;
-      right: var(--sidebar-width);
+#sidebarTab {
+  position: absolute;
+  top: 50%;
+  right: var(--sidebar-width);
 
-      display: flex;
-      align-items: center;
-      justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-      min-height: 118px;
-      padding: 12px 8px;
+  min-height: 118px;
+  padding: 12px 8px;
 
-      writing-mode: vertical-rl;
-      transform: translateY(-50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  transform: translateY(-50%);
 
-      color: #fff;
-      background: var(--panel-background);
+  color: #fff;
+  background: var(--panel-background);
 
-      border: 1px solid var(--panel-border);
-      border-right: none;
-      border-radius: 10px 0 0 10px;
+  border: 1px solid var(--panel-border);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
 
-      box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.28);
+  box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.28);
 
-      cursor: pointer;
-      user-select: none;
-      z-index: 1001;
+  cursor: pointer;
+  user-select: none;
+  z-index: 1001;
 
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 1px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
 
-      transition:
-        right var(--transition-speed) ease,
-        background var(--transition-speed) ease;
-    }
+  transition:
+    right var(--transition-speed) ease,
+    background var(--transition-speed) ease;
+}
 
     #sidebarTab:hover {
       background: #22272d;
