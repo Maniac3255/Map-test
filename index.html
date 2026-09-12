@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Store Outage Map — NOAA NowCOAST + RainViewer + Scaled Markers</title>
+  <title>Store Outage Map — Radar + Stores</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
     html,body { height:100%; margin:0; padding:0; font-family:Arial, sans-serif; background:#0f0f0f; color:#fff; }
-    /* Map and sidebar layout */
     #map { position:absolute; top:0; left:0; right:360px; bottom:0; transition:right 0.28s ease; z-index:1; }
+    /* Reverted sidebar to original style (right column) */
     #sidebar { position:absolute; top:0; right:0; width:360px; bottom:0; background:#151515; border-left:1px solid #2b2b2b; padding:12px; overflow-y:auto; z-index:10000; transition: transform 0.28s ease; transform: translateX(0); }
     body.sidebar-collapsed #sidebar { transform: translateX(100%); }
     #sidebarHeader { display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -25,44 +25,23 @@
     .dash-cards { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
     .dash-card { background:#fff; color:#000; padding:10px; border-radius:6px; flex:1 1 48%; min-width:120px; border:1px solid #ddd; }
     .dash-list-item { padding:6px 0; border-bottom:1px dashed #ddd; cursor:pointer; }
-
-    /* Vertical radar control (below zoom control) */
-    .radar-vertical { display:flex; flex-direction:column; align-items:center; gap:8px; padding:6px; background:rgba(20,20,20,0.95); border-radius:6px; box-shadow:0 1px 6px rgba(0,0,0,0.4); color:#fff; }
-    .radar-vertical input[type="range"] {
-      -webkit-appearance: slider-vertical;
-      width: 8px;
-      height: 120px;
-      transform: none;
-      background: transparent;
-    }
+    .radar-vertical { display:flex; flex-direction:column; align-items:center; gap:8px; padding:6px; background:rgba(20,20,20,0.9); border-radius:6px; box-shadow:0 1px 6px rgba(0,0,0,0.4); color:#fff; }
+    .radar-vertical input[type="range"] { writing-mode: bt-lr; -webkit-appearance: slider-vertical; width:8px; height:120px; transform: rotate(180deg); } /* vertical slider */
     .radar-vertical button { background:#1a73e8; color:#fff; border:none; padding:6px 8px; border-radius:4px; cursor:pointer; font-size:13px; }
     .leaflet-top.leaflet-left .radar-vertical-container { margin-top: 88px; margin-left: 8px; } /* push below zoom control */
     @media (max-width:800px) { #map { right:0; } #sidebar { width:100%; right:0; } .leaflet-top.leaflet-left .radar-vertical-container { margin-top: 8px; } }
-
-    /* Marker pulse for outages */
-    .leaflet-marker-icon.pulse {
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.12); }
-      100% { transform: scale(1); }
-    }
-
-    /* Legend */
-    .legend { font-size:13px; }
   </style>
 </head>
 <body>
 
   <div id="map"></div>
 
-  <!-- Sidebar -->
+  <!-- Reverted sidebar -->
   <div id="sidebar" role="complementary" aria-label="Store list">
     <div id="sidebarHeader">
       <h3 style="margin:0;">All Stores</h3>
       <div style="display:flex; gap:6px; align-items:center;">
-        <button id="resetStateBtn" class="header-btn">All USA</button>
+        <button id="resetStateBtn" class="header-btn">All Stores</button>
         <button id="toggleBtn" class="header-btn" aria-expanded="true">▸</button>
       </div>
     </div>
@@ -88,9 +67,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Full index: NOAA NowCOAST attempt, higher zoom (street level), default whole-USA view,
-     All Stores button resets to whole USA, marker scaling by zoom, proxy-ready WMS fallback,
-     and robust marker parsing/placement.
+  /* Full index: reverted sidebar, vertical radar opacity control below zoom, tile retry/fallback,
+     marker bring-to-front on outage color change, placeholder detection and cache-buster retry.
   */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
@@ -116,9 +94,10 @@
   let stores = [];
   let map = null;
   let markers = {};
-  let outageLayer, storeLayer, weatherLayer, hazardLayer;
+  let outageLayer, storeLayer, weatherLayer;
   let trendChart = null;
 
+  // UI rendering functions (unchanged)
   function renderStoreList(filterText = ""){
     const storeListDiv = document.getElementById("storeList");
     if(!storeListDiv) return;
@@ -144,8 +123,8 @@
         ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank" style="color:#1a73e8;">Outage Map</a>` : ""}
       `;
       div.onclick = () => {
-        const entry = markers[String(store["Site #"])];
-        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), 16); entry.marker.openPopup(); }
+        const entry = markers[store["Site #"]];
+        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), 14); entry.marker.openPopup(); }
       };
       storeListDiv.appendChild(div);
     });
@@ -194,15 +173,11 @@
   }
 
   function initMapAndLayers(){
-    // Increase map maxZoom to street level
+    // Provider-supported zoom constraints (adjust if needed)
     const MIN_Z = 3;
-    const MAX_Z = 19; // allow street-level zoom
+    const MAX_Z = 10;
 
-    // Default view: whole USA
-    const USA_CENTER = [39.0, -98.0];
-    const USA_ZOOM = 4;
-
-    map = L.map("map", { minZoom: MIN_Z, maxZoom: MAX_Z }).setView(USA_CENTER, USA_ZOOM);
+    map = L.map("map", { minZoom: MIN_Z, maxZoom: MAX_Z }).setView([39.0, -98.0], 4.8);
     window.map = map;
 
     // create panes
@@ -211,19 +186,15 @@
     map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
     map.createPane('radarPane'); map.getPane('radarPane').style.zIndex = 610; map.getPane('radarPane').style.pointerEvents = 'none';
 
-    // base map (OSM) with high zoom
-    const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: MAX_Z
-    }).addTo(map);
+    // base map
+    const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
     outageLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
     weatherLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
     storeLayer = L.layerGroup([], { pane: 'storePane' }).addTo(map);
-    hazardLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
 
-    // main layer control
-    window._customLayerControl = L.control.layers({ "Street Map": osm }, { "Outages": outageLayer, "Weather Alerts": weatherLayer, "HazardNow": hazardLayer }, { position: "topleft" }).addTo(map);
+    // main layer control (kept top-left)
+    window._customLayerControl = L.control.layers({ "Street Map": osm }, { "Outages": outageLayer, "Weather Alerts": weatherLayer }, { position: "topleft" }).addTo(map);
 
     const legend = L.control({ position: "bottomleft" });
     legend.onAdd = function(){
@@ -248,171 +219,136 @@
             .bindPopup(`<b>${alert.properties?.event || "Alert"}</b><br>${alert.properties?.areaDesc || ""}`)
             .addTo(weatherLayer);
         });
-      } catch(e){
-        console.warn("NWS alerts load failed", e);
-      }
+      } catch(e){}
     })();
 
-    // --- Attempt NOAA NowCOAST WMS (with proxy fallback) ---
-    // Note: NowCOAST WMS endpoints often block direct browser requests; use a server proxy if you see CORS/403.
-    // Two options: direct WMS (may 403) or proxied path '/proxy/wms' (recommended for production).
-    const NOWCOAST_WMS_BASE = 'https://nowcoast.noaa.gov/wms/com.esri.wms.Esrimap/obs';
-    const PROXY_WMS_BASE = '/proxy/wms'; // implement server-side proxy to avoid CORS if needed
-
-    // Create a WMS layer function that prefers direct but can be switched to proxy by toggling useProxy
-    const useProxy = false; // set true if direct requests are blocked in your environment
-    const wmsUrl = useProxy ? PROXY_WMS_BASE : NOWCOAST_WMS_BASE;
-
-    // Example layer: NEXRAD Reflectivity (adjust LAYERS param if needed)
-    const nowcoastWms = L.tileLayer.wms(wmsUrl, {
-      layers: 'RAS_Radar_Nexrad_Reflectivity',
-      format: 'image/png',
-      transparent: true,
-      version: '1.3.0',
-      crs: L.CRS.EPSG3857,
-      time: 'latest',
-      attribution: 'NOAA NowCOAST',
-      pane: 'radarPane',
-      maxZoom: 12, // NowCOAST typically doesn't serve street-level tiles; keep lower than map max
-      minZoom: 3
-    });
-
-    // Add to layer control
-    if (window._customLayerControl && typeof window._customLayerControl.addOverlay === "function") {
-      window._customLayerControl.addOverlay(nowcoastWms, "NOAA NowCOAST Radar");
-    }
-
-    // RainViewer fallback (higher zoom support for visual continuity)
-    window.rainViewerLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png', {
-      pane: 'radarPane',
-      opacity: 0.6,
-      attribution: 'RainViewer',
-      maxZoom: 16,
-      minZoom: 3
-    });
-    window._customLayerControl.addOverlay(window.rainViewerLayer, "RainViewer Radar");
-
-    // If NowCOAST returns placeholder tiles or errors, fallback to RainViewer automatically
-    nowcoastWms.on('tileerror', () => {
-      if (!map.hasLayer(window.rainViewerLayer)) window.rainViewerLayer.addTo(map);
-      if (map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
-      console.warn('NowCOAST tile error — switched to RainViewer fallback');
-    });
-
-    // Add a small control for switching between NOAA and RainViewer and for forcing proxy usage
-    const RadarSwitch = L.Control.extend({
-      options: { position: 'topleft' },
-      onAdd: function () {
-        const container = L.DomUtil.create('div', 'radar-switch');
-        container.style.background = 'rgba(20,20,20,0.9)';
-        container.style.padding = '6px';
-        container.style.borderRadius = '6px';
-        container.style.color = '#fff';
-        container.innerHTML = `
-          <div style="font-weight:600; font-size:12px; margin-bottom:6px;">Radar Source</div>
-          <button id="useNowBtn" style="display:block;margin-bottom:6px;">Use NOAA</button>
-          <button id="useRainBtn" style="display:block;">Use RainViewer</button>
-        `;
-        L.DomEvent.disableClickPropagation(container);
-        return container;
-      }
-    });
-    map.addControl(new RadarSwitch());
-
-    setTimeout(() => {
-      const useNowBtn = document.getElementById('useNowBtn');
-      const useRainBtn = document.getElementById('useRainBtn');
-      if (useNowBtn) useNowBtn.addEventListener('click', () => {
-        if (map.hasLayer(window.rainViewerLayer)) map.removeLayer(window.rainViewerLayer);
-        if (!map.hasLayer(nowcoastWms)) nowcoastWms.addTo(map);
+    // --- RainViewer radar overlay (fallback) with robust retry/fallback logic ---
+    try {
+      window.rainViewerLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png', {
+        pane: 'radarPane',
+        opacity: 0.6,
+        attribution: 'RainViewer',
+        maxZoom: MAX_Z,
+        minZoom: MIN_Z
       });
-      if (useRainBtn) useRainBtn.addEventListener('click', () => {
-        if (map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
-        if (!map.hasLayer(window.rainViewerLayer)) window.rainViewerLayer.addTo(map);
-      });
-    }, 120);
 
-    // --- Vertical radar control (opacity + show/hide) ---
-    const RadarVerticalControl = L.Control.extend({
-      options: { position: 'topleft' },
-      onAdd: function () {
-        const container = L.DomUtil.create('div', 'radar-vertical-container');
-        container.style.pointerEvents = 'auto';
-        const inner = document.createElement('div');
-        inner.className = 'radar-vertical';
-        inner.innerHTML = `
-          <div style="font-weight:600; font-size:13px;">Radar</div>
-          <input id="radarOpacityV" type="range" min="0" max="100" value="${Math.round((window.rainViewerLayer.options.opacity||0.6)*100)}" />
-          <button id="radarToggleV">Show</button>
-          <button id="radarRefreshV" title="Force refresh">⟳</button>
-          <div id="radarStatus" style="font-size:11px;color:#ffd; margin-top:6px; text-align:center;"></div>
-        `;
-        container.appendChild(inner);
-        L.DomEvent.disableClickPropagation(container);
-        L.DomEvent.disableScrollPropagation(container);
-        return container;
+      // Add to layer control
+      if (window._customLayerControl && typeof window._customLayerControl.addOverlay === "function") {
+        window._customLayerControl.addOverlay(window.rainViewerLayer, "RainViewer Radar");
+      } else {
+        L.control.layers({}, { "RainViewer Radar": window.rainViewerLayer }, { position: "topleft" }).addTo(map);
       }
-    });
-    map.addControl(new RadarVerticalControl());
 
-    setTimeout(() => {
-      const slider = document.getElementById('radarOpacityV');
-      const toggleBtn = document.getElementById('radarToggleV');
-      const refreshBtn = document.getElementById('radarRefreshV');
-      const statusEl = document.getElementById('radarStatus');
+      // Vertical radar control placed below zoom control (top-left)
+      const RadarVerticalControl = L.Control.extend({
+        options: { position: 'topleft' },
+        onAdd: function () {
+          const container = L.DomUtil.create('div', 'radar-vertical-container');
+          container.style.pointerEvents = 'auto';
+          const inner = document.createElement('div');
+          inner.className = 'radar-vertical';
+          inner.innerHTML = `
+            <div style="font-weight:600; font-size:13px;">Radar</div>
+            <input id="radarOpacityV" type="range" min="0" max="100" value="${Math.round((window.rainViewerLayer.options.opacity||0.6)*100)}" />
+            <button id="radarToggleV">Show</button>
+            <button id="radarRefreshV" title="Force refresh">⟳</button>
+            <div id="radarStatus" style="font-size:11px;color:#ffd; margin-top:6px; text-align:center;"></div>
+          `;
+          container.appendChild(inner);
+          L.DomEvent.disableClickPropagation(container);
+          L.DomEvent.disableScrollPropagation(container);
+          return container;
+        }
+      });
+      map.addControl(new RadarVerticalControl());
 
-      if (slider) {
-        const initialOpacity = (window.rainViewerLayer && window.rainViewerLayer.options && window.rainViewerLayer.options.opacity) ? window.rainViewerLayer.options.opacity : 0.6;
-        slider.value = Math.round(initialOpacity * 100);
+      // Wire up vertical control after insertion
+      setTimeout(() => {
+        const slider = document.getElementById('radarOpacityV');
+        const toggleBtn = document.getElementById('radarToggleV');
+        const refreshBtn = document.getElementById('radarRefreshV');
+        const statusEl = document.getElementById('radarStatus');
+
         slider.addEventListener('input', (e) => {
           const v = Number(e.target.value) / 100;
           if (window.rainViewerLayer) window.rainViewerLayer.setOpacity(v);
-          if (nowcoastWms && map.hasLayer(nowcoastWms)) nowcoastWms.setParams({ opacity: v }, false);
         });
+
+        let radarVisible = false;
+        toggleBtn.addEventListener('click', (e) => {
+          if (radarVisible) {
+            if (window.rainViewerLayer && map.hasLayer(window.rainViewerLayer)) map.removeLayer(window.rainViewerLayer);
+            toggleBtn.textContent = 'Show';
+            radarVisible = false;
+            stopRadarAutoRefresh();
+            statusEl.textContent = '';
+          } else {
+            if (window.rainViewerLayer && !map.hasLayer(window.rainViewerLayer)) window.rainViewerLayer.addTo(map);
+            toggleBtn.textContent = 'Hide';
+            radarVisible = true;
+            startRadarAutoRefresh();
+            statusEl.textContent = 'Live';
+          }
+        });
+
+        refreshBtn.addEventListener('click', (e) => {
+          if (window.rainViewerLayer) {
+            const base = 'https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png';
+            window.rainViewerLayer.setUrl(base + '?_cb=' + Date.now());
+            statusEl.textContent = 'Refreshing…';
+            setTimeout(()=> statusEl.textContent = 'Live', 800);
+          }
+        });
+      }, 120);
+
+      // Placeholder detection and retry logic
+      function isLikelyPlaceholder(img) {
+        try { return img.naturalWidth < 10 || img.naturalHeight < 10; } catch(e) { return false; }
       }
 
-      let radarVisible = false;
-      toggleBtn.addEventListener('click', (e) => {
-        if (radarVisible) {
-          if (window.rainViewerLayer && map.hasLayer(window.rainViewerLayer)) map.removeLayer(window.rainViewerLayer);
-          if (nowcoastWms && map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
-          toggleBtn.textContent = 'Show';
-          radarVisible = false;
-          stopRadarAutoRefresh();
-          statusEl.textContent = '';
+      // Retry logic: on tileerror or placeholder, try cache-buster up to N times, then show status
+      const tileRetryState = { attempts: 0, maxAttempts: 3 };
+      function attemptTileRetry(tileLayer) {
+        if (tileRetryState.attempts >= tileRetryState.maxAttempts) return;
+        tileRetryState.attempts++;
+        const base = (tileLayer._url || 'https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png').split('?')[0];
+        tileLayer.setUrl(base + '?_cb=' + Date.now());
+      }
+
+      window.rainViewerLayer.on('tileload', (ev) => {
+        if (isLikelyPlaceholder(ev.tile)) {
+          // placeholder detected — attempt retry
+          attemptTileRetry(window.rainViewerLayer);
         } else {
-          // prefer NOAA if available, otherwise RainViewer
-          if (!map.hasLayer(nowcoastWms) && !map.hasLayer(window.rainViewerLayer)) {
-            // try NOAA first
-            nowcoastWms.addTo(map);
-            // if NOAA tile errors, it will fallback to RainViewer via tileerror handler
-          }
-          toggleBtn.textContent = 'Hide';
-          radarVisible = true;
-          startRadarAutoRefresh();
-          statusEl.textContent = 'Live';
+          // successful tile — reset attempts
+          tileRetryState.attempts = 0;
         }
       });
 
-      refreshBtn.addEventListener('click', (e) => {
-        const baseRV = 'https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png';
-        if (window.rainViewerLayer) window.rainViewerLayer.setUrl(baseRV + '?_cb=' + Date.now());
-        if (nowcoastWms) {
-          // force WMS cache-buster by toggling a param
-          nowcoastWms.setParams({ _cb: Date.now() }, false);
-        }
-        statusEl.textContent = 'Refreshing…';
-        setTimeout(()=> statusEl.textContent = 'Live', 800);
+      window.rainViewerLayer.on('tileerror', (err) => {
+        attemptTileRetry(window.rainViewerLayer);
       });
-    }, 120);
+
+      // Add attribution
+      try { map.attributionControl.addAttribution('Radar: RainViewer'); } catch(e){}
+    } catch (e) {
+      console.warn("RainViewer integration failed", e);
+    }
+    // --- end RainViewer snippet ---
 
     setTimeout(()=> map.invalidateSize(), 300);
 
-    /* ---------- Robust marker creation with zoom-based scaling ---------- */
+    // create markers for all stores (robust)
     (function createMarkersFromStores(){
       try {
-        if (!Array.isArray(stores)) { console.warn("No stores array found."); return; }
-        if (!storeLayer) { console.warn("storeLayer missing."); return; }
+        if (typeof stores === "undefined" || !Array.isArray(stores)) {
+          console.warn("No stores array found.");
+          return;
+        }
+        if (typeof storeLayer === "undefined" || !storeLayer) {
+          console.warn("storeLayer not found. Ensure this runs after storeLayer is created.");
+          return;
+        }
 
         markers = {};
         storeLayer.clearLayers();
@@ -420,62 +356,31 @@
         let firstLatLng = null;
         let created = 0;
 
-        // helper: parse and normalize lat/lon
-        function parseCoords(rawLat, rawLon) {
-          const clean = v => (typeof v === 'string') ? v.replace(/,/g,'').trim() : v;
-          let lat = parseFloat(clean(rawLat));
-          let lon = parseFloat(clean(rawLon));
-          if (!isFinite(lat) || !isFinite(lon)) return null;
-
-          // detect swapped coords (lat outside -90..90 or lon outside -180..180)
-          if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            // try swapping
-            if (lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
-              const tmp = lat; lat = lon; lon = tmp;
-            } else {
-              return null;
-            }
-          }
-          return { lat, lon };
-        }
-
-        // base icon sizes (will be scaled by zoom)
-        const BASE_ICON = { width: 25, height: 41 };
-
-        // create icon factory that returns an L.icon sized for current zoom
-        function makeIcon(color, zoom) {
-          const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
-          const MAX_Z = Math.min(map.getMaxZoom ? map.getMaxZoom() : 19, 19);
-          const z = Math.max(MIN_Z, Math.min(MAX_Z, zoom));
-          const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
-          const scale = 0.4 + 0.6 * t; // 0.4..1.0 for wider dynamic range
-          const w = Math.max(8, Math.round(BASE_ICON.width * scale));
-          const h = Math.max(12, Math.round(BASE_ICON.height * scale));
-          const url = (color === 'red') ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
-                    : (color === 'yellow') ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
-                    : "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
-          return L.icon({
-            iconUrl: url,
-            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-            iconSize: [w, h],
-            iconAnchor: [Math.round(w/2), h],
-            popupAnchor: [1, -Math.round(h*0.8)]
-          });
-        }
-
-        // create markers
         stores.forEach((store, idx) => {
           const latRaw = store.Latitude ?? store.lat ?? store.Lat ?? store.outageLat;
           const lonRaw = store.Longitude ?? store.lon ?? store.Long ?? store.outageLon;
-          const coords = parseCoords(latRaw, lonRaw);
-          if (!coords) {
-            console.warn(`Skipping store index ${idx} (invalid coords)`, store["Site #"] || store.SiteName || store);
+
+          const lat = Number(latRaw);
+          const lon = Number(lonRaw);
+
+          if (!isFinite(lat) || !isFinite(lon)) {
+            console.warn(`Skipping store (missing coords) [index ${idx}]`, store["Site #"] || store.SiteName || store);
             return;
           }
-          const lat = coords.lat, lon = coords.lon;
 
-          const color = store.color === 'red' ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
-          const icon = makeIcon(color, map.getZoom());
+          const iconUrl = (store.color === "red")
+            ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
+            : (store.color === "yellow")
+              ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
+              : "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
+
+          const icon = L.icon({
+            iconUrl,
+            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+          });
 
           const marker = L.marker([lat, lon], { icon, pane: (storeLayer.options && storeLayer.options.pane) ? storeLayer.options.pane : undefined });
 
@@ -488,10 +393,11 @@
             <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
             ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
           `;
+
           marker.bindPopup(popupHtml);
           marker.addTo(storeLayer);
 
-          const key = String(store["Site #"] || `${store.SiteName || "store"}_${created}`);
+          const key = store["Site #"] || `${store.SiteName || "store"}_${created}`;
           markers[key] = { marker, store };
 
           if (!firstLatLng) firstLatLng = [lat, lon];
@@ -500,107 +406,34 @@
 
         console.log(`Markers created: ${created}`);
         if (created && firstLatLng && window.map) {
-          // keep default view as whole USA; do not auto-zoom to first marker
+          window.map.setView(firstLatLng, Math.max(6, Math.min(12, created > 50 ? 6 : 10)));
+          const firstKey = Object.keys(markers)[0];
+          if (firstKey) markers[firstKey].marker.openPopup();
         } else if (!created) {
           console.warn("No markers created. Check Sites.csv parsing and Latitude/Longitude fields.");
         }
-
-        // Zoom handler: update icon sizes dynamically
-        function updateMarkerIconsOnZoom() {
-          const z = map.getZoom();
-          Object.values(markers).forEach(entry => {
-            const store = entry.store;
-            const color = store.color === 'red' ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
-            const newIcon = makeIcon(color, z);
-            try { entry.marker.setIcon(newIcon); } catch(e) {}
-          });
-        }
-
-        // Attach zoomend once (avoid duplicate handlers)
-        map.off('zoomend', updateMarkerIconsOnZoom);
-        map.on('zoomend', updateMarkerIconsOnZoom);
-
-        // initial sizing
-        updateMarkerIconsOnZoom();
-
       } catch (err) {
         console.error("createMarkersFromStores error:", err);
       }
     })();
   }
 
-  /* ---------- Collapse handler (fixed) ---------- */
-  (function wireCollapse(){
-    const toggle = document.getElementById("toggleBtn");
-    const bubble = document.getElementById("collapseBubble");
-    const sidebarEl = document.getElementById("sidebar");
-    const mapEl = document.getElementById("map");
-    if(!sidebarEl || !mapEl) return;
-
-    function setCollapsed(collapsed){
-      if(collapsed){
-        document.body.classList.add("sidebar-collapsed");
-        sidebarEl.setAttribute("aria-hidden","true");
-        if(bubble) bubble.style.display = "flex";
-        if(toggle){ toggle.setAttribute("aria-expanded","false"); toggle.innerText = "◂"; }
-        mapEl.style.right = "0";
-      } else {
-        document.body.classList.remove("sidebar-collapsed");
-        sidebarEl.setAttribute("aria-hidden","false");
-        if(bubble) bubble.style.display = "none";
-        if(toggle){ toggle.setAttribute("aria-expanded","true"); toggle.innerText = "▸"; }
-        mapEl.style.right = sidebarEl.offsetWidth + "px";
-      }
-      setTimeout(() => { if(window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 260);
-    }
-
-    setCollapsed(document.body.classList.contains("sidebar-collapsed"));
-
-    if(toggle){
-      toggle.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        const collapsed = !document.body.classList.contains("sidebar-collapsed");
-        setCollapsed(collapsed);
-      });
-    }
-
-    if(bubble){
-      bubble.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        setCollapsed(false);
-      });
-    }
-
-    window.addEventListener('resize', () => {
-      if (!document.body.classList.contains("sidebar-collapsed")) {
-        mapEl.style.right = sidebarEl.offsetWidth + "px";
-        if(window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize();
-      }
-    });
-  })();
-
-  /* ---------- Update outage status for a store (icon, popup, bring-to-front, pulse) ---------- */
+  // Bring marker to front and update icon when outage status changes
   function updateOutageStatusForStore(storeNumber, newStatusObj) {
+    // newStatusObj: { color: 'red'|'yellow'|'white', status: '...', etr: '...', lastUpdated: '...' }
     const key = String(storeNumber);
     const entry = markers[key];
     if (!entry) return;
     const marker = entry.marker;
     const store = entry.store;
 
+    // update store data
     store.color = newStatusObj.color || store.color || 'white';
     store.status = newStatusObj.status || store.status;
     store.etr = newStatusObj.etr || store.etr;
     store.lastUpdated = newStatusObj.lastUpdated || store.lastUpdated;
 
-    // compute size for current zoom
-    const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
-    const MAX_Z = Math.min(map.getMaxZoom ? map.getMaxZoom() : 19, 19);
-    const z = map.getZoom();
-    const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
-    const scale = 0.4 + 0.6 * t;
-    const w = Math.max(8, Math.round(25 * scale));
-    const h = Math.max(12, Math.round(41 * scale));
-
+    // update icon
     const iconUrl = (store.color === "red")
       ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
       : (store.color === "yellow")
@@ -610,27 +443,24 @@
     const newIcon = L.icon({
       iconUrl,
       shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      iconSize: [w, h],
-      iconAnchor: [Math.round(w/2), h],
-      popupAnchor: [1, -Math.round(h*0.8)]
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34]
     });
     marker.setIcon(newIcon);
 
+    // bring to front if red or yellow
     if (store.color === 'red' || store.color === 'yellow') {
       try {
         marker.setZIndexOffset(1000);
         if (marker.bringToFront) marker.bringToFront();
-        const el = marker._icon;
-        if (el) el.classList.add('pulse');
       } catch(e){}
     } else {
-      try {
-        marker.setZIndexOffset(0);
-        const el = marker._icon;
-        if (el) el.classList.remove('pulse');
-      } catch(e){}
+      // reset z-index offset for normal stores
+      try { marker.setZIndexOffset(0); } catch(e){}
     }
 
+    // update popup content if open
     const popupHtml = `
       <b>Store ${store["Site #"] || ""} – ${store.SiteName || ""}</b><br>
       ${store.Location || "N/A"}<br>
@@ -643,7 +473,60 @@
     marker.getPopup() && marker.setPopupContent(popupHtml);
   }
 
-  /* ---------- UI wiring ---------- */
+  // Wire collapse and UI interactions (reverted behavior)
+  (function wireCollapse(){
+    const toggle = document.getElementById("toggleBtn");
+    const bubble = document.getElementById("collapseBubble");
+    const sidebarEl = document.getElementById("sidebar");
+    if(!sidebarEl) return;
+
+    function setCollapsed(collapsed){
+      if(collapsed){
+        document.body.classList.add("sidebar-collapsed");
+        sidebarEl.setAttribute("aria-hidden","true");
+        if(bubble) bubble.style.display = "flex";
+        if(toggle){ toggle.setAttribute("aria-expanded","false"); toggle.innerText = "◂"; }
+      } else {
+        document.body.classList.remove("sidebar-collapsed");
+        sidebarEl.setAttribute("aria-hidden","false");
+        if(bubble) bubble.style.display = "none";
+        if(toggle){ toggle.setAttribute("aria-expanded","true"); toggle.innerText = "▸"; }
+      }
+    }
+
+    setCollapsed(document.body.classList.contains("sidebar-collapsed"));
+
+    if(toggle){
+      toggle.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const collapsed = !document.body.classList.contains("sidebar-collapsed");
+        setCollapsed(collapsed);
+        const onEnd = (e) => {
+          if(e.propertyName === "transform" || e.propertyName === "right"){
+            if(window.map && typeof window.map.invalidateSize === "function") setTimeout(()=> window.map.invalidateSize(), 80);
+            sidebarEl.removeEventListener("transitionend", onEnd);
+          }
+        };
+        sidebarEl.addEventListener("transitionend", onEnd);
+        setTimeout(()=> { if(window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 400);
+      });
+    }
+
+    if(bubble){
+      bubble.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        setCollapsed(false);
+        const onEnd = (e) => {
+          if(e.propertyName === "transform" || e.propertyName === "right"){
+            if(window.map && typeof window.map.invalidateSize === "function") setTimeout(()=> window.map.invalidateSize(), 80);
+            sidebarEl.removeEventListener("transitionend", onEnd);
+          }
+        };
+        sidebarEl.addEventListener("transitionend", onEnd);
+      });
+    }
+  })();
+
   (function wireUI(){
     const filter = document.getElementById("filterSelect");
     const search = document.getElementById("searchBar");
@@ -656,9 +539,9 @@
         const q = (e.target.value || "").trim().toLowerCase();
         if(!q) { renderStoreList(); return; }
         const found = stores.find(s => String(s["Site #"]).toLowerCase() === q);
-        if(found && markers[String(found["Site #"])]) {
-          const m = markers[String(found["Site #"])].marker;
-          map.setView(m.getLatLng(), 16);
+        if(found && markers[found["Site #"]]) {
+          const m = markers[found["Site #"]].marker;
+          map.setView(m.getLatLng(), 14);
           m.openPopup();
         } else renderStoreList(q);
       });
@@ -676,8 +559,7 @@
         ev.preventDefault();
         ev.stopPropagation();
         try {
-          // Reset to whole USA view (default)
-          if (window.map) window.map.setView([39.0, -98.0], 4);
+          if (window.map) window.map.setView([39.0, -98.0], 4.8);
           renderStoreList();
           renderDashboard(stores);
           setTimeout(() => { if (window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 120);
@@ -688,7 +570,7 @@
     }
   })();
 
-  /* ---------- Radar auto-refresh helpers ---------- */
+  // Auto-refresh helpers for radar
   let radarRefreshTimer = null;
   function startRadarAutoRefresh(intervalMs = 30_000) {
     if (radarRefreshTimer) clearInterval(radarRefreshTimer);
@@ -697,22 +579,13 @@
         const base = 'https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png';
         window.rainViewerLayer.setUrl(base + '?_cb=' + Date.now());
       }
-      // also nudge WMS cache if present
-      try { if (map && map.eachLayer) { /* noop */ } } catch(e){}
     }, intervalMs);
   }
   function stopRadarAutoRefresh() {
     if (radarRefreshTimer) { clearInterval(radarRefreshTimer); radarRefreshTimer = null; }
   }
 
-  /* ---------- Diagnostic helper (console) ---------- */
-  function diagnosticLog() {
-    console.log("rainViewerLayer exists:", !!window.rainViewerLayer, "map.hasLayer:", !!window.rainViewerLayer && map.hasLayer(window.rainViewerLayer));
-    if (window.rainViewerLayer) console.log("rainViewerLayer._url:", window.rainViewerLayer._url || "(no _url)");
-    console.log("Markers count:", Object.keys(markers).length);
-  }
-
-  /* ---------- Load data and start ---------- */
+  // Load data and start
   Promise.all([
     fetch("Sites.csv").then(r => r.text()).catch(()=> ""),
     fetch("outages.json").then(r => r.json()).catch(()=> [])
@@ -722,6 +595,7 @@
 
     stores.forEach(s => { s["Site #"] = s["Site #"] || s.Site || s.site || ""; });
 
+    // Merge outage info into stores and set initial colors
     (stores || []).forEach(store => {
       const match = (outages || []).find(o => String(o.storeNumber) === String(store["Site #"]));
       if(match){
@@ -750,7 +624,6 @@
           updateOutageStatusForStore(s["Site #"], { color: s.color, status: s.status, etr: s.etr, lastUpdated: s.lastUpdated });
         }
       });
-      diagnosticLog();
     }, 600);
   }).catch(err=>{
     console.error("Load failed", err);
