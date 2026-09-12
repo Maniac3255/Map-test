@@ -343,6 +343,27 @@
       .dashboard-grid { grid-template-columns:1fr; }
     }
     @media (max-height:600px) { :root { --dashboard-height:270px; } }
+
+    /* PANELS OVERLAY THE MAP WITHOUT RESIZING OR SHIFTING IT */
+    #map,
+    body.sidebar-collapsed #map,
+    body.dashboard-open #map,
+    body.sidebar-collapsed.dashboard-open #map {
+      position:absolute;
+      top:0;
+      right:0;
+      bottom:0;
+      left:0;
+      width:100%;
+      height:100%;
+    }
+
+    /* Keep the dashboard full-browser-width while it overlays the map. */
+    #bottomDashboard,
+    body.sidebar-collapsed #bottomDashboard {
+      right:0;
+    }
+
   </style>
 </head>
 <body class="sidebar-collapsed">
@@ -663,6 +684,45 @@
       return severity==="red"?30000:severity==="yellow"?20000:0;
     }
 
+    function keepPopupFullyVisible(popup) {
+      if(!map || !popup) return;
+
+      requestAnimationFrame(() => {
+        const popupElement=popup.getElement();
+        const mapElement=document.getElementById("map");
+        if(!popupElement || !mapElement) return;
+
+        const popupRect=popupElement.getBoundingClientRect();
+        const mapRect=mapElement.getBoundingClientRect();
+        const safeTop=mapRect.top+85;
+        const safeLeft=mapRect.left+20;
+        const safeRight=mapRect.right-20;
+        const safeBottom=mapRect.bottom-45;
+
+        let moveX=0;
+        let moveY=0;
+
+        if(popupRect.top<safeTop) {
+          moveY=popupRect.top-safeTop;
+        } else if(popupRect.bottom>safeBottom) {
+          moveY=popupRect.bottom-safeBottom;
+        }
+
+        if(popupRect.left<safeLeft) {
+          moveX=popupRect.left-safeLeft;
+        } else if(popupRect.right>safeRight) {
+          moveX=popupRect.right-safeRight;
+        }
+
+        if(moveX!==0 || moveY!==0) {
+          map.panBy([moveX,moveY],{
+            animate:true,
+            duration:0.25
+          });
+        }
+      });
+    }
+
     function createStateMarkers() {
       stateLayer.clearLayers();
       stateMarkers.clear();
@@ -675,7 +735,17 @@
           icon:stateIcon(summary),pane:"stateMarkerPane",keyboard:true,
           riseOnHover:true,riseOffset:50000,zIndexOffset:stateOffset(summary)
         });
-        marker.bindPopup(statePopup(summary),{maxWidth:280,autoPan:true});
+        marker.bindPopup(statePopup(summary),{
+          maxWidth:280,
+          autoPan:true,
+          keepInView:true,
+          autoPanPaddingTopLeft:[25,110],
+          autoPanPaddingBottomRight:[25,55]
+        });
+
+        marker.on("popupopen",event => {
+          keepPopupFullyVisible(event.popup);
+        });
         marker.on("click",()=>selectState(summary.code,true));
         marker.addTo(stateLayer);
         stateMarkers.set(summary.code,marker);
@@ -739,7 +809,16 @@
       selectedState=stateCode(s.State);
       exactStoreLayer.clearLayers();
       exactStoreMarker=L.marker([lat,lon],{icon:exactStoreIcon(),pane:"exactStorePane",zIndexOffset:60000,keyboard:true});
-      exactStoreMarker.bindPopup(popupHTML(s),{maxWidth:330,autoPan:true,autoPanPaddingTopLeft:[30,30],autoPanPaddingBottomRight:[30,30]});
+      exactStoreMarker.bindPopup(popupHTML(s),{
+        maxWidth:330,
+        autoPan:true,
+        keepInView:true,
+        autoPanPaddingTopLeft:[30,110],
+        autoPanPaddingBottomRight:[30,55]
+      });
+      exactStoreMarker.on("popupopen",event => {
+        keepPopupFullyVisible(event.popup);
+      });
       exactStoreMarker.addTo(exactStoreLayer);
       map.invalidateSize({animate:false,pan:false});
       map.setView([lat,lon],CONFIG.markerZoom,{animate:false});
@@ -828,7 +907,7 @@
       document.body.classList.toggle("sidebar-collapsed",collapsed);
       document.getElementById("sidebar").setAttribute("aria-hidden",collapsed?"true":"false");
       document.getElementById("sidebarTab").setAttribute("aria-expanded",collapsed?"false":"true");
-      setTimeout(()=>map&&map.invalidateSize({animate:false}),CONFIG.transitionMs+30);
+      /* The panel overlays the map, so no map resize or recenter is needed. */
     }
 
     function toggleDashboard(){
@@ -836,7 +915,8 @@
       dash.classList.toggle("expanded",open);document.body.classList.toggle("dashboard-open",open);
       document.getElementById("dashboardHandle").setAttribute("aria-expanded",String(open));
       document.getElementById("dashboardArrow").textContent=open?"▼":"▲";
-      if(open)renderDashboard();setTimeout(()=>map&&map.invalidateSize({animate:false}),CONFIG.transitionMs+30);
+      if(open) renderDashboard();
+      /* The dashboard overlays the map, so center and zoom remain unchanged. */
     }
 
     function wireUI(){
