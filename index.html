@@ -557,18 +557,18 @@ L.control.layers(
     }
 }
 
-    // Reset map view to USA
+// Reset map view to USA (Default View button)
 document.getElementById("resetViewBtn").onclick = () => {
     map.setView([37.5, -95.5], 5);
 };
-        // Reset map view to USA
-document.getElementById("resetViewBtn").onclick = () => {
-    map.setView([37.5, -95.5], 5);
-    document.getElementById("resetStateBtn").onclick = () => {
+
+// Reset drill-down (All States button)
+document.getElementById("resetStateBtn").onclick = () => {
     map.setView([39.0, -98.0], 4.8);   // USA view
     renderStoreList();                 // Show all stores again
     renderDashboard(stores);           // Full dashboard
 };
+
       
 let legend = L.control({ position: "bottomleft" });
 
