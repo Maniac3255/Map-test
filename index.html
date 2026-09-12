@@ -63,10 +63,30 @@
     .noc-toast.critical { background:#8b0000; }
     .noc-toast.warn { background:#8a6d00; }
 
+    /* Overlay that dims map when sidebar is open (click to collapse) */
+    #sidebarOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 360px;
+      bottom: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 9998;
+      display: none;
+      transition: opacity 180ms ease;
+    }
+    body.sidebar-open #sidebarOverlay { display:block; opacity:1; }
+
+    /* When sidebar collapsed, expand map to full width */
+    body.sidebar-collapsed #map { right: 0 !important; }
+    body.sidebar-collapsed #sidebar { transform: translateX(100%); }
+    body.sidebar-collapsed #sidebarOverlay { display:none !important; }
+
     /* Small screens: make sidebar overlay */
     @media (max-width:900px) {
       #map { right:0; }
       #sidebar { width:100%; right:0; }
+      #sidebarOverlay { right:0; }
     }
   </style>
 </head>
@@ -95,6 +115,8 @@
     <div id="storeList" aria-live="polite"></div>
   </div>
 
+  <div id="sidebarOverlay" title="Click to collapse sidebar"></div>
+
   <div id="collapseBubble" title="Show sidebar">◂</div>
 
   <div id="bottomDashboard">
@@ -109,16 +131,16 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Final index.html adjustments per request:
-     - Red marker becomes 5x bigger when marked outage
-     - Min zoom reduced so USA coast-to-coast fits comfortably
-     - All markers validated and set to correct coordinates (robust parsing)
-     - Right side panel: top (search + controls) is sticky while store list scrolls
+  /* Changes implemented:
+     - Default view shows only USA (coast-to-coast) by default.
+     - Right panel can be collapsed; an overlay dims the map when the panel is open.
+     - Red outage markers are static (no pulse); they are enlarged (5x) and brought to front.
+     - Robust coordinate parsing ensures markers use correct coordinates.
+     - Sidebar top (search + controls) remains sticky while store list scrolls.
   */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
 
-  // SVG pushpin generator (returns data URL). color: hex string.
   function pushpinDataUrl(color = '#6b6b6b') {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56">
@@ -143,29 +165,8 @@
       const cols = line.split(",");
       const obj = {};
       headers.forEach((h,i)=> obj[h] = (cols[i]||"").trim());
-      // keep raw strings too; numeric parsing later with robust function
       return obj;
     });
-  }
-
-  let stores = [];
-  let map = null;
-  let markers = {};
-  let outageLayer, storeLayer, weatherLayer, hazardLayer;
-  let trendChart = null;
-  let nowcoastWms = null;
-
-  function showToast(text, severity = 'info', timeout = 8000) {
-    const container = document.getElementById('toastContainer');
-    const t = document.createElement('div');
-    t.className = 'noc-toast ' + (severity === 'critical' ? 'critical' : (severity === 'warn' ? 'warn' : ''));
-    t.textContent = text;
-    container.appendChild(t);
-    requestAnimationFrame(() => t.classList.add('visible'));
-    setTimeout(() => {
-      t.classList.remove('visible');
-      setTimeout(()=> t.remove(), 300);
-    }, timeout);
   }
 
   // Robust coordinate parser and validator
@@ -178,7 +179,6 @@
     let latS = clean(rawLat);
     let lonS = clean(rawLon);
 
-    // If lat or lon are empty, try to parse from a combined field like "lat,lon"
     if ((!latS || !lonS) && typeof rawLat === "string" && rawLat.includes(",")) {
       const parts = rawLat.split(",").map(p => p.trim());
       if (parts.length >= 2) { latS = parts[0]; lonS = parts[1]; }
@@ -187,10 +187,8 @@
     let lat = parseFloat(latS);
     let lon = parseFloat(lonS);
 
-    // If parsing failed, return null
     if (!isFinite(lat) || !isFinite(lon)) return null;
 
-    // If values look swapped (lat outside -90..90), try swapping
     if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
       if (lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
         const tmp = lat; lat = lon; lon = tmp;
@@ -198,9 +196,28 @@
         return null;
       }
     }
-    // final sanity clamp
     if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
     return { lat, lon };
+  }
+
+  let stores = [];
+  let map = null;
+  let markers = {};
+  let storeLayer = null;
+  let nowcoastWms = null;
+  let trendChart = null;
+
+  function showToast(text, severity = 'info', timeout = 8000) {
+    const container = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'noc-toast ' + (severity === 'critical' ? 'critical' : (severity === 'warn' ? 'warn' : ''));
+    t.textContent = text;
+    container.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('visible'));
+    setTimeout(() => {
+      t.classList.remove('visible');
+      setTimeout(()=> t.remove(), 300);
+    }, timeout);
   }
 
   function renderStoreList(filterText = ""){
@@ -288,12 +305,11 @@
   }
 
   function initMapAndLayers(){
-    // Reduce minZoom so USA coast-to-coast is visible comfortably
-    const MIN_Z = 2;   // lowered to show coast-to-coast
+    // Default view: whole USA coast-to-coast
+    const MIN_Z = 2;   // show coast-to-coast comfortably
     const MAX_Z = 19;
-
     const USA_CENTER = [39.0, -98.0];
-    const USA_ZOOM = 3;
+    const USA_ZOOM = 3; // default zoom focused on whole USA
 
     map = L.map("map", {
       center: USA_CENTER,
@@ -312,19 +328,15 @@
     map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
     map.createPane('radarPane'); map.getPane('radarPane').style.zIndex = 610; map.getPane('radarPane').style.pointerEvents = 'none';
 
-    // base map (OSM) with high zoom support
+    // base map (OSM)
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: MAX_Z
     }).addTo(map);
 
-    outageLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
-    weatherLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
     storeLayer = L.layerGroup([], { pane: 'storePane' }).addTo(map);
-    hazardLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
 
-    window._customLayerControl = L.control.layers({ "Street Map": osm }, { "Outages": outageLayer, "Weather Alerts": weatherLayer, "HazardNow": hazardLayer }, { position: "topleft" }).addTo(map);
-
+    // simple legend
     const legend = L.control({ position: "bottomleft" });
     legend.onAdd = function(){
       const d = L.DomUtil.create("div","legend");
@@ -335,25 +347,6 @@
       return d;
     };
     legend.addTo(map);
-
-    // NWS Alerts (GeoJSON)
-    async function loadWeatherAlerts(){
-      try {
-        const r = await fetch("https://api.weather.gov/alerts/active");
-        const data = await r.json();
-        weatherLayer.clearLayers();
-        (data.features || []).forEach(alert => {
-          if(!alert.geometry) return;
-          L.geoJSON(alert.geometry, { style:{ color:"#ff6600", weight:2, fillOpacity:0.12 } })
-            .bindPopup(`<b>${alert.properties?.event || "Alert"}</b><br>${alert.properties?.areaDesc || ""}`)
-            .addTo(weatherLayer);
-        });
-      } catch(e){
-        console.warn("NWS alerts load failed", e);
-      }
-    }
-    loadWeatherAlerts();
-    setInterval(loadWeatherAlerts, 1000 * 60 * 5);
 
     // NowCOAST WMS (proxy-ready)
     const NOWCOAST_WMS_BASE = 'https://nowcoast.noaa.gov/wms/com.esri.wms.Esrimap/obs';
@@ -372,10 +365,6 @@
       maxZoom: 12
     });
 
-    if (window._customLayerControl && typeof window._customLayerControl.addOverlay === "function") {
-      window._customLayerControl.addOverlay(nowcoastWms, "NOAA NowCOAST Radar");
-    }
-
     // RainViewer fallback
     window.rainViewerLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png', {
       pane: 'radarPane',
@@ -385,300 +374,149 @@
       maxZoom: 16,
       maxNativeZoom: 16
     });
-    window._customLayerControl.addOverlay(window.rainViewerLayer, "RainViewer Radar");
-
-    nowcoastWms.on('tileerror', () => {
-      if (!map.hasLayer(window.rainViewerLayer)) window.rainViewerLayer.addTo(map);
-      if (map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
-      console.warn('NowCOAST tile error — switched to RainViewer fallback');
-      showToast('NOAA NowCOAST unavailable — using RainViewer fallback', 'warn', 6000);
-    });
-
-    // Radar source switch control
-    const RadarSwitch = L.Control.extend({
-      options: { position: 'topleft' },
-      onAdd: function () {
-        const container = L.DomUtil.create('div', 'radar-switch');
-        container.style.background = 'rgba(20,20,20,0.9)';
-        container.style.padding = '6px';
-        container.style.borderRadius = '6px';
-        container.style.color = '#fff';
-        container.innerHTML = `
-          <div style="font-weight:600; font-size:12px; margin-bottom:6px;">Radar Source</div>
-          <button id="useNowBtn" style="display:block;margin-bottom:6px;">Use NOAA</button>
-          <button id="useRainBtn" style="display:block;">Use RainViewer</button>
-        `;
-        L.DomEvent.disableClickPropagation(container);
-        return container;
-      }
-    });
-    map.addControl(new RadarSwitch());
-
-    setTimeout(() => {
-      const useNowBtn = document.getElementById('useNowBtn');
-      const useRainBtn = document.getElementById('useRainBtn');
-      if (useNowBtn) useNowBtn.addEventListener('click', () => {
-        if (map.hasLayer(window.rainViewerLayer)) map.removeLayer(window.rainViewerLayer);
-        if (!map.hasLayer(nowcoastWms)) nowcoastWms.addTo(map);
-      });
-      if (useRainBtn) useRainBtn.addEventListener('click', () => {
-        if (map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
-        if (!map.hasLayer(window.rainViewerLayer)) window.rainViewerLayer.addTo(map);
-      });
-    }, 120);
-
-    // Radar vertical control
-    const RadarVerticalControl = L.Control.extend({
-      options: { position: 'topleft' },
-      onAdd: function () {
-        const container = L.DomUtil.create('div', 'radar-vertical-container');
-        container.style.pointerEvents = 'auto';
-        const inner = document.createElement('div');
-        inner.className = 'radar-vertical';
-        inner.innerHTML = `
-          <div style="font-weight:600; font-size:13px;">Radar</div>
-          <input id="radarOpacityV" type="range" min="0" max="100" value="${Math.round((window.rainViewerLayer.options.opacity||0.6)*100)}" />
-          <button id="radarToggleV">Show</button>
-          <button id="radarRefreshV" title="Force refresh">⟳</button>
-          <div id="radarStatus" style="font-size:11px;color:#ffd; margin-top:6px; text-align:center;"></div>
-        `;
-        container.appendChild(inner);
-        L.DomEvent.disableClickPropagation(container);
-        L.DomEvent.disableScrollPropagation(container);
-        return container;
-      }
-    });
-    map.addControl(new RadarVerticalControl());
-
-    setTimeout(() => {
-      const slider = document.getElementById('radarOpacityV');
-      const toggleBtn = document.getElementById('radarToggleV');
-      const refreshBtn = document.getElementById('radarRefreshV');
-      const statusEl = document.getElementById('radarStatus');
-
-      if (slider) {
-        const initialOpacity = (window.rainViewerLayer && window.rainViewerLayer.options && window.rainViewerLayer.options.opacity) ? window.rainViewerLayer.options.opacity : 0.6;
-        slider.value = Math.round(initialOpacity * 100);
-        slider.addEventListener('input', (e) => {
-          const v = Number(e.target.value) / 100;
-          if (window.rainViewerLayer) window.rainViewerLayer.setOpacity(v);
-          if (nowcoastWms && map.hasLayer(nowcoastWms)) nowcoastWms.setParams({ opacity: v }, false);
-        });
-      }
-
-      let radarVisible = false;
-      toggleBtn.addEventListener('click', (e) => {
-        if (radarVisible) {
-          if (window.rainViewerLayer && map.hasLayer(window.rainViewerLayer)) map.removeLayer(window.rainViewerLayer);
-          if (nowcoastWms && map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
-          toggleBtn.textContent = 'Show';
-          radarVisible = false;
-          stopRadarAutoRefresh();
-          statusEl.textContent = '';
-        } else {
-          if (!map.hasLayer(nowcoastWms) && !map.hasLayer(window.rainViewerLayer)) {
-            nowcoastWms.addTo(map);
-          }
-          toggleBtn.textContent = 'Hide';
-          radarVisible = true;
-          startRadarAutoRefresh();
-          statusEl.textContent = 'Live';
-        }
-      });
-
-      refreshBtn.addEventListener('click', (e) => {
-        const baseRV = 'https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png';
-        if (window.rainViewerLayer) window.rainViewerLayer.setUrl(baseRV + '?_cb=' + Date.now());
-        if (nowcoastWms) nowcoastWms.setParams({ _cb: Date.now() }, false);
-        statusEl.textContent = 'Refreshing…';
-        setTimeout(()=> statusEl.textContent = 'Live', 800);
-      });
-    }, 120);
 
     setTimeout(()=> map.invalidateSize(), 300);
 
-    /* ---------- Marker creation with pushpin icons and zoom-based scaling ---------- */
-    (function createMarkersFromStores(){
-      try {
-        if (!Array.isArray(stores)) { console.warn("No stores array found."); return; }
-        if (!storeLayer) { console.warn("storeLayer missing."); return; }
-
-        markers = {};
-        storeLayer.clearLayers();
-
-        let created = 0;
-
-        const BASE_ICON = { width: 28, height: 44 };
-
-        function makeIcon(color, zoom, enlarge=false, redHuge=false) {
-          const MIN_Z = map.getMinZoom();
-          const MAX_Z = Math.min(map.getMaxZoom(), 19);
-          const z = Math.max(MIN_Z, Math.min(MAX_Z, zoom));
-          const t = (z - MIN_Z) / Math.max(0.0001, (MAX_Z - MIN_Z));
-          const scale = 0.45 + 0.55 * t; // 0.45..1.0
-          let w = Math.max(10, Math.round(BASE_ICON.width * scale));
-          let h = Math.max(14, Math.round(BASE_ICON.height * scale));
-          if (enlarge) { w = Math.round(w * 1.15); h = Math.round(h * 1.15); }
-          if (redHuge) { w = Math.round(w * 5); h = Math.round(h * 5); } // 5x for red outage
-          const colorHex = (color === 'red') ? '#ff4d4d' : (color === 'yellow') ? '#ffd54f' : '#6b6b6b';
-          const url = pushpinDataUrl(colorHex);
-          return L.icon({
-            iconUrl: url,
-            iconSize: [w, h],
-            iconAnchor: [Math.round(w/2), h],
-            popupAnchor: [1, -Math.round(h*0.8)]
-          });
-        }
-
-        stores.forEach((store, idx) => {
-          // robust coordinate extraction
-          const latRaw = store.Latitude ?? store.lat ?? store.Lat ?? store.outageLat ?? store.latitude ?? store.Y ?? "";
-          const lonRaw = store.Longitude ?? store.lon ?? store.Long ?? store.outageLon ?? store.longitude ?? store.X ?? "";
-          const coords = parseCoordsFlexible(latRaw, lonRaw);
-          if (!coords) {
-            console.warn(`Skipping store index ${idx} (invalid coords)`, store["Site #"] || store.SiteName || store);
-            return;
-          }
-          const lat = coords.lat, lon = coords.lon;
-
-          // ensure store has normalized fields
-          store._lat = lat;
-          store._lon = lon;
-
-          const color = (store.color === 'red') ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
-          const isOutage = (color === 'red' || color === 'yellow');
-          const redHuge = (color === 'red'); // red gets 5x
-          const icon = makeIcon(color, map.getZoom(), isOutage && !redHuge, redHuge);
-
-          const marker = L.marker([lat, lon], { icon, pane: (storeLayer.options && storeLayer.options.pane) ? storeLayer.options.pane : undefined });
-
-          const popupHtml = `
-            <b>Store ${store["Site #"] || ""} – ${store.SiteName || ""}</b><br>
-            ${store.Location || "N/A"}<br>
-            ${store.City || ""}, ${store.State || ""}<br>
-            <b>Status:</b> ${store.status || "No outage"}<br>
-            <b>ETA:</b> ${store.etr || "N/A"}<br>
-            <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
-            ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
-          `;
-          marker.bindPopup(popupHtml);
-
-          // marker click zooms to street-level (15)
-          marker.on('click', () => focusStoreOnMap(marker));
-
-          marker.addTo(storeLayer);
-
-          const key = String(store["Site #"] || `${store.SiteName || "store"}_${created}`);
-          markers[key] = { marker, store };
-
-          // If initial state is outage, bring to front and pulse + enlarge
-          if (isOutage) {
-            try {
-              marker.setZIndexOffset(1000);
-              if (marker.bringToFront) marker.bringToFront();
-              // DOM icon may not be ready immediately; schedule class add
-              setTimeout(() => {
-                const el = marker._icon;
-                if (el) {
-                  el.classList.add('pulse');
-                  // add enlarge class for visual effect (icon size also increased)
-                  el.classList.add('enlarge');
-                }
-              }, 80);
-            } catch(e){}
-          }
-
-          created++;
-        });
-
-        console.log(`Markers created: ${created}`);
-
-        function updateMarkerIconsOnZoom() {
-          const z = map.getZoom();
-          Object.values(markers).forEach(entry => {
-            const store = entry.store;
-            const color = (store.color === 'red') ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
-            const isOutage = (color === 'red' || color === 'yellow');
-            const redHuge = (color === 'red');
-            const newIcon = makeIcon(color, z, isOutage && !redHuge, redHuge);
-            try { entry.marker.setIcon(newIcon); } catch(e) {}
-            // ensure DOM classes reflect outage state
-            setTimeout(() => {
-              const el = entry.marker._icon;
-              if (!el) return;
-              if (isOutage) { el.classList.add('enlarge'); el.classList.add('pulse'); }
-              else { el.classList.remove('enlarge'); el.classList.remove('pulse'); }
-            }, 60);
-          });
-        }
-
-        map.off('zoomend', updateMarkerIconsOnZoom);
-        map.on('zoomend', updateMarkerIconsOnZoom);
-        map.on('zoom', () => {
-          const zd = document.getElementById('zoomDisplay');
-          if (zd) zd.textContent = 'Zoom ' + map.getZoom().toFixed(0);
-        });
-
-        // initial sizing
-        updateMarkerIconsOnZoom();
-
-      } catch (err) {
-        console.error("createMarkersFromStores error:", err);
-      }
-    })();
+    // Create markers after map is ready
+    createMarkersFromStores();
   }
 
-  /* ---------- Collapse handler ---------- */
-  (function wireCollapse(){
-    const toggle = document.getElementById("toggleBtn");
-    const bubble = document.getElementById("collapseBubble");
-    const sidebarEl = document.getElementById("sidebar");
-    const mapEl = document.getElementById("map");
-    if(!sidebarEl || !mapEl) return;
+  function createMarkersFromStores(){
+    try {
+      if (!Array.isArray(stores)) { console.warn("No stores array found."); return; }
+      if (!storeLayer) { console.warn("storeLayer missing."); return; }
 
-    function setCollapsed(collapsed){
-      if(collapsed){
-        document.body.classList.add("sidebar-collapsed");
-        sidebarEl.setAttribute("aria-hidden","true");
-        if(bubble) bubble.style.display = "flex";
-        if(toggle){ toggle.setAttribute("aria-expanded","false"); toggle.innerText = "◂"; }
-        mapEl.style.right = "0";
-      } else {
-        document.body.classList.remove("sidebar-collapsed");
-        sidebarEl.setAttribute("aria-hidden","false");
-        if(bubble) bubble.style.display = "none";
-        if(toggle){ toggle.setAttribute("aria-expanded","true"); toggle.innerText = "▸"; }
-        mapEl.style.right = sidebarEl.offsetWidth + "px";
+      markers = {};
+      storeLayer.clearLayers();
+
+      let created = 0;
+      const BASE_ICON = { width: 28, height: 44 };
+
+      function makeIcon(color, zoom, enlarge=false, redHuge=false) {
+        const MIN_Z = map.getMinZoom();
+        const MAX_Z = Math.min(map.getMaxZoom(), 19);
+        const z = Math.max(MIN_Z, Math.min(MAX_Z, zoom));
+        const t = (z - MIN_Z) / Math.max(0.0001, (MAX_Z - MIN_Z));
+        const scale = 0.45 + 0.55 * t;
+        let w = Math.max(10, Math.round(BASE_ICON.width * scale));
+        let h = Math.max(14, Math.round(BASE_ICON.height * scale));
+        if (enlarge) { w = Math.round(w * 1.15); h = Math.round(h * 1.15); }
+        if (redHuge) { w = Math.round(w * 5); h = Math.round(h * 5); } // 5x for red outage
+        const colorHex = (color === 'red') ? '#ff4d4d' : (color === 'yellow') ? '#ffd54f' : '#6b6b6b';
+        const url = pushpinDataUrl(colorHex);
+        return L.icon({
+          iconUrl: url,
+          iconSize: [w, h],
+          iconAnchor: [Math.round(w/2), h],
+          popupAnchor: [1, -Math.round(h*0.8)]
+        });
       }
-      setTimeout(() => { if(window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 260);
-    }
 
-    setCollapsed(document.body.classList.contains("sidebar-collapsed"));
+      stores.forEach((store, idx) => {
+        const latRaw = store.Latitude ?? store.lat ?? store.Lat ?? store.outageLat ?? store.latitude ?? store.Y ?? "";
+        const lonRaw = store.Longitude ?? store.lon ?? store.Long ?? store.outageLon ?? store.longitude ?? store.X ?? "";
+        const coords = parseCoordsFlexible(latRaw, lonRaw);
+        if (!coords) {
+          console.warn(`Skipping store index ${idx} (invalid coords)`, store["Site #"] || store.SiteName || store);
+          return;
+        }
+        const lat = coords.lat, lon = coords.lon;
+        store._lat = lat;
+        store._lon = lon;
 
-    if(toggle){
-      toggle.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        const collapsed = !document.body.classList.contains("sidebar-collapsed");
-        setCollapsed(collapsed);
+        const color = (store.color === 'red') ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
+        const isOutage = (color === 'red' || color === 'yellow');
+        const redHuge = (color === 'red');
+        const icon = makeIcon(color, map.getZoom(), isOutage && !redHuge, redHuge);
+
+        const marker = L.marker([lat, lon], { icon, pane: (storeLayer.options && storeLayer.options.pane) ? storeLayer.options.pane : undefined });
+
+        const popupHtml = `
+          <b>Store ${store["Site #"] || ""} – ${store.SiteName || ""}</b><br>
+          ${store.Location || "N/A"}<br>
+          ${store.City || ""}, ${store.State || ""}<br>
+          <b>Status:</b> ${store.status || "No outage"}<br>
+          <b>ETA:</b> ${store.etr || "N/A"}<br>
+          <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
+          ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
+        `;
+        marker.bindPopup(popupHtml);
+
+        // marker click zooms to street-level (15)
+        marker.on('click', () => focusStoreOnMap(marker));
+
+        marker.addTo(storeLayer);
+
+        const key = String(store["Site #"] || `${store.SiteName || "store"}_${created}`);
+        markers[key] = { marker, store };
+
+        // If initial state is outage, bring to front and apply classes
+        if (isOutage) {
+          try {
+            marker.setZIndexOffset(1000);
+            if (marker.bringToFront) marker.bringToFront();
+            setTimeout(() => {
+              const el = marker._icon;
+              if (el) {
+                // Red: enlarged but static (no pulse)
+                if (color === 'red') {
+                  el.classList.add('enlarge');
+                  el.classList.remove('pulse');
+                } else {
+                  // Yellow: enlarged + pulse
+                  el.classList.add('enlarge');
+                  el.classList.add('pulse');
+                }
+              }
+            }, 80);
+          } catch(e){}
+        }
+
+        created++;
       });
-    }
 
-    if(bubble){
-      bubble.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        setCollapsed(false);
-      });
-    }
-
-    window.addEventListener('resize', () => {
-      if (!document.body.classList.contains("sidebar-collapsed")) {
-        mapEl.style.right = sidebarEl.offsetWidth + "px";
-        if(window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize();
+      function updateMarkerIconsOnZoom() {
+        const z = map.getZoom();
+        Object.values(markers).forEach(entry => {
+          const store = entry.store;
+          const color = (store.color === 'red') ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
+          const isOutage = (color === 'red' || color === 'yellow');
+          const redHuge = (color === 'red');
+          const newIcon = makeIcon(color, z, isOutage && !redHuge, redHuge);
+          try { entry.marker.setIcon(newIcon); } catch(e) {}
+          setTimeout(() => {
+            const el = entry.marker._icon;
+            if (!el) return;
+            if (isOutage) {
+              if (color === 'red') {
+                el.classList.add('enlarge');
+                el.classList.remove('pulse');
+              } else {
+                el.classList.add('enlarge');
+                el.classList.add('pulse');
+              }
+            } else {
+              el.classList.remove('enlarge');
+              el.classList.remove('pulse');
+            }
+          }, 60);
+        });
       }
-    });
-  })();
 
-  /* ---------- Update outage status for a store (pushpin icon, enlarge, bring-to-front, pulse) ---------- */
+      map.off('zoomend', updateMarkerIconsOnZoom);
+      map.on('zoomend', updateMarkerIconsOnZoom);
+      map.on('zoom', () => {
+        const zd = document.getElementById('zoomDisplay');
+        if (zd) zd.textContent = 'Zoom ' + map.getZoom().toFixed(0);
+      });
+
+      updateMarkerIconsOnZoom();
+
+    } catch (err) {
+      console.error("createMarkersFromStores error:", err);
+    }
+  }
+
   function updateOutageStatusForStore(storeNumber, newStatusObj) {
     const key = String(storeNumber);
     const entry = markers[key];
@@ -686,13 +524,11 @@
     const marker = entry.marker;
     const store = entry.store;
 
-    // update store fields
     store.color = newStatusObj.color || store.color || 'white';
     store.status = newStatusObj.status || store.status;
     store.etr = newStatusObj.etr || store.etr;
     store.lastUpdated = newStatusObj.lastUpdated || store.lastUpdated;
 
-    // compute icon size based on current zoom
     const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
     const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 19;
     const z = map.getZoom();
@@ -702,14 +538,10 @@
     let w = Math.max(10, Math.round(baseW * scale));
     let h = Math.max(14, Math.round(baseH * scale));
 
-    const isOutage = (store.color === 'red' || store.color === 'yellow');
-
-    // Red outage: make icon 5x bigger (as requested)
     if (store.color === 'red') {
       w = Math.round(w * 5);
       h = Math.round(h * 5);
     } else if (store.color === 'yellow') {
-      // yellow: moderate enlarge
       w = Math.round(w * 1.5);
       h = Math.round(h * 1.5);
     }
@@ -726,17 +558,21 @@
 
     try { marker.setIcon(newIcon); } catch (e) { console.warn('setIcon failed', e); }
 
-    // DOM element for marker (may be undefined until marker is added to map)
     const applyDomClasses = () => {
       const el = marker._icon;
       if (!el) return;
-      if (isOutage) {
+      if (store.color === 'red') {
         marker.setZIndexOffset(5000);
         if (marker.bringToFront) marker.bringToFront();
-        el.classList.add('pulse');
         el.classList.add('enlarge');
-        if (store.color === 'red') showToast(`CRITICAL: Store ${store["Site #"]} outage`, 'critical', 10000);
-        else showToast(`Warning: Store ${store["Site #"]} possible outage`, 'warn', 7000);
+        el.classList.remove('pulse'); // red static
+        showToast(`CRITICAL: Store ${store["Site #"]} outage`, 'critical', 10000);
+      } else if (store.color === 'yellow') {
+        marker.setZIndexOffset(4000);
+        if (marker.bringToFront) marker.bringToFront();
+        el.classList.add('enlarge');
+        el.classList.add('pulse'); // yellow pulses
+        showToast(`Warning: Store ${store["Site #"]} possible outage`, 'warn', 7000);
       } else {
         marker.setZIndexOffset(0);
         el.classList.remove('pulse');
@@ -744,11 +580,9 @@
       }
     };
 
-    // Try immediate, otherwise schedule shortly (DOM may not be ready)
     applyDomClasses();
     setTimeout(applyDomClasses, 120);
 
-    // Update popup content
     const popupHtml = `
       <b>Store ${store["Site #"] || ""} – ${store.SiteName || ""}</b><br>
       ${store.Location || "N/A"}<br>
@@ -761,7 +595,64 @@
     if (marker.getPopup()) marker.setPopupContent(popupHtml);
   }
 
-  /* ---------- UI wiring ---------- */
+  /* Sidebar collapse + overlay wiring */
+  (function wireSidebarCollapse(){
+    const toggle = document.getElementById("toggleBtn");
+    const bubble = document.getElementById("collapseBubble");
+    const sidebarEl = document.getElementById("sidebar");
+    const mapEl = document.getElementById("map");
+    const overlay = document.getElementById("sidebarOverlay");
+
+    function setCollapsed(collapsed){
+      if(collapsed){
+        document.body.classList.add("sidebar-collapsed");
+        document.body.classList.remove("sidebar-open");
+        sidebarEl.setAttribute("aria-hidden","true");
+        if(bubble) bubble.style.display = "flex";
+        if(toggle){ toggle.setAttribute("aria-expanded","false"); toggle.innerText = "◂"; }
+        mapEl.style.right = "0";
+      } else {
+        document.body.classList.remove("sidebar-collapsed");
+        document.body.classList.add("sidebar-open");
+        sidebarEl.setAttribute("aria-hidden","false");
+        if(bubble) bubble.style.display = "none";
+        if(toggle){ toggle.setAttribute("aria-expanded","true"); toggle.innerText = "▸"; }
+        mapEl.style.right = sidebarEl.offsetWidth + "px";
+      }
+      setTimeout(() => { if(window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 260);
+    }
+
+    // start with sidebar open
+    setCollapsed(false);
+
+    if(toggle){
+      toggle.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const collapsed = !document.body.classList.contains("sidebar-collapsed");
+        setCollapsed(collapsed);
+      });
+    }
+
+    if(bubble){
+      bubble.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        setCollapsed(false);
+      });
+    }
+
+    if(overlay){
+      overlay.addEventListener("click", () => setCollapsed(true));
+    }
+
+    window.addEventListener('resize', () => {
+      if (!document.body.classList.contains("sidebar-collapsed")) {
+        mapEl.style.right = sidebarEl.offsetWidth + "px";
+        if(window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize();
+      }
+    });
+  })();
+
+  /* UI wiring */
   (function wireUI(){
     const filter = document.getElementById("filterSelect");
     const search = document.getElementById("searchBar");
@@ -804,30 +695,7 @@
     }
   })();
 
-  /* ---------- Radar auto-refresh helpers ---------- */
-  let radarRefreshTimer = null;
-  function startRadarAutoRefresh(intervalMs = 30_000) {
-    if (radarRefreshTimer) clearInterval(radarRefreshTimer);
-    radarRefreshTimer = setInterval(() => {
-      if (window.rainViewerLayer && map.hasLayer(window.rainViewerLayer)) {
-        const base = 'https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png';
-        window.rainViewerLayer.setUrl(base + '?_cb=' + Date.now());
-      }
-      try { if (nowcoastWms && map.hasLayer(nowcoastWms)) nowcoastWms.setParams({ _cb: Date.now() }, false); } catch(e){}
-    }, intervalMs);
-  }
-  function stopRadarAutoRefresh() {
-    if (radarRefreshTimer) { clearInterval(radarRefreshTimer); radarRefreshTimer = null; }
-  }
-
-  /* ---------- Diagnostic helper ---------- */
-  function diagnosticLog() {
-    console.log("rainViewerLayer exists:", !!window.rainViewerLayer, "map.hasLayer:", !!window.rainViewerLayer && map.hasLayer(window.rainViewerLayer));
-    if (window.rainViewerLayer) console.log("rainViewerLayer._url:", window.rainViewerLayer._url || "(no _url)");
-    console.log("Markers count:", Object.keys(markers).length);
-  }
-
-  /* ---------- Load data and start ---------- */
+  /* Load data and start */
   Promise.all([
     fetch("Sites.csv").then(r => r.text()).catch(()=> ""),
     fetch("outages.json").then(r => r.json()).catch(()=> [])
@@ -835,10 +703,8 @@
     stores = csvText ? parseCSV(csvText) : [];
     if(!Array.isArray(outages)) outages = [];
 
-    // Normalize site id field
     stores.forEach(s => { s["Site #"] = s["Site #"] || s.Site || s.site || s.id || ""; });
 
-    // Merge outage info into stores
     (stores || []).forEach(store => {
       const match = (outages || []).find(o => String(o.storeNumber) === String(store["Site #"]));
       if(match){
@@ -867,7 +733,6 @@
           updateOutageStatusForStore(s["Site #"], { color: s.color, status: s.status, etr: s.etr, lastUpdated: s.lastUpdated });
         }
       });
-      diagnosticLog();
     }, 600);
   }).catch(err=>{
     console.error("Load failed", err);
