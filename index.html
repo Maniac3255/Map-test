@@ -341,55 +341,16 @@
     }
 
     @media (prefers-reduced-motion:reduce) {
-      .state-marker-container {
-        transition:none;
-      }
-    }
-
-    /* RESPONSIVE LAYOUT: changes available space, not map zoom */
-    @media (max-width:1200px) {
-      :root {
-        --sidebar-width:330px;
-        --dashboard-height:300px;
-      }
-      .dash-cards { grid-template-columns:repeat(2,minmax(140px,1fr)); }
-      .dashboard-grid { grid-template-columns:1fr 1fr; }
-      .dashboard-section:last-child { grid-column:1 / -1; }
-    }
-
-    @media (max-width:1000px) {
-      :root {
-        --sidebar-width:310px;
-        --dashboard-height:285px;
-      }
-      .dashboard-grid { grid-template-columns:1fr; }
-      .dashboard-section:last-child { grid-column:auto; }
+      .state-marker-container { transition:none; }
     }
 
     @media (max-width:800px) {
-      :root {
-        --sidebar-width:min(90vw,360px);
-        --dashboard-height:min(58vh,300px);
-      }
+      :root { --sidebar-width:min(90vw,360px); }
       #map, #bottomDashboard { right:0; }
       .dash-cards { grid-template-columns:repeat(2,minmax(120px,1fr)); }
       .dashboard-grid { grid-template-columns:1fr; }
-      .dashboard-section:last-child { grid-column:auto; }
     }
-
-    @media (max-width:520px) {
-      :root { --dashboard-height:min(66vh,340px); }
-      #dashboardContent { padding:10px; }
-    }
-
-    @media (max-height:700px) {
-      :root { --dashboard-height:min(48vh,270px); }
-    }
-
-    @media (max-height:520px) {
-      :root { --dashboard-height:min(55vh,235px); }
-      #dashboardHandle { height:34px; top:-34px; }
-    }
+    @media (max-height:600px) { :root { --dashboard-height:270px; } }
   </style>
 </head>
 <body class="sidebar-collapsed">
@@ -481,8 +442,6 @@
     let selectedState="";
     let exactStoreMarker=null;
     let trendChart=null;
-    let responsiveResizeTimer=null;
-    let mapResizeObserver=null;
 
     function text(v){
       if(v===null||v===undefined) return "";
@@ -568,15 +527,12 @@
       addUSAResetControl();
       resetUSA();
       map.on("drag",()=>map.panInsideBounds(CONFIG.usaBounds,{animate:false}));
-      observeMapContainerSize();
       setTimeout(()=>{
-        map.invalidateSize({animate:false,pan:false});
+        map.invalidateSize();
         resetUSA();
         updateStateMarkerSize();
       },250);
     }
-
-    function resetUSA(){ if(map) map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false}); }
 
     function updateStateMarkerSize() {
       if(!map) return;
@@ -599,32 +555,7 @@
       }
     }
 
-    function resizeMapToBrowser() {
-      if(!map) return;
-
-      clearTimeout(responsiveResizeTimer);
-      responsiveResizeTimer=setTimeout(() => {
-        /* Preserve the exact center and zoom while recalculating map dimensions. */
-        const currentCenter=map.getCenter();
-        const currentZoom=map.getZoom();
-
-        map.invalidateSize({animate:false,pan:false});
-        map.setView(currentCenter,currentZoom,{animate:false,reset:true});
-        updateStateMarkerSize();
-
-        if(trendChart && typeof trendChart.resize === "function") {
-          trendChart.resize();
-        }
-      },100);
-    }
-
-    function observeMapContainerSize() {
-      if(!map || typeof ResizeObserver === "undefined") return;
-      if(mapResizeObserver) mapResizeObserver.disconnect();
-
-      mapResizeObserver=new ResizeObserver(() => resizeMapToBrowser());
-      mapResizeObserver.observe(document.getElementById("map"));
-    }
+    function resetUSA(){ if(map) map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false}); }
 
     function addLegend(){
       const legend=L.control({position:"bottomleft"});
@@ -885,7 +816,7 @@
       document.body.classList.toggle("sidebar-collapsed",collapsed);
       document.getElementById("sidebar").setAttribute("aria-hidden",collapsed?"true":"false");
       document.getElementById("sidebarTab").setAttribute("aria-expanded",collapsed?"false":"true");
-      setTimeout(()=>resizeMapToBrowser(),CONFIG.transitionMs+30);
+      setTimeout(()=>map&&map.invalidateSize({animate:false}),CONFIG.transitionMs+30);
     }
 
     function toggleDashboard(){
@@ -893,7 +824,7 @@
       dash.classList.toggle("expanded",open);document.body.classList.toggle("dashboard-open",open);
       document.getElementById("dashboardHandle").setAttribute("aria-expanded",String(open));
       document.getElementById("dashboardArrow").textContent=open?"▼":"▲";
-      if(open)renderDashboard();setTimeout(()=>resizeMapToBrowser(),CONFIG.transitionMs+30);
+      if(open)renderDashboard();setTimeout(()=>map&&map.invalidateSize({animate:false}),CONFIG.transitionMs+30);
     }
 
     function wireUI(){
@@ -903,8 +834,7 @@
       document.getElementById("searchBar").oninput=renderStoreList;
       document.getElementById("searchBar").onkeydown=e=>{if(e.key==="Enter"){const f=filteredStores();if(f.length===1)focusStore(f[0])}};
       document.getElementById("dashboardHandle").onclick=toggleDashboard;
-      window.addEventListener("resize",resizeMapToBrowser);
-      window.addEventListener("orientationchange",()=>setTimeout(resizeMapToBrowser,250));
+      window.addEventListener("resize",()=>map&&map.invalidateSize({animate:false}));
     }
 
     async function fetchText(file){const r=await fetch(file,{cache:"no-store"});if(!r.ok)throw new Error(`${file}: HTTP ${r.status}`);return r.text()}
