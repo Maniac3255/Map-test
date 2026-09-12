@@ -212,6 +212,7 @@
 
     <div style="display:flex; gap:6px;">
         <button id="resetViewBtn" class="header-btn">Default View</button>
+        <button id="resetStateBtn" class="header-btn">All States</button>
         <button id="toggleBtn">▼</button>
     </div>
 </div>
@@ -560,7 +561,15 @@ L.control.layers(
 document.getElementById("resetViewBtn").onclick = () => {
     map.setView([37.5, -95.5], 5);
 };
-    
+        // Reset map view to USA
+document.getElementById("resetViewBtn").onclick = () => {
+    map.setView([37.5, -95.5], 5);
+    document.getElementById("resetStateBtn").onclick = () => {
+    map.setView([39.0, -98.0], 4.8);   // USA view
+    renderStoreList();                 // Show all stores again
+    renderDashboard(stores);           // Full dashboard
+};
+      
 let legend = L.control({ position: "bottomleft" });
 
 legend.onAdd = function () {
