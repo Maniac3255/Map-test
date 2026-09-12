@@ -2,12 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Store Outage Map — NOAA NowCOAST + RainViewer + Scaled Markers</title>
+  <title>Store Outage Map — NOAA NowCOAST + RainViewer (minZoom 4.5 / maxZoom 12)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
     html,body { height:100%; margin:0; padding:0; font-family:Arial, sans-serif; background:#0f0f0f; color:#fff; }
-    /* Map and sidebar layout */
     #map { position:absolute; top:0; left:0; right:360px; bottom:0; transition:right 0.28s ease; z-index:1; }
     #sidebar { position:absolute; top:0; right:0; width:360px; bottom:0; background:#151515; border-left:1px solid #2b2b2b; padding:12px; overflow-y:auto; z-index:10000; transition: transform 0.28s ease; transform: translateX(0); }
     body.sidebar-collapsed #sidebar { transform: translateX(100%); }
@@ -26,30 +25,15 @@
     .dash-card { background:#fff; color:#000; padding:10px; border-radius:6px; flex:1 1 48%; min-width:120px; border:1px solid #ddd; }
     .dash-list-item { padding:6px 0; border-bottom:1px dashed #ddd; cursor:pointer; }
 
-    /* Vertical radar control (below zoom control) */
     .radar-vertical { display:flex; flex-direction:column; align-items:center; gap:8px; padding:6px; background:rgba(20,20,20,0.95); border-radius:6px; box-shadow:0 1px 6px rgba(0,0,0,0.4); color:#fff; }
-    .radar-vertical input[type="range"] {
-      -webkit-appearance: slider-vertical;
-      width: 8px;
-      height: 120px;
-      transform: none;
-      background: transparent;
-    }
+    .radar-vertical input[type="range"] { -webkit-appearance: slider-vertical; width: 8px; height: 120px; transform: none; background: transparent; }
     .radar-vertical button { background:#1a73e8; color:#fff; border:none; padding:6px 8px; border-radius:4px; cursor:pointer; font-size:13px; }
-    .leaflet-top.leaflet-left .radar-vertical-container { margin-top: 88px; margin-left: 8px; } /* push below zoom control */
-    @media (max-width:800px) { #map { right:0; } #sidebar { width:100%; right:0; } .leaflet-top.leaflet-left .radar-vertical-container { margin-top: 8px; } }
+    .leaflet-top.leaflet-left .radar-vertical-container { margin-top: 88px; margin-left: 8px; }
 
-    /* Marker pulse for outages */
-    .leaflet-marker-icon.pulse {
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.12); }
-      100% { transform: scale(1); }
-    }
+    .leaflet-marker-icon.pulse { animation: pulse 1s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
 
-    /* Legend */
+    #zoomDisplay { position:absolute; left:8px; bottom:8px; z-index:6500; background:rgba(0,0,0,0.6); color:#fff; padding:6px; border-radius:6px; font-size:13px; }
     .legend { font-size:13px; }
   </style>
 </head>
@@ -57,7 +41,6 @@
 
   <div id="map"></div>
 
-  <!-- Sidebar -->
   <div id="sidebar" role="complementary" aria-label="Store list">
     <div id="sidebarHeader">
       <h3 style="margin:0;">All Stores</h3>
@@ -84,16 +67,22 @@
     <div id="dashboardContent"></div>
   </div>
 
+  <div id="zoomDisplay">Zoom 4.5</div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Full index: NOAA NowCOAST attempt, higher zoom (street level), default whole-USA view,
-     All Stores button resets to whole USA, marker scaling by zoom, proxy-ready WMS fallback,
-     and robust marker parsing/placement.
+  /* Full script: map with fractional zoom (min 4.5 / max 12), NOAA NowCOAST attempt + RainViewer fallback,
+     marker placement with robust parsing, marker scaling by zoom (fractional), sidebar behavior,
+     reset button defaults to whole USA, and simple radar controls.
   */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
+  const redUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png";
+  const yellowUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png";
+  const grayUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
+  const shadowUrl = "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png";
 
   function safeGetItem(k){ try { return localStorage.getItem(k); } catch { return null; } }
   function safeSetItem(k,v){ try { localStorage.setItem(k,v); } catch {} }
@@ -145,7 +134,7 @@
       `;
       div.onclick = () => {
         const entry = markers[String(store["Site #"])];
-        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), 16); entry.marker.openPopup(); }
+        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), 11); entry.marker.openPopup(); }
       };
       storeListDiv.appendChild(div);
     });
@@ -194,15 +183,23 @@
   }
 
   function initMapAndLayers(){
-    // Increase map maxZoom to street level
-    const MIN_Z = 3;
-    const MAX_Z = 19; // allow street-level zoom
+    // Requested fractional zoom limits
+    const MIN_Z = 4.5;
+    const MAX_Z = 12;
 
-    // Default view: whole USA
+    // Default whole USA view
     const USA_CENTER = [39.0, -98.0];
-    const USA_ZOOM = 4;
+    const USA_ZOOM = 4.5;
 
-    map = L.map("map", { minZoom: MIN_Z, maxZoom: MAX_Z }).setView(USA_CENTER, USA_ZOOM);
+    map = L.map("map", {
+      center: USA_CENTER,
+      zoom: USA_ZOOM,
+      minZoom: MIN_Z,
+      maxZoom: MAX_Z,
+      zoomSnap: 0.5,
+      zoomDelta: 0.5,
+      preferCanvas: true
+    });
     window.map = map;
 
     // create panes
@@ -211,7 +208,7 @@
     map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
     map.createPane('radarPane'); map.getPane('radarPane').style.zIndex = 610; map.getPane('radarPane').style.pointerEvents = 'none';
 
-    // base map (OSM) with high zoom
+    // base map (OSM) with maxZoom clamped to map max
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: MAX_Z
@@ -222,7 +219,6 @@
     storeLayer = L.layerGroup([], { pane: 'storePane' }).addTo(map);
     hazardLayer = L.layerGroup([], { pane: 'markerPane' }).addTo(map);
 
-    // main layer control
     window._customLayerControl = L.control.layers({ "Street Map": osm }, { "Outages": outageLayer, "Weather Alerts": weatherLayer, "HazardNow": hazardLayer }, { position: "topleft" }).addTo(map);
 
     const legend = L.control({ position: "bottomleft" });
@@ -236,7 +232,7 @@
     };
     legend.addTo(map);
 
-    // load weather alerts (NWS)
+    // NWS Alerts (GeoJSON)
     (async function loadWeatherAlerts(){
       try {
         const r = await fetch("https://api.weather.gov/alerts/active");
@@ -252,54 +248,48 @@
         console.warn("NWS alerts load failed", e);
       }
     })();
+    setInterval(() => { try { loadWeatherAlerts(); } catch(e){} }, 1000 * 60 * 5);
 
-    // --- Attempt NOAA NowCOAST WMS (with proxy fallback) ---
-    // Note: NowCOAST WMS endpoints often block direct browser requests; use a server proxy if you see CORS/403.
-    // Two options: direct WMS (may 403) or proxied path '/proxy/wms' (recommended for production).
+    // --- NowCOAST WMS attempt with proxy-ready option ---
     const NOWCOAST_WMS_BASE = 'https://nowcoast.noaa.gov/wms/com.esri.wms.Esrimap/obs';
-    const PROXY_WMS_BASE = '/proxy/wms'; // implement server-side proxy to avoid CORS if needed
-
-    // Create a WMS layer function that prefers direct but can be switched to proxy by toggling useProxy
-    const useProxy = false; // set true if direct requests are blocked in your environment
+    const PROXY_WMS_BASE = '/proxy/wms'; // implement server-side proxy if needed
+    let useProxy = false; // flip to true if direct WMS blocked by CORS/403
     const wmsUrl = useProxy ? PROXY_WMS_BASE : NOWCOAST_WMS_BASE;
 
-    // Example layer: NEXRAD Reflectivity (adjust LAYERS param if needed)
     const nowcoastWms = L.tileLayer.wms(wmsUrl, {
       layers: 'RAS_Radar_Nexrad_Reflectivity',
       format: 'image/png',
       transparent: true,
       version: '1.3.0',
-      crs: L.CRS.EPSG3857,
-      time: 'latest',
       attribution: 'NOAA NowCOAST',
       pane: 'radarPane',
-      maxZoom: 12, // NowCOAST typically doesn't serve street-level tiles; keep lower than map max
-      minZoom: 3
+      minZoom: MIN_Z,
+      maxZoom: Math.min(MAX_Z, 12) // keep WMS max lower if provider doesn't serve street-level
     });
 
-    // Add to layer control
     if (window._customLayerControl && typeof window._customLayerControl.addOverlay === "function") {
       window._customLayerControl.addOverlay(nowcoastWms, "NOAA NowCOAST Radar");
     }
 
-    // RainViewer fallback (higher zoom support for visual continuity)
+    // RainViewer fallback
     window.rainViewerLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png', {
       pane: 'radarPane',
       opacity: 0.6,
       attribution: 'RainViewer',
-      maxZoom: 16,
-      minZoom: 3
+      minZoom: MIN_Z,
+      maxZoom: Math.min(MAX_Z, 16),
+      maxNativeZoom: 16
     });
     window._customLayerControl.addOverlay(window.rainViewerLayer, "RainViewer Radar");
 
-    // If NowCOAST returns placeholder tiles or errors, fallback to RainViewer automatically
+    // If NowCOAST errors, fallback to RainViewer
     nowcoastWms.on('tileerror', () => {
       if (!map.hasLayer(window.rainViewerLayer)) window.rainViewerLayer.addTo(map);
       if (map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
       console.warn('NowCOAST tile error — switched to RainViewer fallback');
     });
 
-    // Add a small control for switching between NOAA and RainViewer and for forcing proxy usage
+    // Radar source switch control
     const RadarSwitch = L.Control.extend({
       options: { position: 'topleft' },
       onAdd: function () {
@@ -332,7 +322,7 @@
       });
     }, 120);
 
-    // --- Vertical radar control (opacity + show/hide) ---
+    // Radar vertical control (opacity / show / refresh)
     const RadarVerticalControl = L.Control.extend({
       options: { position: 'topleft' },
       onAdd: function () {
@@ -381,11 +371,8 @@
           stopRadarAutoRefresh();
           statusEl.textContent = '';
         } else {
-          // prefer NOAA if available, otherwise RainViewer
           if (!map.hasLayer(nowcoastWms) && !map.hasLayer(window.rainViewerLayer)) {
-            // try NOAA first
             nowcoastWms.addTo(map);
-            // if NOAA tile errors, it will fallback to RainViewer via tileerror handler
           }
           toggleBtn.textContent = 'Hide';
           radarVisible = true;
@@ -397,10 +384,7 @@
       refreshBtn.addEventListener('click', (e) => {
         const baseRV = 'https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png';
         if (window.rainViewerLayer) window.rainViewerLayer.setUrl(baseRV + '?_cb=' + Date.now());
-        if (nowcoastWms) {
-          // force WMS cache-buster by toggling a param
-          nowcoastWms.setParams({ _cb: Date.now() }, false);
-        }
+        if (nowcoastWms) nowcoastWms.setParams({ _cb: Date.now() }, false);
         statusEl.textContent = 'Refreshing…';
         setTimeout(()=> statusEl.textContent = 'Live', 800);
       });
@@ -408,7 +392,7 @@
 
     setTimeout(()=> map.invalidateSize(), 300);
 
-    /* ---------- Robust marker creation with zoom-based scaling ---------- */
+    /* ---------- Robust marker creation with zoom-based scaling (fractional zoom supported) ---------- */
     (function createMarkersFromStores(){
       try {
         if (!Array.isArray(stores)) { console.warn("No stores array found."); return; }
@@ -417,19 +401,14 @@
         markers = {};
         storeLayer.clearLayers();
 
-        let firstLatLng = null;
         let created = 0;
 
-        // helper: parse and normalize lat/lon
         function parseCoords(rawLat, rawLon) {
           const clean = v => (typeof v === 'string') ? v.replace(/,/g,'').trim() : v;
           let lat = parseFloat(clean(rawLat));
           let lon = parseFloat(clean(rawLon));
           if (!isFinite(lat) || !isFinite(lon)) return null;
-
-          // detect swapped coords (lat outside -90..90 or lon outside -180..180)
           if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            // try swapping
             if (lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
               const tmp = lat; lat = lon; lon = tmp;
             } else {
@@ -439,31 +418,26 @@
           return { lat, lon };
         }
 
-        // base icon sizes (will be scaled by zoom)
         const BASE_ICON = { width: 25, height: 41 };
 
-        // create icon factory that returns an L.icon sized for current zoom
         function makeIcon(color, zoom) {
-          const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
-          const MAX_Z = Math.min(map.getMaxZoom ? map.getMaxZoom() : 19, 19);
+          const MIN_Z = map.getMinZoom();
+          const MAX_Z = map.getMaxZoom();
           const z = Math.max(MIN_Z, Math.min(MAX_Z, zoom));
-          const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
-          const scale = 0.4 + 0.6 * t; // 0.4..1.0 for wider dynamic range
+          const t = (z - MIN_Z) / Math.max(0.0001, (MAX_Z - MIN_Z));
+          const scale = 0.4 + 0.6 * t; // 0.4..1.0
           const w = Math.max(8, Math.round(BASE_ICON.width * scale));
           const h = Math.max(12, Math.round(BASE_ICON.height * scale));
-          const url = (color === 'red') ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
-                    : (color === 'yellow') ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
-                    : "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
+          const url = (color === 'red') ? redUrl : (color === 'yellow') ? yellowUrl : grayUrl;
           return L.icon({
             iconUrl: url,
-            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+            shadowUrl: shadowUrl,
             iconSize: [w, h],
             iconAnchor: [Math.round(w/2), h],
             popupAnchor: [1, -Math.round(h*0.8)]
           });
         }
 
-        // create markers
         stores.forEach((store, idx) => {
           const latRaw = store.Latitude ?? store.lat ?? store.Lat ?? store.outageLat;
           const lonRaw = store.Longitude ?? store.lon ?? store.Long ?? store.outageLon;
@@ -494,18 +468,11 @@
           const key = String(store["Site #"] || `${store.SiteName || "store"}_${created}`);
           markers[key] = { marker, store };
 
-          if (!firstLatLng) firstLatLng = [lat, lon];
           created++;
         });
 
         console.log(`Markers created: ${created}`);
-        if (created && firstLatLng && window.map) {
-          // keep default view as whole USA; do not auto-zoom to first marker
-        } else if (!created) {
-          console.warn("No markers created. Check Sites.csv parsing and Latitude/Longitude fields.");
-        }
 
-        // Zoom handler: update icon sizes dynamically
         function updateMarkerIconsOnZoom() {
           const z = map.getZoom();
           Object.values(markers).forEach(entry => {
@@ -516,9 +483,13 @@
           });
         }
 
-        // Attach zoomend once (avoid duplicate handlers)
         map.off('zoomend', updateMarkerIconsOnZoom);
         map.on('zoomend', updateMarkerIconsOnZoom);
+        map.on('zoom', () => {
+          // update zoom display live for fractional zoom
+          const zd = document.getElementById('zoomDisplay');
+          if (zd) zd.textContent = 'Zoom ' + map.getZoom().toFixed(1);
+        });
 
         // initial sizing
         updateMarkerIconsOnZoom();
@@ -529,7 +500,7 @@
     })();
   }
 
-  /* ---------- Collapse handler (fixed) ---------- */
+  /* ---------- Collapse handler ---------- */
   (function wireCollapse(){
     const toggle = document.getElementById("toggleBtn");
     const bubble = document.getElementById("collapseBubble");
@@ -592,24 +563,19 @@
     store.etr = newStatusObj.etr || store.etr;
     store.lastUpdated = newStatusObj.lastUpdated || store.lastUpdated;
 
-    // compute size for current zoom
-    const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
-    const MAX_Z = Math.min(map.getMaxZoom ? map.getMaxZoom() : 19, 19);
+    const MIN_Z = map.getMinZoom ? map.getMinZoom() : 4.5;
+    const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 12;
     const z = map.getZoom();
     const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
     const scale = 0.4 + 0.6 * t;
     const w = Math.max(8, Math.round(25 * scale));
     const h = Math.max(12, Math.round(41 * scale));
 
-    const iconUrl = (store.color === "red")
-      ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
-      : (store.color === "yellow")
-        ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
-        : "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
+    const iconUrl = (store.color === "red") ? redUrl : (store.color === "yellow") ? yellowUrl : grayUrl;
 
     const newIcon = L.icon({
       iconUrl,
-      shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      shadowUrl: shadowUrl,
       iconSize: [w, h],
       iconAnchor: [Math.round(w/2), h],
       popupAnchor: [1, -Math.round(h*0.8)]
@@ -658,7 +624,7 @@
         const found = stores.find(s => String(s["Site #"]).toLowerCase() === q);
         if(found && markers[String(found["Site #"])]) {
           const m = markers[String(found["Site #"])].marker;
-          map.setView(m.getLatLng(), 16);
+          map.setView(m.getLatLng(), 11);
           m.openPopup();
         } else renderStoreList(q);
       });
@@ -676,8 +642,7 @@
         ev.preventDefault();
         ev.stopPropagation();
         try {
-          // Reset to whole USA view (default)
-          if (window.map) window.map.setView([39.0, -98.0], 4);
+          if (window.map) window.map.setView([39.0, -98.0], 4.5);
           renderStoreList();
           renderDashboard(stores);
           setTimeout(() => { if (window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 120);
@@ -697,15 +662,14 @@
         const base = 'https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png';
         window.rainViewerLayer.setUrl(base + '?_cb=' + Date.now());
       }
-      // also nudge WMS cache if present
-      try { if (map && map.eachLayer) { /* noop */ } } catch(e){}
+      try { if (nowcoastWms && map.hasLayer(nowcoastWms)) nowcoastWms.setParams({ _cb: Date.now() }, false); } catch(e){}
     }, intervalMs);
   }
   function stopRadarAutoRefresh() {
     if (radarRefreshTimer) { clearInterval(radarRefreshTimer); radarRefreshTimer = null; }
   }
 
-  /* ---------- Diagnostic helper (console) ---------- */
+  /* ---------- Diagnostic helper ---------- */
   function diagnosticLog() {
     console.log("rainViewerLayer exists:", !!window.rainViewerLayer, "map.hasLayer:", !!window.rainViewerLayer && map.hasLayer(window.rainViewerLayer));
     if (window.rainViewerLayer) console.log("rainViewerLayer._url:", window.rainViewerLayer._url || "(no _url)");
