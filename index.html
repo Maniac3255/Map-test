@@ -781,19 +781,45 @@
 
     function selectState(code,openPopup=false) {
       selectedState=stateCode(code);
+
+      /* Clear prior store selection and reset the state-scoped list. */
+      map.closePopup();
+      exactStoreLayer.clearLayers();
+      exactStoreMarker=null;
       document.getElementById("searchBar").value="";
       document.getElementById("filterSelect").value="all";
       renderStoreList();
+
+      /* The Stores panel overlays the map and does not affect centering. */
       setSidebar(false);
-      exactStoreLayer.clearLayers();
-      exactStoreMarker=null;
 
       const summary=stateSummaries.get(selectedState);
       const marker=stateMarkers.get(selectedState);
+
       if(summary&&marker) {
-        map.setView(marker.getLatLng(),6,{animate:true});
+        /* Restore all state priorities before raising the selected state. */
+        stateSummaries.forEach((stateSummary,stateAbbreviation) => {
+          const stateMarker=stateMarkers.get(stateAbbreviation);
+          if(stateMarker) {
+            stateMarker.setZIndexOffset(stateOffset(stateSummary));
+          }
+        });
+
         marker.setZIndexOffset(60000);
-        if(openPopup) setTimeout(()=>marker.openPopup(),250);
+
+        /* Center the selected state bubble in the full map viewport. */
+        const stateLocation=marker.getLatLng();
+        const stateZoom=Math.max(6,map.getZoom());
+
+        map.setView(stateLocation,stateZoom,{
+          animate:true
+        });
+
+        if(openPopup) {
+          map.once("moveend",() => {
+            marker.openPopup();
+          });
+        }
       }
     }
 
