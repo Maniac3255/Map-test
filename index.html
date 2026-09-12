@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Store Outage Map — Single File (State Circles Top Layer)</title>
+  <title>Store Outage Map — Fixed</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
@@ -34,8 +34,8 @@
       transition: transform 0.28s ease;
       transform: translateX(0);
     }
-    #sidebar.collapsed { transform: translateX(100%); }
-
+    /* collapsed state */
+    body.sidebar-collapsed #sidebar { transform: translateX(100%); }
     #sidebarHeader { display:flex; align-items:center; justify-content:space-between; gap:8px; }
     .header-btn { background:#222; color:#fff; border:1px solid #333; padding:6px 8px; border-radius:6px; cursor:pointer; }
 
@@ -118,7 +118,7 @@
     .dash-card { background:#fff; color:#000; padding:10px; border-radius:6px; flex:1 1 48%; min-width:120px; border:1px solid #ddd; }
     .dash-list-item { padding:6px 0; border-bottom:1px dashed #ddd; cursor:pointer; }
 
-    /* State circle and store arrow fallback */
+    /* state circle fallback */
     .state-circle { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
     .state-circle.gray { background:#6b6b6b; color:#fff; }
     .state-circle.yellow { background:#ffd54f; color:#111; }
@@ -167,14 +167,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* ============================
-     Single-file script
-     - State circles top layer on USA view
-     - Drill into state shows store arrows
-     - Sidebar collapse restored and reliable
-     ============================ */
-
-  /* ---------- constants ---------- */
+  /* ------------------------------
+     Helpers and constants
+  --------------------------------*/
   const stateCenters = {
     "IL":[40.0,-89.0],"IN":[39.9,-86.3],"KS":[38.5,-98.0],"KY":[37.8,-85.0],
     "LA":[31.0,-92.0],"MI":[44.5,-85.5],"MN":[46.0,-94.0],"MO":[38.5,-92.5],
@@ -186,9 +181,6 @@
     "NJ":[40.1,-74.5],"NY":[42.9,-75.5]
   };
 
-  const SNAPSHOT_KEY = 'outageSnapshots_v1';
-
-  /* ---------- helpers ---------- */
   function safeGetItem(k){ try { return localStorage.getItem(k); } catch { return null; } }
   function safeSetItem(k,v){ try { localStorage.setItem(k,v); } catch {} }
 
@@ -207,7 +199,9 @@
     });
   }
 
-  /* ---------- globals ---------- */
+  /* ------------------------------
+     Globals
+  --------------------------------*/
   let stores = [];
   let map = null;
   let markers = {};        // store markers keyed by Site #
@@ -216,7 +210,9 @@
   let trendChart = null;
   let lastHash = null;
 
-  /* ---------- inject icon CSS ---------- */
+  /* ------------------------------
+     Inject small CSS for icons
+  --------------------------------*/
   (function injectStyles(){
     const css = `
       .state-count-icon { display:flex; align-items:center; justify-content:center; }
@@ -233,7 +229,9 @@
     document.head.appendChild(s);
   })();
 
-  /* ---------- icon factories ---------- */
+  /* ------------------------------
+     Icon factories
+  --------------------------------*/
   function createStateIcon(count, colorClass){
     const html = `<div class="state-count-icon"><div class="state-circle ${colorClass}">${count}</div></div>`;
     return L.divIcon({ className:"state-count-wrapper", html, iconSize:[44,44], iconAnchor:[22,22], popupAnchor:[0,-22] });
@@ -245,7 +243,10 @@
     return L.divIcon({ className:"store-arrow-wrapper", html, iconSize:[28,28], iconAnchor:[14,14], popupAnchor:[0,-14] });
   }
 
-  /* ---------- build state markers (USA view) ---------- */
+  /* ------------------------------
+     Build state markers (USA view)
+     State markers are added to a high-z pane so they sit on top
+  --------------------------------*/
   function buildStateMarkers(){
     if(!stateLayer) return;
     stateLayer.clearLayers();
@@ -269,8 +270,8 @@
 
       const icon = createStateIcon(list.length, colorClass);
 
-      // create marker in the dedicated pane so it's on top
-      const m = L.marker(center, { icon, interactive:true, pane: 'statePane' }).addTo(stateLayer);
+      // add marker to stateLayer (pane 'statePane' created later)
+      const m = L.marker(center, { icon, interactive:true }).addTo(stateLayer);
 
       stateMarkers[state] = { marker: m, stores: list };
 
@@ -278,13 +279,13 @@
       m.bindTooltip(`${state}: ${list.length}`, { permanent:false, direction:"top" });
     });
 
-    // ensure state layer is on top
-    if (stateLayer && map) {
-      stateLayer.eachLayer(l => { if (l && l._icon) l._icon.style.zIndex = 9999; });
-    }
+    // ensure state icons are visually on top by adjusting DOM z-index if needed
+    stateLayer.eachLayer(l => { if (l && l._icon) l._icon.style.zIndex = 9999; });
   }
 
-  /* ---------- drill into state ---------- */
+  /* ------------------------------
+     Drill into state: hide state circles, show store arrows
+  --------------------------------*/
   function drillIntoState(state){
     if(!stateMarkers[state]) {
       const c = stateCenters[state];
@@ -305,7 +306,7 @@
       const lat = store.Latitude, lon = store.Longitude;
       if(isNaN(lat) || isNaN(lon)) return;
       const icon = createStoreArrowIcon(store);
-      const m = L.marker([lat, lon], { icon, pane: 'storePane' }).addTo(storeLayer);
+      const m = L.marker([lat, lon], { icon }).addTo(storeLayer);
 
       const popup = `
         <b>Store ${store["Site #"]} – ${store.SiteName || ""}</b><br>
@@ -334,7 +335,9 @@
     renderDashboard(stateMarkers[state].stores || []);
   }
 
-  /* ---------- show USA view ---------- */
+  /* ------------------------------
+     Return to USA view
+  --------------------------------*/
   function showUSAView(){
     if(storeLayer) storeLayer.clearLayers();
     if(stateLayer && !map.hasLayer(stateLayer)) stateLayer.addTo(map);
@@ -344,7 +347,9 @@
     map.setView([39.0, -98.0], 4.8);
   }
 
-  /* ---------- sidebar list rendering ---------- */
+  /* ------------------------------
+     Sidebar list rendering
+  --------------------------------*/
   const storeListDiv = document.getElementById("storeList");
   const filterSelect = document.getElementById("filterSelect");
   const searchBar = document.getElementById("searchBar");
@@ -395,7 +400,9 @@
     });
   }
 
-  /* ---------- dashboard ---------- */
+  /* ------------------------------
+     Dashboard
+  --------------------------------*/
   function renderDashboard(storesForDash){
     const container = document.getElementById("dashboardContent");
     if(!container) return;
@@ -439,16 +446,18 @@
     } catch(e){}
   }
 
-  /* ---------- map init ---------- */
+  /* ------------------------------
+     Map init and layers
+  --------------------------------*/
   function initMapAndLayers(){
     map = L.map("map").setView([39.0, -98.0], 4.8);
     window.map = map;
 
-    // create custom panes so state circles are on top
+    // create panes so state circles are on top
     map.createPane('tilePane'); // default
     map.createPane('storePane'); map.getPane('storePane').style.zIndex = 450;
-    map.createPane('statePane'); map.getPane('statePane').style.zIndex = 650;
     map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
+    map.createPane('statePane'); map.getPane('statePane').style.zIndex = 650;
 
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
@@ -489,7 +498,9 @@
     setTimeout(()=> map.invalidateSize(), 300);
   }
 
-  /* ---------- sidebar collapse wiring (robust) ---------- */
+  /* ------------------------------
+     Sidebar collapse wiring (robust)
+  --------------------------------*/
   (function wireCollapse(){
     const toggle = document.getElementById("toggleBtn");
     const bubble = document.getElementById("collapseBubble");
@@ -551,7 +562,9 @@
     });
   })();
 
-  /* ---------- UI wiring ---------- */
+  /* ------------------------------
+     UI wiring: search, filter, dashboard, reset
+  --------------------------------*/
   (function wireUI(){
     const filter = document.getElementById("filterSelect");
     const search = document.getElementById("searchBar");
@@ -586,7 +599,9 @@
     if(resetStateBtn) resetStateBtn.addEventListener("click", ()=> showUSAView());
   })();
 
-  /* ---------- load data + start ---------- */
+  /* ------------------------------
+     Load data + start
+  --------------------------------*/
   Promise.all([
     fetch("Sites.csv").then(r => r.text()).catch(()=> ""),
     fetch("outages.json").then(r => r.json()).catch(()=> [])
@@ -613,14 +628,13 @@
       }
     });
 
-    // save a simple snapshot
-    try { safeSetItem(SNAPSHOT_KEY, JSON.stringify([{ ts: Date.now(), count: stores.filter(s=>s.color!=="white").length }])); } catch(e){}
-
     // init map and UI
     initMapAndLayers();
     renderStoreList();
     renderDashboard(stores);
 
+    // save a simple snapshot (non-blocking)
+    try { safeSetItem(SNAPSHOT_KEY, JSON.stringify([{ ts: Date.now(), count: stores.filter(s=>s.color!=="white").length }])); } catch(e){}
   }).catch(err=>{
     console.error("Load failed", err);
     alert("Failed to load Sites.csv or outages.json");
