@@ -6,85 +6,6 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-<style>
-  /* Page layout */
-  html,body { height:100%; margin:0; padding:0; font-family:Arial, sans-serif; background:#111; color:#fff; }
-  #map { position:absolute; top:0; left:0; right:360px; bottom:0; } /* leave room for sidebar */
-  /* Sidebar */
-  #sidebar {
-    position:absolute; top:0; right:0; width:360px; bottom:0;
-    background:#151515; border-left:1px solid #333; padding:12px; overflow:auto; z-index:9999;
-    transition: transform 0.28s ease;
-  }
-  #sidebar.collapsed { transform: translateX(100%); }
-  #collapseBubble {
-    position: absolute; top:12px; right:12px; width:40px; height:40px; border-radius:50%;
-    background:#151515; border:1px solid #333; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; z-index:10000; color:#fff; font-size:18px;
-  }
-  #sidebar.collapsed + #collapseBubble { right:12px; } /* bubble visible when sidebar collapsed */
-  #sidebarHeader { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .header-btn { background:#222; color:#fff; border:1px solid #333; padding:6px 8px; border-radius:6px; cursor:pointer; }
-  #filterSelect, #searchBar { width:100%; padding:8px; margin:10px 0; border-radius:6px; border:1px solid #333; background:#1b1b1b; color:#fff; }
-  .store-item { background:#1b1b1b; border:1px solid #2b2b2b; padding:8px; margin:6px 0; border-radius:6px; cursor:pointer; color:#fff; }
-  .store-item:hover { background:#262626; }
-  /* Bottom dashboard */
-  #bottomDashboard {
-    position:fixed; left:0; right:0; bottom:0; height:320px; transform:translateY(100%); transition:transform .28s ease;
-    background:#fff; color:#000; border-top:1px solid #ccc; z-index:9998; box-shadow:0 -6px 20px rgba(0,0,0,0.3);
-  }
-  #bottomDashboard.expanded { transform:translateY(0); }
-  #dashboardHandle {
-    position:absolute; top:-36px; left:50%; transform:translateX(-50%); width:160px; height:36px; border-radius:18px 18px 0 0;
-    background:#151515; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid #333;
-    z-index:10001;
-  }
-  #dashboardContent { padding:12px; height:100%; overflow:auto; }
-  .dash-cards { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
-  .dash-card { background:#fff; color:#000; padding:10px; border-radius:6px; flex:1 1 48%; min-width:120px; border:1px solid #ddd; }
-  .dash-list-item { padding:6px 0; border-bottom:1px dashed #ddd; cursor:pointer; }
-  .legend { font-size:13px; }
-  /* Responsive: when sidebar collapsed, map fills full width */
-  #sidebar.collapsed ~ #map { right:0; }
-  @media (max-width:800px) {
-    #map { right:0; } #sidebar { width:100%; right:0; }
-  }
-</style>
-</head>
-<body>
-
-<div id="map"></div>
-
-<div id="sidebar">
-  <div id="sidebarHeader">
-    <h3 style="margin:0;">All Stores</h3>
-    <div style="display:flex; gap:6px; align-items:center;">
-      <button id="resetViewBtn" class="header-btn">Default View</button>
-      <button id="resetStateBtn" class="header-btn">All States</button>
-      <button id="toggleBtn" class="header-btn">▸</button>
-    </div>
-  </div>
-
-  <select id="filterSelect">
-    <option value="all">All Stores</option>
-    <option value="outages">Outages Only</option>
-  </select>
-
-  <input id="searchBar" placeholder="Search store #, name, city..." />
-
-  <div id="storeList"></div>
-</div>
-
-<div id="collapseBubble" title="Show sidebar">◂</div>
-
-<div id="bottomDashboard">
-  <div id="dashboardHandle">▲ Dashboard</div>
-  <div id="dashboardContent"></div>
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
 /*
   Full script: state-count circles with numbers, color if any outage,
@@ -549,7 +470,6 @@ Promise.all([
   alert("Failed to load Sites.csv or outages.json");
 });
 </script>
-
 
 </body>
 </html>
