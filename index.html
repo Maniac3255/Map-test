@@ -639,63 +639,92 @@ legend.addTo(map);
         markers[store["Site #"]] = marker;
     });
 
-    /* ------------------------------
+ /* ------------------------------
        STORE LIST RENDER
-    --------------------------------*/
-    const storeListDiv = document.getElementById("storeList");
-    const filterSelect = document.getElementById("filterSelect");
+--------------------------------*/
+const storeListDiv = document.getElementById("storeList");
+const filterSelect = document.getElementById("filterSelect");
 
-    function renderStoreList(filterText = "") {
-        storeListDiv.innerHTML = "";
+function renderStoreList(filterText = "") {
+    storeListDiv.innerHTML = "";
 
-        const filtered = stores.filter(s => {
-            if (filterSelect.value === "outages" && s.color === "white") return false;
+    const filtered = stores.filter(s => {
+        if (filterSelect.value === "outages" && s.color === "white") return false;
 
-            const siteNum = s["Site #"].toLowerCase();
-            const siteName = s.SiteName.toLowerCase();
-            const city = s.City.toLowerCase();
+        const siteNum = s["Site #"].toLowerCase();
+        const siteName = s.SiteName.toLowerCase();
+        const city = s.City.toLowerCase();
 
-            return (
-                siteNum.includes(filterText) ||
-                siteName.includes(filterText) ||
-                city.includes(filterText)
-            );
-        });
-
-        filtered.forEach(store => {
-            let div = document.createElement("div");
-            div.className = "store-item";
-
-          div.innerHTML = `
-    <b>${store["Site #"]} – ${store.SiteName}</b><br>
-    <b>Address:</b> ${store.Location || "N/A"}<br>
-    ${store.City}, ${store.State}<br>
-    <span style="color:${store.color}">● ${store.color.toUpperCase()}</span><br>
-    ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank" style="color:#9ec9ff;">Outage Map</a>` : ""}
-`;
-
-
-            div.onclick = () => {
-                let marker = markers[store["Site #"]];
-                if (marker) {
-                    map.setView(marker.getLatLng(), 14);
-                    marker.openPopup();
-                }
-            };
-
-            storeListDiv.appendChild(div);
-        });
-    }
-
-    renderStoreList();
-
-    document.getElementById("searchBar").addEventListener("input", e => {
-        renderStoreList(e.target.value.toLowerCase());
+        return (
+            siteNum.includes(filterText) ||
+            siteName.includes(filterText) ||
+            city.includes(filterText)
+        );
     });
 
-    filterSelect.addEventListener("change", () => {
-        renderStoreList(document.getElementById("searchBar").value.toLowerCase());
+    filtered.forEach(store => {
+        let div = document.createElement("div");
+        div.className = "store-item";
+
+        div.innerHTML = `
+            <b>${store["Site #"]} – ${store.SiteName}</b><br>
+            <b>Address:</b> ${store.Location || "N/A"}<br>
+            ${store.City}, ${store.State}<br>
+            <span style="color:${store.color}">● ${store.color.toUpperCase()}</span><br>
+            ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank" style="color:#9ec9ff;">Outage Map</a>` : ""}
+        `;
+
+        div.onclick = () => {
+            let marker = markers[store["Site #"]];
+            if (marker) {
+                map.setView(marker.getLatLng(), 14);
+                marker.openPopup();
+            }
+        };
+
+        storeListDiv.appendChild(div);
     });
+}
+
+/* ⭐ DRILL-DOWN STORE LIST (NEW FUNCTION) */
+function renderStoreListForState(state) {
+    storeListDiv.innerHTML = "";
+
+    const filtered = stores.filter(s => s.State === state);
+
+    filtered.forEach(store => {
+        let div = document.createElement("div");
+        div.className = "store-item";
+
+        div.innerHTML = `
+            <b>${store["Site #"]} – ${store.SiteName}</b><br>
+            <b>Address:</b> ${store.Location || "N/A"}<br>
+            ${store.City}, ${store.State}<br>
+            <span style="color:${store.color}">● ${store.color.toUpperCase()}</span><br>
+        `;
+
+        div.onclick = () => {
+            let marker = markers[store["Site #"]];
+            if (marker) {
+                map.setView(marker.getLatLng(), 14);
+                marker.openPopup();
+            }
+        };
+
+        storeListDiv.appendChild(div);
+    });
+}
+
+renderStoreList();
+
+document.getElementById("searchBar").addEventListener("input", e => {
+    renderStoreList(e.target.value.toLowerCase());
+});
+
+filterSelect.addEventListener("change", () => {
+    renderStoreList(document.getElementById("searchBar").value.toLowerCase());
+});
+
 
     /* ------------------------------
        SIDEBAR COLLAPSE
