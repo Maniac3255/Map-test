@@ -167,17 +167,17 @@
     "address": "SAN BERNARDINO, CALIFORNIA",
     "provider": "SOUTHERN CALIFORNIA EDISON",
     "providerWebsite": "https://www.sce.com/outages-safety/outage-center/check-outage-status",
-    "distanceMiles": "",
+    "distanceMiles": 0.1576990827,
     "lat": 34.069,
     "lon": -117.282,
-    "outageLat": "",
-    "outageLon": "",
-    "incidentId": "",
-    "status": "No outage",
+    "outageLat": 34.067160414,
+    "outageLon": -117.2803690968,
+    "incidentId": 136503776,
+    "status": "ACTIVE",
     "plannedOutage": false,
     "etr": "",
     "lastUpdated": "",
-    "color": "white"
+    "color": "red"
   },
   {
     "storeNumber": "0016",
