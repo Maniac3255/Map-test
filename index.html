@@ -321,21 +321,6 @@
     .store-popup-title { margin-bottom:6px; font-weight:700; }
     .store-popup-row { margin-top:3px; }
 
-    /* ANIMATED STATE MARKER SIZING BY MAP ZOOM */
-    .state-marker-container {
-      transform-origin:center center;
-      transition:transform .35s cubic-bezier(.22,1,.36,1);
-      will-change:transform;
-    }
-
-    .state-marker-container {
-      transform:scale(var(--state-marker-scale,.58));
-    }
-
-    @media (prefers-reduced-motion:reduce) {
-      .state-marker-container { transition:none; }
-    }
-
     @media (max-width:800px) {
       :root { --sidebar-width:min(90vw,360px); }
       #map, #bottomDashboard { right:0; }
@@ -343,69 +328,76 @@
       .dashboard-grid { grid-template-columns:1fr; }
     }
     @media (max-height:600px) { :root { --dashboard-height:270px; } }
-
-    /* PANELS OVERLAY THE MAP WITHOUT RESIZING OR SHIFTING IT */
+  
+    /* DARK OPERATIONS BASEMAP STYLE */
     #map,
     body.sidebar-collapsed #map,
     body.dashboard-open #map,
     body.sidebar-collapsed.dashboard-open #map {
       position:absolute;
-      top:0;
-      right:0;
-      bottom:0;
-      left:0;
+      inset:0;
       width:100%;
       height:100%;
+      background:#080b0e;
     }
 
-    /* Keep the dashboard full-browser-width while it overlays the map. */
     #bottomDashboard,
-    body.sidebar-collapsed #bottomDashboard {
-      right:0;
-    }
+    body.sidebar-collapsed #bottomDashboard { right:0; }
 
-
-    /* LIGHT OPERATIONS BASEMAP STYLE */
-    #map {
-      background:#edf0f2;
-    }
-
-    /*
-     * Keep the existing OpenStreetMap source but reduce visual noise so
-     * outage circles remain the strongest visual element. Only map tiles
-     * are filtered. Markers, controls, popups, and overlays are unaffected.
-     */
     .leaflet-tile-pane {
-      filter:grayscale(.82) saturate(.35) brightness(1.10) contrast(.84);
+      filter:grayscale(1) invert(.92) brightness(.72) contrast(.88) hue-rotate(180deg);
     }
+    .leaflet-tile { transition:filter .2s ease,opacity .2s ease; }
 
-    .leaflet-tile {
-      transition:filter .2s ease,opacity .2s ease;
-    }
-
-    /* Give controls a clean operations-dashboard appearance. */
     .leaflet-control-zoom a,
     .usa-map-control,
     .leaflet-control-layers {
-      color:#263238;
-      background:#f8fafb;
-      border-color:#c7cdd2;
+      color:#fff;
+      background:#171b20;
+      border-color:#3b424a;
     }
-
     .leaflet-control-zoom a:hover,
-    .usa-map-control:hover {
-      background:#ffffff;
-    }
+    .usa-map-control:hover { color:#fff; background:#282e35; }
 
-    /* Keep state summaries crisp over the desaturated map. */
+    .leaflet-control-attribution {
+      color:#b9c1c9;
+      background:rgba(10,12,15,.88) !important;
+    }
+    .leaflet-control-attribution a,
+    .leaflet-popup-content a { color:#64b5f6; }
+
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip { color:#fff; background:#171b20; }
+    .leaflet-popup-content-wrapper {
+      border:1px solid #3b424a;
+      box-shadow:0 4px 18px rgba(0,0,0,.72);
+    }
+    .leaflet-popup-close-button { color:#fff !important; }
+    .leaflet-popup-close-button:hover { color:#64b5f6 !important; }
+
+    .state-marker-container {
+      transform-origin:center center;
+      transform:scale(var(--state-marker-scale,.58));
+      transition:transform .35s cubic-bezier(.22,1,.36,1);
+      will-change:transform;
+    }
     .state-marker-badge {
-      border-color:#ffffff;
-      box-shadow:
-        0 3px 10px rgba(0,0,0,.62),
-        0 0 0 1px rgba(20,30,40,.35);
+      border-color:#fff;
+      box-shadow:0 3px 10px rgba(0,0,0,.88),0 0 0 1px rgba(255,255,255,.32);
     }
-
-  </style>
+    .state-marker-gray .state-marker-badge { background:#626c76; }
+    .state-marker-red .state-marker-badge {
+      background:var(--red);
+      box-shadow:0 3px 10px rgba(0,0,0,.9),0 0 16px rgba(229,57,53,1);
+    }
+    .state-marker-yellow .state-marker-badge {
+      background:#c89700;
+      box-shadow:0 3px 10px rgba(0,0,0,.9),0 0 15px rgba(251,192,45,.95);
+    }
+    @media (prefers-reduced-motion:reduce) {
+      .state-marker-container { transition:none; }
+    }
+</style>
 </head>
 <body class="sidebar-collapsed">
   <div id="map"></div>
@@ -453,12 +445,6 @@
       snapshotMinimumIntervalMinutes:15,
       transitionMs:280,
       markerZoom:13,
-      /*
-       * Navigation bounds include invisible padding around the country.
-       * This lets coastal states such as MA, ME, WA, and FL reach the
-       * true screen center when selected. The USA reset view below
-       * remains tightly fitted to the continental United States.
-       */
       usaBounds:[[18.0,-140.0],[56.0,-52.0]],
       usaDisplayBounds:[[24.5,-124.8],[49.3,-67.0]]
     };
@@ -577,18 +563,12 @@
 
     function initializeMap(){
       map=L.map("map",{
-        minZoom:4,
-        maxZoom:18,
-        zoomSnap:0.5,
-        zoomDelta:0.5,
-        wheelPxPerZoomLevel:90,
-        maxBounds:CONFIG.usaBounds,
-        maxBoundsViscosity:1,
-        worldCopyJump:false
+        minZoom:4,maxZoom:18,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,
+        maxBounds:CONFIG.usaBounds,maxBoundsViscosity:1,worldCopyJump:false
       });
       map.on("zoom",updateStateMarkerSize);
       map.on("zoomend",updateStateMarkerSize);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'Light operations styling &copy; OpenStreetMap contributors'}).addTo(map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'Dark operations styling &copy; OpenStreetMap contributors'}).addTo(map);
       map.createPane("stateMarkerPane"); map.getPane("stateMarkerPane").style.zIndex="600";
       map.createPane("exactStorePane"); map.getPane("exactStorePane").style.zIndex="750";
       stateLayer=L.layerGroup().addTo(map);
@@ -597,43 +577,20 @@
       addUSAResetControl();
       resetUSA();
       map.on("drag",()=>map.panInsideBounds(CONFIG.usaBounds,{animate:false}));
-      setTimeout(()=>{
-        map.invalidateSize();
-        resetUSA();
-        updateStateMarkerSize();
-      },250);
+      setTimeout(()=>{map.invalidateSize();resetUSA();updateStateMarkerSize();},250);
     }
 
-    function updateStateMarkerSize() {
+    function updateStateMarkerSize(){
       if(!map) return;
-
-      const zoom=map.getZoom();
-
-      /*
-       * Zoom 4.5 starts at 58% size.
-       * Every additional half zoom increases circles by 9%.
-       * Circles stop growing at 130% so labels remain usable.
-       */
-      const halfZoomSteps=Math.max(0,(zoom-4.5)/0.5);
-      const scale=Math.min(1.30,0.58+(halfZoomSteps*0.09));
-
-      document.documentElement.style.setProperty(
-        "--state-marker-scale",
-        scale.toFixed(2)
-      );
+      const steps=Math.max(0,(map.getZoom()-4.5)/.5);
+      const scale=Math.min(1.30,.58+(steps*.09));
+      document.documentElement.style.setProperty("--state-marker-scale",scale.toFixed(2));
     }
 
     function resetUSA(){
       if(!map) return;
-
-      map.fitBounds(CONFIG.usaDisplayBounds,{
-        padding:[2,2],
-        animate:false
-      });
-
-      /* Move the nationwide view inward by exactly half a zoom level. */
-      const nationwideZoom=Math.min(map.getMaxZoom(),map.getZoom()+0.5);
-      map.setZoom(nationwideZoom,{animate:false});
+      map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false});
+      map.setZoom(Math.min(map.getMaxZoom(),map.getZoom()+.5),{animate:false});
       updateStateMarkerSize();
     }
 
@@ -666,33 +623,15 @@
 
           L.DomEvent.on(button, "click", function(event) {
             L.DomEvent.stop(event);
-
-            /* Close anything opened or selected previously. */
             map.closePopup();
             clearStateSelection();
-
-            /* Remove the exact store marker and any selected-state filtering. */
             if(exactStoreLayer) exactStoreLayer.clearLayers();
             exactStoreMarker=null;
             selectedState="";
-
-            /* Restore every state marker to its normal severity priority. */
-            stateSummaries.forEach((summary,code) => {
-              const stateMarker=stateMarkers.get(code);
-              if(stateMarker) {
-                stateMarker.setZIndexOffset(stateOffset(summary));
-              }
-            });
-
-            /* Reset panel controls before rebuilding the nationwide list. */
             document.getElementById("searchBar").value="";
             document.getElementById("filterSelect").value="all";
             renderStoreList();
-
-            /* Close the Stores panel when returning to the nationwide view. */
             setSidebar(true);
-
-            /* Return to the nationwide view only after all selections are cleared. */
             resetUSA();
             updateStateMarkerSize();
           });
@@ -755,42 +694,17 @@
       return severity==="red"?30000:severity==="yellow"?20000:0;
     }
 
-    function keepPopupFullyVisible(popup) {
-      if(!map || !popup) return;
-
-      requestAnimationFrame(() => {
-        const popupElement=popup.getElement();
-        const mapElement=document.getElementById("map");
-        if(!popupElement || !mapElement) return;
-
-        const popupRect=popupElement.getBoundingClientRect();
-        const mapRect=mapElement.getBoundingClientRect();
-        const safeTop=mapRect.top+85;
-        const safeLeft=mapRect.left+20;
-        const safeRight=mapRect.right-20;
-        const safeBottom=mapRect.bottom-45;
-
-        let moveX=0;
-        let moveY=0;
-
-        if(popupRect.top<safeTop) {
-          moveY=popupRect.top-safeTop;
-        } else if(popupRect.bottom>safeBottom) {
-          moveY=popupRect.bottom-safeBottom;
-        }
-
-        if(popupRect.left<safeLeft) {
-          moveX=popupRect.left-safeLeft;
-        } else if(popupRect.right>safeRight) {
-          moveX=popupRect.right-safeRight;
-        }
-
-        if(moveX!==0 || moveY!==0) {
-          map.panBy([moveX,moveY],{
-            animate:true,
-            duration:0.25
-          });
-        }
+    function keepPopupFullyVisible(popup){
+      if(!map||!popup) return;
+      requestAnimationFrame(()=>{
+        const el=popup.getElement(),mapEl=document.getElementById("map");
+        if(!el||!mapEl) return;
+        const r=el.getBoundingClientRect(),m=mapEl.getBoundingClientRect();
+        const top=m.top+85,left=m.left+20,right=m.right-20,bottom=m.bottom-45;
+        let x=0,y=0;
+        if(r.top<top)y=r.top-top;else if(r.bottom>bottom)y=r.bottom-bottom;
+        if(r.left<left)x=r.left-left;else if(r.right>right)x=r.right-right;
+        if(x||y)map.panBy([x,y],{animate:true,duration:.25});
       });
     }
 
@@ -807,16 +721,10 @@
           riseOnHover:true,riseOffset:50000,zIndexOffset:stateOffset(summary)
         });
         marker.bindPopup(statePopup(summary),{
-          maxWidth:280,
-          autoPan:true,
-          keepInView:true,
-          autoPanPaddingTopLeft:[25,110],
-          autoPanPaddingBottomRight:[25,55]
+          maxWidth:280,autoPan:true,keepInView:true,
+          autoPanPaddingTopLeft:[25,110],autoPanPaddingBottomRight:[25,55]
         });
-
-        marker.on("popupopen",event => {
-          keepPopupFullyVisible(event.popup);
-        });
+        marker.on("popupopen",e=>keepPopupFullyVisible(e.popup));
         marker.on("click",()=>selectState(summary.code,true));
         marker.addTo(stateLayer);
         stateMarkers.set(summary.code,marker);
@@ -831,51 +739,28 @@
 
     function selectState(code,openPopup=false) {
       selectedState=stateCode(code);
-
-      /* Clear prior store selection and reset the state-scoped list. */
       map.closePopup();
       exactStoreLayer.clearLayers();
       exactStoreMarker=null;
       document.getElementById("searchBar").value="";
       document.getElementById("filterSelect").value="all";
       renderStoreList();
-
-      /* The Stores panel overlays the map and does not affect centering. */
       setSidebar(false);
 
       const summary=stateSummaries.get(selectedState);
       const marker=stateMarkers.get(selectedState);
-
-      if(summary&&marker) {
-        /* Restore all state priorities before raising the selected state. */
-        stateSummaries.forEach((stateSummary,stateAbbreviation) => {
-          const stateMarker=stateMarkers.get(stateAbbreviation);
-          if(stateMarker) {
-            stateMarker.setZIndexOffset(stateOffset(stateSummary));
-          }
+      if(summary&&marker){
+        stateSummaries.forEach((x,c)=>{
+          const m=stateMarkers.get(c);if(m)m.setZIndexOffset(stateOffset(x));
         });
-
         marker.setZIndexOffset(60000);
-
-        /* Center the selected state bubble in the full map viewport. */
-        const stateLocation=marker.getLatLng();
-        const stateZoom=Math.max(6,map.getZoom());
-
-        map.setView(stateLocation,stateZoom,{
-          animate:true
-        });
-
-        if(openPopup) {
-          map.once("moveend",() => {
+        const location=marker.getLatLng();
+        const zoom=Math.max(6,map.getZoom());
+        map.setView(location,zoom,{animate:true});
+        if(openPopup){
+          map.once("moveend",()=>{
             marker.openPopup();
-
-            /*
-             * Popup auto-pan may make a small adjustment. Re-center the
-             * selected coastal state after the popup has been measured.
-             */
-            setTimeout(() => {
-              map.panTo(stateLocation,{animate:true,duration:0.2});
-            },180);
+            setTimeout(()=>map.panTo(location,{animate:true,duration:.2}),180);
           });
         }
       }
@@ -915,15 +800,10 @@
       exactStoreLayer.clearLayers();
       exactStoreMarker=L.marker([lat,lon],{icon:exactStoreIcon(),pane:"exactStorePane",zIndexOffset:60000,keyboard:true});
       exactStoreMarker.bindPopup(popupHTML(s),{
-        maxWidth:330,
-        autoPan:true,
-        keepInView:true,
-        autoPanPaddingTopLeft:[30,110],
-        autoPanPaddingBottomRight:[30,55]
+        maxWidth:330,autoPan:true,keepInView:true,
+        autoPanPaddingTopLeft:[30,110],autoPanPaddingBottomRight:[30,55]
       });
-      exactStoreMarker.on("popupopen",event => {
-        keepPopupFullyVisible(event.popup);
-      });
+      exactStoreMarker.on("popupopen",e=>keepPopupFullyVisible(e.popup));
       exactStoreMarker.addTo(exactStoreLayer);
       map.invalidateSize({animate:false,pan:false});
       map.setView([lat,lon],CONFIG.markerZoom,{animate:false});
@@ -1012,7 +892,7 @@
       document.body.classList.toggle("sidebar-collapsed",collapsed);
       document.getElementById("sidebar").setAttribute("aria-hidden",collapsed?"true":"false");
       document.getElementById("sidebarTab").setAttribute("aria-expanded",collapsed?"false":"true");
-      /* The panel overlays the map, so no map resize or recenter is needed. */
+      /* Panel overlays map; no resize needed. */
     }
 
     function toggleDashboard(){
@@ -1020,8 +900,7 @@
       dash.classList.toggle("expanded",open);document.body.classList.toggle("dashboard-open",open);
       document.getElementById("dashboardHandle").setAttribute("aria-expanded",String(open));
       document.getElementById("dashboardArrow").textContent=open?"▼":"▲";
-      if(open) renderDashboard();
-      /* The dashboard overlays the map, so center and zoom remain unchanged. */
+      if(open)renderDashboard();/* Panel overlays map; no resize needed. */
     }
 
     function wireUI(){
