@@ -7,12 +7,16 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
     html,body { height:100%; margin:0; padding:0; font-family:Arial, sans-serif; background:#0f0f0f; color:#fff; }
+    /* Layout */
     #map { position:absolute; top:0; left:0; right:360px; bottom:0; transition:right 0.28s ease; z-index:1; }
-    #sidebar { position:absolute; top:0; right:0; width:360px; bottom:0; background:#151515; border-left:1px solid #2b2b2b; padding:12px; overflow-y:auto; z-index:10000; transition: transform 0.28s ease; transform: translateX(0); }
-    body.sidebar-collapsed #sidebar { transform: translateX(100%); }
+    #sidebar { position:absolute; top:0; right:0; width:360px; bottom:0; background:#151515; border-left:1px solid #2b2b2b; padding:0; overflow:hidden; z-index:10000; display:flex; flex-direction:column; }
+    /* Top area (search + controls) stays fixed while store list scrolls) */
+    .sidebar-top { position:sticky; top:0; z-index:10; padding:12px; background:linear-gradient(180deg,#151515,#121212); border-bottom:1px solid #222; }
     #sidebarHeader { display:flex; align-items:center; justify-content:space-between; gap:8px; }
     .header-btn { background:#222; color:#fff; border:1px solid #333; padding:6px 8px; border-radius:6px; cursor:pointer; }
-    #filterSelect, #searchBar { width:100%; padding:8px; margin:10px 0; border-radius:6px; border:1px solid #333; background:#1b1b1b; color:#fff; }
+    #filterSelect, #searchBar { width:100%; padding:8px; margin:10px 0 0 0; border-radius:6px; border:1px solid #333; background:#1b1b1b; color:#fff; box-sizing:border-box; }
+    /* Scrollable store list below the sticky top */
+    #storeList { padding:12px; overflow:auto; flex:1 1 auto; box-sizing:border-box; }
     .store-item { background:#1b1b1b; border:1px solid #2b2b2b; padding:8px; margin:6px 0; border-radius:6px; cursor:pointer; color:#fff; }
     .store-item:hover { background:#262626; }
     #collapseBubble { position:absolute; top:12px; right:12px; width:40px; height:40px; border-radius:50%; background:#151515; border:1px solid #333; display:none; align-items:center; justify-content:center; cursor:pointer; z-index:10001; color:#fff; font-size:18px; }
@@ -25,32 +29,31 @@
     .dash-card { background:#fff; color:#000; padding:10px; border-radius:6px; flex:1 1 48%; min-width:120px; border:1px solid #ddd; }
     .dash-list-item { padding:6px 0; border-bottom:1px dashed #ddd; cursor:pointer; }
 
+    /* Radar control */
     .radar-vertical { display:flex; flex-direction:column; align-items:center; gap:8px; padding:6px; background:rgba(20,20,20,0.95); border-radius:6px; box-shadow:0 1px 6px rgba(0,0,0,0.4); color:#fff; }
     .radar-vertical input[type="range"] { -webkit-appearance: slider-vertical; width: 8px; height: 120px; transform: none; background: transparent; }
     .radar-vertical button { background:#1a73e8; color:#fff; border:none; padding:6px 8px; border-radius:4px; cursor:pointer; font-size:13px; }
     .leaflet-top.leaflet-left .radar-vertical-container { margin-top: 88px; margin-left: 8px; }
 
-    /* Pulse animation used for active markers */
+    /* Marker animations and enlargement */
     .leaflet-marker-icon.pulse { animation: pulse 1s infinite; transform-origin:center bottom; }
     @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
 
-    /* Smooth scaling for markers; origin at bottom tip so pushpin grows upward */
     .leaflet-marker-icon {
       transform-origin: center bottom;
       transition: transform 220ms cubic-bezier(.2,.9,.2,1), filter 220ms ease;
       will-change: transform;
     }
 
-    /* Enlarged state for outage markers */
+    /* Enlarged state for outage markers (we also set icon size in JS) */
     .leaflet-marker-icon.enlarge {
       transform: scale(1.35);
       z-index: 9999 !important;
       filter: drop-shadow(0 6px 12px rgba(0,0,0,0.35));
     }
-
-    /* Slightly stronger pulse while enlarged */
     .leaflet-marker-icon.enlarge.pulse { animation: pulse 1s infinite; }
 
+    /* Zoom display and legend */
     #zoomDisplay { position:absolute; left:8px; bottom:8px; z-index:6500; background:rgba(0,0,0,0.6); color:#fff; padding:6px; border-radius:6px; font-size:13px; }
     .legend { font-size:13px; }
 
@@ -59,6 +62,12 @@
     .noc-toast.visible { opacity:1; transform:translateY(0); }
     .noc-toast.critical { background:#8b0000; }
     .noc-toast.warn { background:#8a6d00; }
+
+    /* Small screens: make sidebar overlay */
+    @media (max-width:900px) {
+      #map { right:0; }
+      #sidebar { width:100%; right:0; }
+    }
   </style>
 </head>
 <body>
@@ -66,22 +75,24 @@
   <div id="map"></div>
 
   <div id="sidebar" role="complementary" aria-label="Store list">
-    <div id="sidebarHeader">
-      <h3 style="margin:0;">All Stores</h3>
-      <div style="display:flex; gap:6px; align-items:center;">
-        <button id="resetStateBtn" class="header-btn">All USA</button>
-        <button id="toggleBtn" class="header-btn" aria-expanded="true">▸</button>
+    <div class="sidebar-top">
+      <div id="sidebarHeader">
+        <h3 style="margin:0;">All Stores</h3>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button id="resetStateBtn" class="header-btn">All USA</button>
+          <button id="toggleBtn" class="header-btn" aria-expanded="true">▸</button>
+        </div>
       </div>
+
+      <select id="filterSelect">
+        <option value="all">All Stores</option>
+        <option value="outages">Outages Only</option>
+      </select>
+
+      <input id="searchBar" placeholder="Search store #, name, city..." />
     </div>
 
-    <select id="filterSelect">
-      <option value="all">All Stores</option>
-      <option value="outages">Outages Only</option>
-    </select>
-
-    <input id="searchBar" placeholder="Search store #, name, city..." />
-
-    <div id="storeList"></div>
+    <div id="storeList" aria-live="polite"></div>
   </div>
 
   <div id="collapseBubble" title="Show sidebar">◂</div>
@@ -92,20 +103,17 @@
   </div>
 
   <div id="zoomDisplay">Zoom 4</div>
-
   <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Full index.html — updated so outage markers enlarge when a store goes into outage.
-     Key behaviors:
-     - map supports street-level focus (click store -> zoom 15)
-     - pushpin SVG markers (no shadow image file)
-     - when a store becomes red/yellow: icon size increases, CSS 'enlarge' class added, marker brought to front and pulsing
-     - when cleared: icon and classes revert
-     - NOAA NowCOAST attempt + RainViewer fallback
+  /* Final index.html adjustments per request:
+     - Red marker becomes 5x bigger when marked outage
+     - Min zoom reduced so USA coast-to-coast fits comfortably
+     - All markers validated and set to correct coordinates (robust parsing)
+     - Right side panel: top (search + controls) is sticky while store list scrolls
   */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
@@ -135,8 +143,7 @@
       const cols = line.split(",");
       const obj = {};
       headers.forEach((h,i)=> obj[h] = (cols[i]||"").trim());
-      obj.Latitude = parseFloat(obj.Latitude) || NaN;
-      obj.Longitude = parseFloat(obj.Longitude) || NaN;
+      // keep raw strings too; numeric parsing later with robust function
       return obj;
     });
   }
@@ -161,6 +168,41 @@
     }, timeout);
   }
 
+  // Robust coordinate parser and validator
+  function parseCoordsFlexible(rawLat, rawLon) {
+    const clean = v => {
+      if (v === null || v === undefined) return "";
+      if (typeof v === "number") return String(v);
+      return String(v).replace(/[^\d\.\-\+eE,]/g, "").trim();
+    };
+    let latS = clean(rawLat);
+    let lonS = clean(rawLon);
+
+    // If lat or lon are empty, try to parse from a combined field like "lat,lon"
+    if ((!latS || !lonS) && typeof rawLat === "string" && rawLat.includes(",")) {
+      const parts = rawLat.split(",").map(p => p.trim());
+      if (parts.length >= 2) { latS = parts[0]; lonS = parts[1]; }
+    }
+
+    let lat = parseFloat(latS);
+    let lon = parseFloat(lonS);
+
+    // If parsing failed, return null
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+
+    // If values look swapped (lat outside -90..90), try swapping
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      if (lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
+        const tmp = lat; lat = lon; lon = tmp;
+      } else {
+        return null;
+      }
+    }
+    // final sanity clamp
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { lat, lon };
+  }
+
   function renderStoreList(filterText = ""){
     const storeListDiv = document.getElementById("storeList");
     if(!storeListDiv) return;
@@ -168,8 +210,8 @@
     const q = (filterText || "").toLowerCase();
     const filterSelect = document.getElementById("filterSelect");
     const filtered = stores.filter(s => {
-      if(filterSelect && filterSelect.value === "outages" && s.color === "white") return false;
-      const site = String(s["Site #"] || "").toLowerCase();
+      if(filterSelect && filterSelect.value === "outages" && (s.color || "white") === "white") return false;
+      const site = String(s["Site #"] || s.Site || "").toLowerCase();
       const name = String(s.SiteName || "").toLowerCase();
       const city = String(s.City || "").toLowerCase();
       return !q || site.includes(q) || name.includes(q) || city.includes(q);
@@ -179,10 +221,10 @@
       const div = document.createElement("div");
       div.className = "store-item";
       div.innerHTML = `
-        <b>${store["Site #"]} – ${store.SiteName || ""}</b><br>
+        <b>${store["Site #"] || ""} – ${store.SiteName || ""}</b><br>
         ${store.Location || "N/A"}<br>
         ${store.City || ""}, ${store.State || ""}<br>
-        <span style="color:${store.color}">● ${String(store.color).toUpperCase()}</span>
+        <span style="color:${store.color || 'white'}">● ${(store.color || 'white').toUpperCase()}</span>
         ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank" style="color:#1a73e8;">Outage Map</a>` : ""}
       `;
       div.onclick = () => {
@@ -198,7 +240,7 @@
     if(!container) return;
     container.innerHTML = "";
     const list = storesForDash || stores;
-    const outageStores = list.filter(s => s.color !== "white");
+    const outageStores = list.filter(s => (s.color || "white") !== "white");
     const byState = {}, byProvider = {};
     outageStores.forEach(s => { byState[s.State] = (byState[s.State]||0)+1; byProvider[s["Vendor Name"]] = (byProvider[s["Vendor Name"]]||0)+1; });
 
@@ -246,12 +288,12 @@
   }
 
   function initMapAndLayers(){
-    // Allow street-level focus (we use zoom 15 for store focus)
-    const MIN_Z = 3;
+    // Reduce minZoom so USA coast-to-coast is visible comfortably
+    const MIN_Z = 2;   // lowered to show coast-to-coast
     const MAX_Z = 19;
 
     const USA_CENTER = [39.0, -98.0];
-    const USA_ZOOM = 4;
+    const USA_ZOOM = 3;
 
     map = L.map("map", {
       center: USA_CENTER,
@@ -270,7 +312,7 @@
     map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
     map.createPane('radarPane'); map.getPane('radarPane').style.zIndex = 610; map.getPane('radarPane').style.pointerEvents = 'none';
 
-    // base map (OSM)
+    // base map (OSM) with high zoom support
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: MAX_Z
@@ -466,56 +508,47 @@
 
         let created = 0;
 
-        function parseCoords(rawLat, rawLon) {
-          const clean = v => (typeof v === 'string') ? v.replace(/,/g,'').trim() : v;
-          let lat = parseFloat(clean(rawLat));
-          let lon = parseFloat(clean(rawLon));
-          if (!isFinite(lat) || !isFinite(lon)) return null;
-          if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            if (lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
-              const tmp = lat; lat = lon; lon = tmp;
-            } else {
-              return null;
-            }
-          }
-          return { lat, lon };
-        }
-
         const BASE_ICON = { width: 28, height: 44 };
 
-        function makeIcon(color, zoom, enlarge=false) {
+        function makeIcon(color, zoom, enlarge=false, redHuge=false) {
           const MIN_Z = map.getMinZoom();
           const MAX_Z = Math.min(map.getMaxZoom(), 19);
           const z = Math.max(MIN_Z, Math.min(MAX_Z, zoom));
           const t = (z - MIN_Z) / Math.max(0.0001, (MAX_Z - MIN_Z));
           const scale = 0.45 + 0.55 * t; // 0.45..1.0
-          const w = Math.max(10, Math.round(BASE_ICON.width * scale));
-          const h = Math.max(14, Math.round(BASE_ICON.height * scale));
-          const finalW = enlarge ? Math.round(w * 1.15) : w;
-          const finalH = enlarge ? Math.round(h * 1.15) : h;
+          let w = Math.max(10, Math.round(BASE_ICON.width * scale));
+          let h = Math.max(14, Math.round(BASE_ICON.height * scale));
+          if (enlarge) { w = Math.round(w * 1.15); h = Math.round(h * 1.15); }
+          if (redHuge) { w = Math.round(w * 5); h = Math.round(h * 5); } // 5x for red outage
           const colorHex = (color === 'red') ? '#ff4d4d' : (color === 'yellow') ? '#ffd54f' : '#6b6b6b';
           const url = pushpinDataUrl(colorHex);
           return L.icon({
             iconUrl: url,
-            iconSize: [finalW, finalH],
-            iconAnchor: [Math.round(finalW/2), finalH],
-            popupAnchor: [1, -Math.round(finalH*0.8)]
+            iconSize: [w, h],
+            iconAnchor: [Math.round(w/2), h],
+            popupAnchor: [1, -Math.round(h*0.8)]
           });
         }
 
         stores.forEach((store, idx) => {
-          const latRaw = store.Latitude ?? store.lat ?? store.Lat ?? store.outageLat;
-          const lonRaw = store.Longitude ?? store.lon ?? store.Long ?? store.outageLon;
-          const coords = parseCoords(latRaw, lonRaw);
+          // robust coordinate extraction
+          const latRaw = store.Latitude ?? store.lat ?? store.Lat ?? store.outageLat ?? store.latitude ?? store.Y ?? "";
+          const lonRaw = store.Longitude ?? store.lon ?? store.Long ?? store.outageLon ?? store.longitude ?? store.X ?? "";
+          const coords = parseCoordsFlexible(latRaw, lonRaw);
           if (!coords) {
             console.warn(`Skipping store index ${idx} (invalid coords)`, store["Site #"] || store.SiteName || store);
             return;
           }
           const lat = coords.lat, lon = coords.lon;
 
-          const color = store.color === 'red' ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
+          // ensure store has normalized fields
+          store._lat = lat;
+          store._lon = lon;
+
+          const color = (store.color === 'red') ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
           const isOutage = (color === 'red' || color === 'yellow');
-          const icon = makeIcon(color, map.getZoom(), isOutage);
+          const redHuge = (color === 'red'); // red gets 5x
+          const icon = makeIcon(color, map.getZoom(), isOutage && !redHuge, redHuge);
 
           const marker = L.marker([lat, lon], { icon, pane: (storeLayer.options && storeLayer.options.pane) ? storeLayer.options.pane : undefined });
 
@@ -548,6 +581,7 @@
                 const el = marker._icon;
                 if (el) {
                   el.classList.add('pulse');
+                  // add enlarge class for visual effect (icon size also increased)
                   el.classList.add('enlarge');
                 }
               }, 80);
@@ -563,9 +597,10 @@
           const z = map.getZoom();
           Object.values(markers).forEach(entry => {
             const store = entry.store;
-            const color = store.color === 'red' ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
+            const color = (store.color === 'red') ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
             const isOutage = (color === 'red' || color === 'yellow');
-            const newIcon = makeIcon(color, z, isOutage);
+            const redHuge = (color === 'red');
+            const newIcon = makeIcon(color, z, isOutage && !redHuge, redHuge);
             try { entry.marker.setIcon(newIcon); } catch(e) {}
             // ensure DOM classes reflect outage state
             setTimeout(() => {
@@ -664,21 +699,29 @@
     const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
     const scale = 0.45 + 0.55 * t;
     const baseW = 28, baseH = 44;
-    const w = Math.max(10, Math.round(baseW * scale));
-    const h = Math.max(14, Math.round(baseH * scale));
+    let w = Math.max(10, Math.round(baseW * scale));
+    let h = Math.max(14, Math.round(baseH * scale));
 
     const isOutage = (store.color === 'red' || store.color === 'yellow');
-    const iconW = isOutage ? Math.round(w * 1.15) : w;
-    const iconH = isOutage ? Math.round(h * 1.15) : h;
+
+    // Red outage: make icon 5x bigger (as requested)
+    if (store.color === 'red') {
+      w = Math.round(w * 5);
+      h = Math.round(h * 5);
+    } else if (store.color === 'yellow') {
+      // yellow: moderate enlarge
+      w = Math.round(w * 1.5);
+      h = Math.round(h * 1.5);
+    }
 
     const colorHex = (store.color === "red") ? '#ff4d4d' : (store.color === "yellow") ? '#ffd54f' : '#6b6b6b';
     const iconUrl = pushpinDataUrl(colorHex);
 
     const newIcon = L.icon({
       iconUrl,
-      iconSize: [iconW, iconH],
-      iconAnchor: [Math.round(iconW/2), iconH],
-      popupAnchor: [1, -Math.round(iconH*0.8)]
+      iconSize: [w, h],
+      iconAnchor: [Math.round(w/2), h],
+      popupAnchor: [1, -Math.round(h*0.8)]
     });
 
     try { marker.setIcon(newIcon); } catch (e) { console.warn('setIcon failed', e); }
@@ -688,7 +731,7 @@
       const el = marker._icon;
       if (!el) return;
       if (isOutage) {
-        marker.setZIndexOffset(3000);
+        marker.setZIndexOffset(5000);
         if (marker.bringToFront) marker.bringToFront();
         el.classList.add('pulse');
         el.classList.add('enlarge');
@@ -750,7 +793,7 @@
         ev.preventDefault();
         ev.stopPropagation();
         try {
-          if (window.map) window.map.setView([39.0, -98.0], 4);
+          if (window.map) window.map.setView([39.0, -98.0], 3);
           renderStoreList();
           renderDashboard(stores);
           setTimeout(() => { if (window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 120);
@@ -792,8 +835,10 @@
     stores = csvText ? parseCSV(csvText) : [];
     if(!Array.isArray(outages)) outages = [];
 
-    stores.forEach(s => { s["Site #"] = s["Site #"] || s.Site || s.site || ""; });
+    // Normalize site id field
+    stores.forEach(s => { s["Site #"] = s["Site #"] || s.Site || s.site || s.id || ""; });
 
+    // Merge outage info into stores
     (stores || []).forEach(store => {
       const match = (outages || []).find(o => String(o.storeNumber) === String(store["Site #"]));
       if(match){
@@ -809,7 +854,7 @@
       }
     });
 
-    try { safeSetItem(SNAPSHOT_KEY, JSON.stringify([{ ts: Date.now(), count: stores.filter(s=>s.color!=="white").length }])); } catch(e){}
+    try { safeSetItem(SNAPSHOT_KEY, JSON.stringify([{ ts: Date.now(), count: stores.filter(s=> (s.color||'white')!=="white").length }])); } catch(e){}
 
     initMapAndLayers();
     renderStoreList();
