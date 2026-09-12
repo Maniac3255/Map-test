@@ -647,12 +647,23 @@ legend.addTo(map);
     markers[store["Site #"]] = marker;
 });   // <-- closes the forEach loop
 
-}      // <-- THIS closes initMap(stores)
+  // ONLY map setup goes here:
+    // - tile layer
+    // - layer groups
+    // - state summary
+    // - weather alerts
+    // - marker loop
+    // - iconColors
+    // - markers{}
+    // - checkForUpdate
+    // - setInterval
 
+}   // END OF initMap(stores)
 
 /* ------------------------------
-       STORE LIST RENDER
+   STORE LIST RENDER
 --------------------------------*/
+function renderStoreList(filterText = "") {
 const storeListDiv = document.getElementById("storeList");
 const filterSelect = document.getElementById("filterSelect");
 
