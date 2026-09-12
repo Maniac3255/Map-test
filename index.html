@@ -375,12 +375,24 @@
      * outage circles remain the strongest visual element. Only map tiles
      * are filtered. Markers, controls, popups, and overlays are unaffected.
      */
-    .leaflet-tile-pane {
-      filter:grayscale(.82) saturate(.35) brightness(1.10) contrast(.84);
+    .state-outline-map {
+      background:#eef1f4;
     }
 
-    .leaflet-tile {
-      transition:filter .2s ease,opacity .2s ease;
+    .state-outline-label {
+      color:#5b6570;
+      background:transparent;
+      border:0;
+      box-shadow:none;
+      font-size:10px;
+      font-weight:700;
+      text-align:center;
+      text-shadow:
+        0 1px 0 #ffffff,
+        1px 0 0 #ffffff,
+        -1px 0 0 #ffffff,
+        0 -1px 0 #ffffff;
+      pointer-events:none;
     }
 
     /* Give controls a clean operations-dashboard appearance. */
@@ -501,6 +513,8 @@
     let stateSummaries=new Map();
     let selectedState="";
     let exactStoreMarker=null;
+    let stateOutlineLayer=null;
+    let stateLabelLayer=null;
     let trendChart=null;
 
     function text(v){
@@ -588,11 +602,20 @@
       });
       map.on("zoom",updateStateMarkerSize);
       map.on("zoomend",updateStateMarkerSize);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'Light operations styling &copy; OpenStreetMap contributors'}).addTo(map);
+      document.getElementById("map").classList.add("state-outline-map");
+
+      map.createPane("stateOutlinePane");
+      map.getPane("stateOutlinePane").style.zIndex="200";
+
+      map.createPane("stateLabelPane");
+      map.getPane("stateLabelPane").style.zIndex="250";
+      map.getPane("stateLabelPane").style.pointerEvents="none";
+
       map.createPane("stateMarkerPane"); map.getPane("stateMarkerPane").style.zIndex="600";
       map.createPane("exactStorePane"); map.getPane("exactStorePane").style.zIndex="750";
       stateLayer=L.layerGroup().addTo(map);
       exactStoreLayer=L.layerGroup().addTo(map);
+      loadStateOutlineMap();
       addLegend();
       addUSAResetControl();
       resetUSA();
@@ -637,11 +660,83 @@
       updateStateMarkerSize();
     }
 
+    async function loadStateOutlineMap() {
+      const endpoint =
+        "https://tigerweb.geo.census.gov/arcgis/rest/services/" +
+        "TIGERweb/State_County/MapServer/0/query" +
+        "?where=1%3D1" +
+        "&outFields=NAME%2CSTUSAB" +
+        "&returnGeometry=true" +
+        "&outSR=4326" +
+        "&f=geojson";
+
+      try {
+        const response=await fetch(endpoint,{cache:"force-cache"});
+        if(!response.ok) throw new Error(`State boundary request returned ${response.status}`);
+
+        const geojson=await response.json();
+
+        stateOutlineLayer=L.geoJSON(geojson,{
+          pane:"stateOutlinePane",
+          style:{
+            color:"#7b8792",
+            weight:1.25,
+            opacity:1,
+            fillColor:"#f7f8f9",
+            fillOpacity:1
+          },
+          onEachFeature:(feature,layer) => {
+            const name=feature?.properties?.NAME || "State";
+            layer.bindTooltip(name,{
+              sticky:true,
+              direction:"center",
+              className:"state-outline-label",
+              opacity:.9
+            });
+          }
+        }).addTo(map);
+
+        stateLabelLayer=L.layerGroup([], {pane:"stateLabelPane"}).addTo(map);
+
+        Object.entries(STATE_CENTERS).forEach(([code,location]) => {
+          if(!STATE_NAMES[code] || code==="AK" || code==="HI") return;
+
+          L.marker(location,{
+            pane:"stateLabelPane",
+            interactive:false,
+            icon:L.divIcon({
+              className:"state-outline-label",
+              html:code,
+              iconSize:[28,14],
+              iconAnchor:[14,7]
+            })
+          }).addTo(stateLabelLayer);
+        });
+
+        map.attributionControl.addAttribution(
+          "State boundaries: U.S. Census Bureau TIGERweb"
+        );
+      } catch(error) {
+        console.warn("State outline map failed; loading the street-map fallback.",error);
+
+        L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          {
+            minZoom:4,
+            maxZoom:18,
+            noWrap:true,
+            opacity:.55,
+            attribution:"&copy; OpenStreetMap contributors"
+          }
+        ).addTo(map);
+      }
+    }
+
     function addLegend(){
       const legend=L.control({position:"bottomleft"});
       legend.onAdd=()=>{
         const d=L.DomUtil.create("div","map-legend");
-        d.innerHTML=`<div class="map-legend-title">Store Status</div>
+        d.innerHTML=`<div class="map-legend-title">State Outage Status</div>
           <div class="legend-row"><span class="legend-dot" style="background:#e53935"></span>Active Outage</div>
           <div class="legend-row"><span class="legend-dot" style="background:#fbc02d"></span>Possible Outage</div>
           <div class="legend-row"><span class="legend-dot" style="background:#707780"></span>Normal</div>`;
