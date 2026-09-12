@@ -800,6 +800,7 @@ filterSelect.addEventListener("change", () => {
 /* ------------------------------
    LOAD DATA + INIT
 --------------------------------*/
+    let stores=[];
 Promise.all([
     fetch("Sites.csv").then(r => r.text()),
     fetch("outages.json").then(r => r.json())
