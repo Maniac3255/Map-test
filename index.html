@@ -156,6 +156,29 @@
     .dash-list-item:hover { color:#1976d2; }
     .chart-wrapper { position:relative; height:175px; }
 
+    /* USA RESET MAP CONTROL */
+    .usa-map-control {
+      width:34px;
+      height:34px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+      color:#111;
+      background:#fff;
+      border:2px solid rgba(0,0,0,.2);
+      border-radius:4px;
+      background-clip:padding-box;
+      box-shadow:0 1px 5px rgba(0,0,0,.35);
+      cursor:pointer;
+      user-select:none;
+      font-size:10px;
+      font-weight:800;
+      line-height:1;
+    }
+    .usa-map-control:hover { background:#f4f4f4; }
+    .usa-map-control:focus-visible { outline:3px solid rgba(25,118,210,.45); outline-offset:2px; }
+
     /* LEGEND */
     .map-legend { min-width:150px; padding:10px 12px; color:#fff; background:rgba(21,24,27,.95); border:1px solid #333941; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.32); font-size:12px; line-height:1.8; }
     .map-legend-title { margin-bottom:4px; font-size:13px; font-weight:700; }
@@ -227,7 +250,6 @@
         <div id="sidebarSubtitle">Loading stores...</div>
       </div>
       <div class="header-actions">
-        <button id="resetMapBtn" class="header-btn" type="button">USA</button>
         <button id="collapseSidebarBtn" class="header-btn" type="button" aria-label="Collapse store panel">&#9654;</button>
       </div>
     </div>
@@ -252,9 +274,6 @@
     </button>
     <div id="dashboardContent"></div>
   </section>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
     "use strict";
@@ -351,7 +370,9 @@
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
       map.createPane("storeMarkerPane"); map.getPane("storeMarkerPane").style.zIndex="600";
       storeLayer=L.layerGroup().addTo(map);
-      addLegend(); resetUSA();
+      addLegend();
+      addUSAResetControl();
+      resetUSA();
       map.on("drag",()=>map.panInsideBounds(CONFIG.usaBounds,{animate:false}));
       setTimeout(()=>{map.invalidateSize();resetUSA();},250);
     }
@@ -369,6 +390,35 @@
         L.DomEvent.disableClickPropagation(d); return d;
       };
       legend.addTo(map);
+    }
+
+    function addUSAResetControl() {
+      const USAResetControl = L.Control.extend({
+        options: { position:"topleft" },
+
+        onAdd: function() {
+          const button = L.DomUtil.create("button", "usa-map-control");
+          button.type = "button";
+          button.textContent = "USA";
+          button.title = "Reset map to continental USA";
+          button.setAttribute("aria-label", "Reset map to continental USA");
+
+          L.DomEvent.disableClickPropagation(button);
+          L.DomEvent.disableScrollPropagation(button);
+
+          L.DomEvent.on(button, "click", function(event) {
+            L.DomEvent.stop(event);
+            resetUSA();
+            document.getElementById("searchBar").value = "";
+            document.getElementById("filterSelect").value = "all";
+            renderStoreList();
+          });
+
+          return button;
+        }
+      });
+
+      map.addControl(new USAResetControl());
     }
 
     function markerPane(){ return "storeMarkerPane"; }
@@ -536,7 +586,6 @@
     function wireUI(){
       document.getElementById("sidebarTab").onclick=()=>setSidebar(!document.body.classList.contains("sidebar-collapsed"));
       document.getElementById("collapseSidebarBtn").onclick=()=>setSidebar(true);
-      document.getElementById("resetMapBtn").onclick=()=>{resetUSA();document.getElementById("searchBar").value="";document.getElementById("filterSelect").value="all";renderStoreList()};
       document.getElementById("filterSelect").onchange=renderStoreList;
       document.getElementById("searchBar").oninput=renderStoreList;
       document.getElementById("searchBar").onkeydown=e=>{if(e.key==="Enter"){const f=filteredStores();if(f.length===1)focusStore(f[0])}};
@@ -547,9 +596,91 @@
     async function fetchText(file){const r=await fetch(file,{cache:"no-store"});if(!r.ok)throw new Error(`${file}: HTTP ${r.status}`);return r.text()}
     async function fetchJSON(file){const r=await fetch(file,{cache:"no-store"});if(!r.ok)throw new Error(`${file}: HTTP ${r.status}`);return r.json()}
 
+    function loadScriptFromSources(sources, globalName) {
+      return new Promise((resolve, reject) => {
+        if (window[globalName]) {
+          resolve(window[globalName]);
+          return;
+        }
+
+        let sourceIndex = 0;
+
+        function tryNextSource() {
+          if (sourceIndex >= sources.length) {
+            reject(new Error(`${globalName} could not be loaded from any configured source.`));
+            return;
+          }
+
+          const script = document.createElement("script");
+          script.src = sources[sourceIndex++];
+          script.async = true;
+          script.crossOrigin = "anonymous";
+
+          script.onload = () => {
+            if (window[globalName]) {
+              resolve(window[globalName]);
+            } else {
+              script.remove();
+              tryNextSource();
+            }
+          };
+
+          script.onerror = () => {
+            script.remove();
+            tryNextSource();
+          };
+
+          document.head.appendChild(script);
+        }
+
+        tryNextSource();
+      });
+    }
+
+    async function loadRequiredLibraries() {
+      await loadScriptFromSources(
+        [
+          "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+          "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        ],
+        "L"
+      );
+
+      try {
+        await loadScriptFromSources(
+          [
+            "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js",
+            "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"
+          ],
+          "Chart"
+        );
+      } catch (chartError) {
+        console.warn("Chart.js did not load. The map will continue without the trend chart.", chartError);
+      }
+    }
+
+    function showStartupError(error) {
+      console.error("Application startup failed:", error);
+
+      document.getElementById("sidebarSubtitle").textContent = "Application load failed";
+      document.getElementById("storeList").innerHTML = `
+        <div class="no-stores">
+          <b>The map library could not be loaded.</b><br><br>
+          ${esc(error && error.message ? error.message : error)}<br><br>
+          Verify that this webpage can reach unpkg.com or jsdelivr.net.
+          If the provider blocks public CDNs, Leaflet must be stored locally with this page.
+        </div>
+      `;
+      setSidebar(false);
+    }
+
     async function start(){
-      wireUI();initializeMap();
-      try{
+      wireUI();
+
+      try {
+        await loadRequiredLibraries();
+        initializeMap();
+
         const [sitesResult,outagesResult]=await Promise.allSettled([fetchText(CONFIG.sitesFile),fetchJSON(CONFIG.outagesFile)]);
         if(sitesResult.status!=="fulfilled")throw sitesResult.reason;
         const siteRows=parseCSV(sitesResult.value);
@@ -557,13 +688,14 @@
         if(outagesResult.status==="fulfilled") outageRows=Array.isArray(outagesResult.value)?outagesResult.value:(Array.isArray(outagesResult.value?.outages)?outagesResult.value.outages:[]);
         stores=mergeData(siteRows,outageRows);
         createMarkers();renderStoreList();recordSnapshot();renderDashboard();resetUSA();
-      }catch(err){
-        console.error(err);document.getElementById("sidebarSubtitle").textContent="Data load failed";
-        document.getElementById("storeList").innerHTML='<div class="no-stores"><b>Unable to load store data.</b><br><br>Keep index.html, Sites.csv, and outages.json together and open the folder through a web server.</div>';
-        setSidebar(false);
+      } catch(err) {
+        showStartupError(err);
       }
     }
-    start();
+
+    window.addEventListener("DOMContentLoaded", () => {
+      start().catch(showStartupError);
+    });
   </script>
 </body>
 </html>
