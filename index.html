@@ -344,10 +344,62 @@
     #bottomDashboard,
     body.sidebar-collapsed #bottomDashboard { right:0; }
 
+    /* SWITCHABLE BASEMAP APPEARANCE */
     .leaflet-tile-pane {
+      transition:filter .28s ease;
+    }
+
+    #map.map-style-street .leaflet-tile-pane {
+      filter:none;
+    }
+
+    #map.map-style-light .leaflet-tile-pane {
+      filter:grayscale(.82) saturate(.35) brightness(1.10) contrast(.84);
+    }
+
+    #map.map-style-dark .leaflet-tile-pane {
       filter:grayscale(1) invert(.92) brightness(.72) contrast(.88) hue-rotate(180deg);
     }
-    .leaflet-tile { transition:filter .2s ease,opacity .2s ease; }
+
+    .leaflet-tile { transition:opacity .2s ease; }
+
+    .map-style-control {
+      min-width:168px;
+      padding:9px 10px;
+      color:#fff;
+      background:rgba(23,27,32,.96);
+      border:1px solid #3b424a;
+      border-radius:7px;
+      box-shadow:0 2px 9px rgba(0,0,0,.42);
+    }
+
+    .map-style-control label {
+      display:block;
+      margin-bottom:5px;
+      color:#cbd2d9;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.45px;
+      text-transform:uppercase;
+    }
+
+    .map-style-control select {
+      width:100%;
+      padding:7px 28px 7px 8px;
+      color:#fff;
+      background:#252b32;
+      border:1px solid #4a535d;
+      border-radius:5px;
+      cursor:pointer;
+      outline:none;
+      font-size:12px;
+      font-weight:700;
+    }
+
+    .map-style-control select:focus {
+      border-color:#64b5f6;
+      box-shadow:0 0 0 2px rgba(100,181,246,.22);
+    }
 
     .leaflet-control-zoom a,
     .usa-map-control,
@@ -441,6 +493,7 @@
       sitesFile:"Sites.csv",
       outagesFile:"outages.json",
       snapshotKey:"storeOutageSnapshots_v3",
+      mapStyleKey:"storeOutageMapStyle_v1",
       snapshotRetentionHours:48,
       snapshotMinimumIntervalMinutes:15,
       transitionMs:280,
@@ -562,6 +615,7 @@
     }
 
     function initializeMap(){
+      document.getElementById("map").classList.add("map-style-dark");
       map=L.map("map",{
         minZoom:4,maxZoom:18,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,
         maxBounds:CONFIG.usaBounds,maxBoundsViscosity:1,worldCopyJump:false
@@ -575,6 +629,7 @@
       exactStoreLayer=L.layerGroup().addTo(map);
       addLegend();
       addUSAResetControl();
+      addMapStyleControl();
       resetUSA();
       map.on("drag",()=>map.panInsideBounds(CONFIG.usaBounds,{animate:false}));
       setTimeout(()=>{map.invalidateSize();resetUSA();updateStateMarkerSize();},250);
@@ -592,6 +647,58 @@
       map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false});
       map.setZoom(Math.min(map.getMaxZoom(),map.getZoom()+.5),{animate:false});
       updateStateMarkerSize();
+    }
+
+    function applyMapStyle(style,save=true) {
+      const allowed=new Set(["street","light","dark"]);
+      const selectedStyle=allowed.has(style)?style:"dark";
+      const mapElement=document.getElementById("map");
+
+      mapElement.classList.remove(
+        "map-style-street",
+        "map-style-light",
+        "map-style-dark"
+      );
+      mapElement.classList.add(`map-style-${selectedStyle}`);
+
+      /* Match the empty tile-loading background to the selected style. */
+      mapElement.style.background=selectedStyle==="dark"?"#080b0e":"#edf0f2";
+
+      if(save) storageSet(CONFIG.mapStyleKey,selectedStyle);
+    }
+
+    function addMapStyleControl() {
+      const StyleControl=L.Control.extend({
+        options:{position:"topright"},
+
+        onAdd:function(){
+          const container=L.DomUtil.create("div","map-style-control");
+          const label=L.DomUtil.create("label","",container);
+          label.htmlFor="mapStyleSelect";
+          label.textContent="Map Style";
+
+          const select=L.DomUtil.create("select","",container);
+          select.id="mapStyleSelect";
+          select.setAttribute("aria-label","Choose map style");
+          select.innerHTML=`
+            <option value="light">Light Operations</option>
+            <option value="dark">Dark Operations</option>
+            <option value="street">Standard Street</option>
+          `;
+
+          const savedStyle=storageGet(CONFIG.mapStyleKey)||"dark";
+          select.value=["light","dark","street"].includes(savedStyle)?savedStyle:"dark";
+          applyMapStyle(select.value,false);
+
+          L.DomEvent.disableClickPropagation(container);
+          L.DomEvent.disableScrollPropagation(container);
+          select.addEventListener("change",()=>applyMapStyle(select.value,true));
+
+          return container;
+        }
+      });
+
+      map.addControl(new StyleControl());
     }
 
     function addLegend(){
