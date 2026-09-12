@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Store Outage Map — NOAA NowCOAST + RainViewer (minZoom 4.5 / maxZoom 12)</title>
+  <title>Store Outage Map — Pushpin Markers, NOAA + RainViewer (minZoom 4.5 / maxZoom 13)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
@@ -30,7 +30,7 @@
     .radar-vertical button { background:#1a73e8; color:#fff; border:none; padding:6px 8px; border-radius:4px; cursor:pointer; font-size:13px; }
     .leaflet-top.leaflet-left .radar-vertical-container { margin-top: 88px; margin-left: 8px; }
 
-    .leaflet-marker-icon.pulse { animation: pulse 1s infinite; }
+    .leaflet-marker-icon.pulse { animation: pulse 1s infinite; transform-origin:center center; }
     @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
 
     #zoomDisplay { position:absolute; left:8px; bottom:8px; z-index:6500; background:rgba(0,0,0,0.6); color:#fff; padding:6px; border-radius:6px; font-size:13px; }
@@ -73,16 +73,33 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Full script: map with fractional zoom (min 5.5 / max 14), NOAA NowCOAST attempt + RainViewer fallback,
-     marker placement with robust parsing, marker scaling by zoom (fractional), sidebar behavior,
-     reset button defaults to whole USA, and simple radar controls.
+  /* Full script with:
+     - pushpin-style markers (SVG data URLs), no shadows
+     - map maxZoom increased by one click (13)
+     - markers brought to front when turning red/yellow
+     - fractional zoom support (min 4.5 / max 13)
   */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
-  const redUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png";
-  const yellowUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png";
-  const grayUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
-  const shadowUrl = "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png";
+
+  // SVG pushpin generator (returns data URL). color: hex or named color.
+  function pushpinDataUrl(color = '#6b6b6b') {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56">
+        <defs>
+          <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="0.6" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <g filter="none">
+          <path d="M20 0C12.3 0 6 6.3 6 14c0 9.8 11.6 22.6 12.6 23.8.6.7 1.6.7 2.2 0C22.4 36.6 34 23.8 34 14 34 6.3 27.7 0 20 0z" fill="${color}" />
+          <circle cx="20" cy="14" r="6.5" fill="#fff" opacity="0.12"/>
+          <circle cx="20" cy="14" r="4.2" fill="#fff" opacity="0.18"/>
+        </g>
+      </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
 
   function safeGetItem(k){ try { return localStorage.getItem(k); } catch { return null; } }
   function safeSetItem(k,v){ try { localStorage.setItem(k,v); } catch {} }
@@ -134,7 +151,7 @@
       `;
       div.onclick = () => {
         const entry = markers[String(store["Site #"])];
-        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), 11); entry.marker.openPopup(); }
+        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), Math.min(map.getMaxZoom(), 11)); entry.marker.openPopup(); }
       };
       storeListDiv.appendChild(div);
     });
@@ -183,9 +200,9 @@
   }
 
   function initMapAndLayers(){
-    // Requested fractional zoom limits
-    const MIN_Z = 4.95;
-    const MAX_Z = 10;
+    // Requested fractional zoom limits (min 4.5, max 13)
+    const MIN_Z = 4.5;
+    const MAX_Z = 13;
 
     // Default whole USA view
     const USA_CENTER = [39.0, -98.0];
@@ -233,7 +250,7 @@
     legend.addTo(map);
 
     // NWS Alerts (GeoJSON)
-    (async function loadWeatherAlerts(){
+    async function loadWeatherAlerts(){
       try {
         const r = await fetch("https://api.weather.gov/alerts/active");
         const data = await r.json();
@@ -247,8 +264,9 @@
       } catch(e){
         console.warn("NWS alerts load failed", e);
       }
-    })();
-    setInterval(() => { try { loadWeatherAlerts(); } catch(e){} }, 1000 * 60 * 5);
+    }
+    loadWeatherAlerts();
+    setInterval(loadWeatherAlerts, 1000 * 60 * 5);
 
     // --- NowCOAST WMS attempt with proxy-ready option ---
     const NOWCOAST_WMS_BASE = 'https://nowcoast.noaa.gov/wms/com.esri.wms.Esrimap/obs';
@@ -264,7 +282,7 @@
       attribution: 'NOAA NowCOAST',
       pane: 'radarPane',
       minZoom: MIN_Z,
-      maxZoom: Math.min(MAX_Z, 12) // keep WMS max lower if provider doesn't serve street-level
+      maxZoom: Math.min(MAX_Z, 12)
     });
 
     if (window._customLayerControl && typeof window._customLayerControl.addOverlay === "function") {
@@ -392,7 +410,7 @@
 
     setTimeout(()=> map.invalidateSize(), 300);
 
-    /* ---------- Robust marker creation with zoom-based scaling (fractional zoom supported) ---------- */
+    /* ---------- Robust marker creation with pushpin icons and zoom-based scaling ---------- */
     (function createMarkersFromStores(){
       try {
         if (!Array.isArray(stores)) { console.warn("No stores array found."); return; }
@@ -418,20 +436,20 @@
           return { lat, lon };
         }
 
-        const BASE_ICON = { width: 25, height: 41 };
+        const BASE_ICON = { width: 28, height: 44 };
 
         function makeIcon(color, zoom) {
           const MIN_Z = map.getMinZoom();
           const MAX_Z = map.getMaxZoom();
           const z = Math.max(MIN_Z, Math.min(MAX_Z, zoom));
           const t = (z - MIN_Z) / Math.max(0.0001, (MAX_Z - MIN_Z));
-          const scale = 0.4 + 0.6 * t; // 0.4..1.0
-          const w = Math.max(8, Math.round(BASE_ICON.width * scale));
-          const h = Math.max(12, Math.round(BASE_ICON.height * scale));
-          const url = (color === 'red') ? redUrl : (color === 'yellow') ? yellowUrl : grayUrl;
+          const scale = 0.45 + 0.55 * t; // 0.45..1.0
+          const w = Math.max(10, Math.round(BASE_ICON.width * scale));
+          const h = Math.max(14, Math.round(BASE_ICON.height * scale));
+          const colorHex = (color === 'red') ? '#ff4d4d' : (color === 'yellow') ? '#ffd54f' : '#6b6b6b';
+          const url = pushpinDataUrl(colorHex);
           return L.icon({
             iconUrl: url,
-            shadowUrl: shadowUrl,
             iconSize: [w, h],
             iconAnchor: [Math.round(w/2), h],
             popupAnchor: [1, -Math.round(h*0.8)]
@@ -468,6 +486,16 @@
           const key = String(store["Site #"] || `${store.SiteName || "store"}_${created}`);
           markers[key] = { marker, store };
 
+          // If initial state is outage, bring to front and pulse
+          if (store.color === 'red' || store.color === 'yellow') {
+            try {
+              marker.setZIndexOffset(1000);
+              if (marker.bringToFront) marker.bringToFront();
+              const el = marker._icon;
+              if (el) el.classList.add('pulse');
+            } catch(e){}
+          }
+
           created++;
         });
 
@@ -486,7 +514,6 @@
         map.off('zoomend', updateMarkerIconsOnZoom);
         map.on('zoomend', updateMarkerIconsOnZoom);
         map.on('zoom', () => {
-          // update zoom display live for fractional zoom
           const zd = document.getElementById('zoomDisplay');
           if (zd) zd.textContent = 'Zoom ' + map.getZoom().toFixed(1);
         });
@@ -550,7 +577,7 @@
     });
   })();
 
-  /* ---------- Update outage status for a store (icon, popup, bring-to-front, pulse) ---------- */
+  /* ---------- Update outage status for a store (pushpin icon, bring-to-front, pulse) ---------- */
   function updateOutageStatusForStore(storeNumber, newStatusObj) {
     const key = String(storeNumber);
     const entry = markers[key];
@@ -564,18 +591,18 @@
     store.lastUpdated = newStatusObj.lastUpdated || store.lastUpdated;
 
     const MIN_Z = map.getMinZoom ? map.getMinZoom() : 4.5;
-    const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 12;
+    const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 13;
     const z = map.getZoom();
     const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
-    const scale = 0.4 + 0.6 * t;
-    const w = Math.max(8, Math.round(25 * scale));
-    const h = Math.max(12, Math.round(41 * scale));
+    const scale = 0.45 + 0.55 * t;
+    const w = Math.max(10, Math.round(28 * scale));
+    const h = Math.max(14, Math.round(44 * scale));
 
-    const iconUrl = (store.color === "red") ? redUrl : (store.color === "yellow") ? yellowUrl : grayUrl;
+    const colorHex = (store.color === "red") ? '#ff4d4d' : (store.color === "yellow") ? '#ffd54f' : '#6b6b6b';
+    const iconUrl = pushpinDataUrl(colorHex);
 
     const newIcon = L.icon({
       iconUrl,
-      shadowUrl: shadowUrl,
       iconSize: [w, h],
       iconAnchor: [Math.round(w/2), h],
       popupAnchor: [1, -Math.round(h*0.8)]
@@ -584,7 +611,7 @@
 
     if (store.color === 'red' || store.color === 'yellow') {
       try {
-        marker.setZIndexOffset(1000);
+        marker.setZIndexOffset(2000);
         if (marker.bringToFront) marker.bringToFront();
         const el = marker._icon;
         if (el) el.classList.add('pulse');
@@ -624,7 +651,7 @@
         const found = stores.find(s => String(s["Site #"]).toLowerCase() === q);
         if(found && markers[String(found["Site #"])]) {
           const m = markers[String(found["Site #"])].marker;
-          map.setView(m.getLatLng(), 11);
+          map.setView(m.getLatLng(), Math.min(map.getMaxZoom(), 11));
           m.openPopup();
         } else renderStoreList(q);
       });
