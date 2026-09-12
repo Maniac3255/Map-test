@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Store Outage Map — Pushpin Markers, NOAA + RainViewer (minZoom 4.5 / maxZoom 13)</title>
+  <title>Store Outage Map — NOAA + RainViewer (minZoom 3 / maxZoom 10)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
@@ -67,32 +67,27 @@
     <div id="dashboardContent"></div>
   </div>
 
-  <div id="zoomDisplay">Zoom 4.5</div>
+  <div id="zoomDisplay">Zoom 4</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Full script with:
+  /* Complete index.html script with:
+     - minZoom 3, maxZoom 10 (reverted)
      - pushpin-style markers (SVG data URLs), no shadows
-     - map maxZoom increased by one click (13)
-     - markers brought to front when turning red/yellow
-     - fractional zoom support (min 4.5 / max 13)
+     - markers scale with zoom and bring-to-front when red/yellow
+     - NOAA NowCOAST WMS attempt + RainViewer fallback
+     - sidebar, reset to All USA, search, dashboard
   */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
 
-  // SVG pushpin generator (returns data URL). color: hex or named color.
+  // SVG pushpin generator (returns data URL). color: hex string.
   function pushpinDataUrl(color = '#6b6b6b') {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56">
-        <defs>
-          <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="0.6" result="b"/>
-            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-        <g filter="none">
+        <g>
           <path d="M20 0C12.3 0 6 6.3 6 14c0 9.8 11.6 22.6 12.6 23.8.6.7 1.6.7 2.2 0C22.4 36.6 34 23.8 34 14 34 6.3 27.7 0 20 0z" fill="${color}" />
           <circle cx="20" cy="14" r="6.5" fill="#fff" opacity="0.12"/>
           <circle cx="20" cy="14" r="4.2" fill="#fff" opacity="0.18"/>
@@ -151,7 +146,7 @@
       `;
       div.onclick = () => {
         const entry = markers[String(store["Site #"])];
-        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), Math.min(map.getMaxZoom(), 11)); entry.marker.openPopup(); }
+        if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), Math.min(map.getMaxZoom(), 10)); entry.marker.openPopup(); }
       };
       storeListDiv.appendChild(div);
     });
@@ -200,21 +195,20 @@
   }
 
   function initMapAndLayers(){
-    // Requested fractional zoom limits (min 4.5, max 13)
-    const MIN_Z = 4.5;
-    const MAX_Z = 13;
+    // Reverted zoom limits
+    const MIN_Z = 3;
+    const MAX_Z = 10;
 
-    // Default whole USA view
     const USA_CENTER = [39.0, -98.0];
-    const USA_ZOOM = 4.5;
+    const USA_ZOOM = 4;
 
     map = L.map("map", {
       center: USA_CENTER,
       zoom: USA_ZOOM,
       minZoom: MIN_Z,
       maxZoom: MAX_Z,
-      zoomSnap: 0.5,
-      zoomDelta: 0.5,
+      zoomSnap: 1,
+      zoomDelta: 1,
       preferCanvas: true
     });
     window.map = map;
@@ -225,7 +219,7 @@
     map.createPane('markerPane'); map.getPane('markerPane').style.zIndex = 500;
     map.createPane('radarPane'); map.getPane('radarPane').style.zIndex = 610; map.getPane('radarPane').style.pointerEvents = 'none';
 
-    // base map (OSM) with maxZoom clamped to map max
+    // base map (OSM)
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: MAX_Z
@@ -268,10 +262,10 @@
     loadWeatherAlerts();
     setInterval(loadWeatherAlerts, 1000 * 60 * 5);
 
-    // --- NowCOAST WMS attempt with proxy-ready option ---
+    // NowCOAST WMS (proxy-ready)
     const NOWCOAST_WMS_BASE = 'https://nowcoast.noaa.gov/wms/com.esri.wms.Esrimap/obs';
-    const PROXY_WMS_BASE = '/proxy/wms'; // implement server-side proxy if needed
-    let useProxy = false; // flip to true if direct WMS blocked by CORS/403
+    const PROXY_WMS_BASE = '/proxy/wms';
+    let useProxy = false;
     const wmsUrl = useProxy ? PROXY_WMS_BASE : NOWCOAST_WMS_BASE;
 
     const nowcoastWms = L.tileLayer.wms(wmsUrl, {
@@ -282,7 +276,7 @@
       attribution: 'NOAA NowCOAST',
       pane: 'radarPane',
       minZoom: MIN_Z,
-      maxZoom: Math.min(MAX_Z, 12)
+      maxZoom: Math.min(MAX_Z, 10)
     });
 
     if (window._customLayerControl && typeof window._customLayerControl.addOverlay === "function") {
@@ -300,7 +294,6 @@
     });
     window._customLayerControl.addOverlay(window.rainViewerLayer, "RainViewer Radar");
 
-    // If NowCOAST errors, fallback to RainViewer
     nowcoastWms.on('tileerror', () => {
       if (!map.hasLayer(window.rainViewerLayer)) window.rainViewerLayer.addTo(map);
       if (map.hasLayer(nowcoastWms)) map.removeLayer(nowcoastWms);
@@ -340,7 +333,7 @@
       });
     }, 120);
 
-    // Radar vertical control (opacity / show / refresh)
+    // Radar vertical control
     const RadarVerticalControl = L.Control.extend({
       options: { position: 'topleft' },
       onAdd: function () {
@@ -410,7 +403,7 @@
 
     setTimeout(()=> map.invalidateSize(), 300);
 
-    /* ---------- Robust marker creation with pushpin icons and zoom-based scaling ---------- */
+    /* ---------- Marker creation with pushpin icons and zoom-based scaling ---------- */
     (function createMarkersFromStores(){
       try {
         if (!Array.isArray(stores)) { console.warn("No stores array found."); return; }
@@ -515,7 +508,7 @@
         map.on('zoomend', updateMarkerIconsOnZoom);
         map.on('zoom', () => {
           const zd = document.getElementById('zoomDisplay');
-          if (zd) zd.textContent = 'Zoom ' + map.getZoom().toFixed(1);
+          if (zd) zd.textContent = 'Zoom ' + map.getZoom().toFixed(0);
         });
 
         // initial sizing
@@ -590,8 +583,8 @@
     store.etr = newStatusObj.etr || store.etr;
     store.lastUpdated = newStatusObj.lastUpdated || store.lastUpdated;
 
-    const MIN_Z = map.getMinZoom ? map.getMinZoom() : 4.5;
-    const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 13;
+    const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
+    const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 10;
     const z = map.getZoom();
     const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
     const scale = 0.45 + 0.55 * t;
@@ -651,7 +644,7 @@
         const found = stores.find(s => String(s["Site #"]).toLowerCase() === q);
         if(found && markers[String(found["Site #"])]) {
           const m = markers[String(found["Site #"])].marker;
-          map.setView(m.getLatLng(), Math.min(map.getMaxZoom(), 11));
+          map.setView(m.getLatLng(), Math.min(map.getMaxZoom(), 10));
           m.openPopup();
         } else renderStoreList(q);
       });
@@ -669,7 +662,7 @@
         ev.preventDefault();
         ev.stopPropagation();
         try {
-          if (window.map) window.map.setView([39.0, -98.0], 4.5);
+          if (window.map) window.map.setView([39.0, -98.0], 4);
           renderStoreList();
           renderDashboard(stores);
           setTimeout(() => { if (window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 120);
