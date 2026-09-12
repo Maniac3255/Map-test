@@ -648,6 +648,9 @@
             document.getElementById("filterSelect").value="all";
             renderStoreList();
 
+            /* Close the Stores panel when returning to the nationwide view. */
+            setSidebar(true);
+
             /* Return to the nationwide view only after all selections are cleared. */
             resetUSA();
             updateStateMarkerSize();
