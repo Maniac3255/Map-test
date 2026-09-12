@@ -615,40 +615,40 @@ legend.addTo(map);
 
     let markers = {};
 
-    stores.forEach(store => {
-        let lat = store.Latitude;
-        let lon = store.Longitude;
+  stores.forEach(store => {
+    let lat = store.Latitude;
+    let lon = store.Longitude;
 
-        if (isNaN(lat) || isNaN(lon)) return;
+    if (isNaN(lat) || isNaN(lon)) return;
 
-        let icon = L.icon({
-            iconUrl: iconColors[store.color] || iconColors.white,
-            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34]
-        });
-
-        let marker = L.marker([lat, lon], { icon });
-
-        marker.bindPopup(`
-    <b>Store ${store["Site #"]} – ${store.SiteName}</b><br>
-    <b>Address:</b> ${store.Location || "N/A"}<br>
-    ${store.City}, ${store.State}<br><br>
-
-    <b>Status:</b> ${store.status}<br>
-    <b>ETA:</b> ${store.etr || "N/A"}<br>
-    <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br><br>
-
-    ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
-`);
-
-
-        marker.addTo(outageLayer);
-        markers[store["Site #"]] = marker;
+    let icon = L.icon({
+        iconUrl: iconColors[store.color] || iconColors.white,
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34]
     });
 
-}
+    let marker = L.marker([lat, lon], { icon });
+
+    marker.bindPopup(`
+        <b>Store ${store["Site #"]} – ${store.SiteName}</b><br>
+        <b>Address:</b> ${store.Location || "N/A"}<br>
+        ${store.City}, ${store.State}<br><br>
+
+        <b>Status:</b> ${store.status}<br>
+        <b>ETA:</b> ${store.etr || "N/A"}<br>
+        <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br><br>
+
+        ${store.providerWebsite ? `<a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
+    `);
+
+    marker.addTo(outageLayer);
+    markers[store["Site #"]] = marker;
+});   // <-- closes the forEach loop
+
+}      // <-- THIS closes initMap(stores)
+
 
 /* ------------------------------
        STORE LIST RENDER
