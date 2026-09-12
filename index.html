@@ -338,14 +338,54 @@
   /* ------------------------------
      Return to USA view
   --------------------------------*/
-  function showUSAView(){
-    if(storeLayer) storeLayer.clearLayers();
-    if(stateLayer && !map.hasLayer(stateLayer)) stateLayer.addTo(map);
-    buildStateMarkers();
-    renderStoreList();
-    renderDashboard(stores);
+  function showUSAView() {
+  try {
+    // Ensure map and layers exist
+    if (!window.map || !map) {
+      console.warn("showUSAView: map not initialized yet.");
+      return;
+    }
+    // Ensure storeLayer exists and clear it (we want only state circles in USA view)
+    if (typeof storeLayer !== "undefined" && storeLayer) {
+      try { storeLayer.clearLayers(); } catch (e) { console.warn("showUSAView: could not clear storeLayer", e); }
+    }
+
+    // Ensure stateLayer exists; if not, create it and attach to map
+    if (typeof stateLayer === "undefined" || !stateLayer) {
+      stateLayer = L.layerGroup([], { pane: 'statePane' }).addTo(map);
+    } else if (!map.hasLayer(stateLayer)) {
+      stateLayer.addTo(map);
+    }
+
+    // If stateMarkers is empty or missing, rebuild them
+    if (!stateMarkers || Object.keys(stateMarkers).length === 0) {
+      // buildStateMarkers should populate stateMarkers and add markers to stateLayer
+      if (typeof buildStateMarkers === "function") {
+        buildStateMarkers();
+      } else {
+        console.warn("showUSAView: buildStateMarkers() not found.");
+      }
+    } else {
+      // If stateMarkers exist, ensure their markers are on the layer
+      Object.values(stateMarkers).forEach(entry => {
+        if (entry && entry.marker && !stateLayer.hasLayer(entry.marker)) {
+          entry.marker.addTo(stateLayer);
+        }
+      });
+    }
+
+    // Reset sidebar and dashboard
+    try { renderStoreList(); } catch (e) { console.warn("showUSAView: renderStoreList failed", e); }
+    try { renderDashboard(stores); } catch (e) { console.warn("showUSAView: renderDashboard failed", e); }
+
+    // Set view to USA center (safe default)
     map.setView([39.0, -98.0], 4.8);
+
+  } catch (err) {
+    console.error("showUSAView error:", err);
   }
+}
+
 
   /* ------------------------------
      Sidebar list rendering
@@ -654,7 +694,24 @@ function initMapAndLayers(){
     const search = document.getElementById("searchBar");
     const dashHandle = document.getElementById("dashboardHandle");
     const bottom = document.getElementById("bottomDashboard");
-    const resetStateBtn = document.getElementById("resetStateBtn");
+    // safe wiring for the "All States" button
+const resetStateBtnEl = document.getElementById("resetStateBtn");
+if (resetStateBtnEl) {
+  resetStateBtnEl.removeEventListener?.("click", showUSAView); // remove previous if any
+  resetStateBtnEl.onclick = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    try {
+      // call the robust showUSAView
+      showUSAView();
+      // ensure map redraw after layout changes
+      setTimeout(() => { if (window.map && typeof window.map.invalidateSize === "function") window.map.invalidateSize(); }, 120);
+    } catch (e) {
+      console.error("resetStateBtn click handler error:", e);
+    }
+  };
+}
+
 
     // remove Default View button if present
     const defaultBtn = document.getElementById("resetViewBtn");
