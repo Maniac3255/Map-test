@@ -328,16 +328,8 @@
       will-change:transform;
     }
 
-    #map.state-markers-small .state-marker-container {
-      transform:scale(.58);
-    }
-
-    #map.state-markers-medium .state-marker-container {
-      transform:scale(.80);
-    }
-
-    #map.state-markers-large .state-marker-container {
-      transform:scale(1);
+    .state-marker-container {
+      transform:scale(var(--state-marker-scale,.58));
     }
 
     @media (prefers-reduced-motion:reduce) {
@@ -516,7 +508,17 @@
     }
 
     function initializeMap(){
-      map=L.map("map",{minZoom:4,maxZoom:18,maxBounds:CONFIG.usaBounds,maxBoundsViscosity:1,worldCopyJump:false});
+      map=L.map("map",{
+        minZoom:4,
+        maxZoom:18,
+        zoomSnap:0.5,
+        zoomDelta:0.5,
+        wheelPxPerZoomLevel:90,
+        maxBounds:CONFIG.usaBounds,
+        maxBoundsViscosity:1,
+        worldCopyJump:false
+      });
+      map.on("zoom",updateStateMarkerSize);
       map.on("zoomend",updateStateMarkerSize);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
       map.createPane("stateMarkerPane"); map.getPane("stateMarkerPane").style.zIndex="600";
@@ -537,25 +539,35 @@
     function updateStateMarkerSize() {
       if(!map) return;
 
-      const mapElement=document.getElementById("map");
       const zoom=map.getZoom();
 
-      mapElement.classList.remove(
-        "state-markers-small",
-        "state-markers-medium",
-        "state-markers-large"
-      );
+      /*
+       * Zoom 4.5 starts at 58% size.
+       * Every additional half zoom increases circles by 9%.
+       * Circles stop growing at 130% so labels remain usable.
+       */
+      const halfZoomSteps=Math.max(0,(zoom-4.5)/0.5);
+      const scale=Math.min(1.30,0.58+(halfZoomSteps*0.09));
 
-      if(zoom<=4) {
-        mapElement.classList.add("state-markers-small");
-      } else if(zoom<=6) {
-        mapElement.classList.add("state-markers-medium");
-      } else {
-        mapElement.classList.add("state-markers-large");
-      }
+      document.documentElement.style.setProperty(
+        "--state-marker-scale",
+        scale.toFixed(2)
+      );
     }
 
-    function resetUSA(){ if(map) map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false}); }
+    function resetUSA(){
+      if(!map) return;
+
+      map.fitBounds(CONFIG.usaDisplayBounds,{
+        padding:[2,2],
+        animate:false
+      });
+
+      /* Move the nationwide view inward by exactly half a zoom level. */
+      const nationwideZoom=Math.min(map.getMaxZoom(),map.getZoom()+0.5);
+      map.setZoom(nationwideZoom,{animate:false});
+      updateStateMarkerSize();
+    }
 
     function addLegend(){
       const legend=L.control({position:"bottomleft"});
