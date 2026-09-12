@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Store Outage Map — Full Index (HazardNow + RainViewer + Proxy-ready)</title>
+  <title>Store Outage Map — Full Index (Scaled Markers)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
@@ -88,15 +88,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-  /* Full index.html
-     - RainViewer radar fallback (tile or proxied)
-     - HazardNow GeoJSON overlay (direct or proxied)
-     - Sidebar collapse fixed (map right updated)
-     - Vertical opacity slider inverted so dragging up increases opacity
-     - Marker bring-to-front and pulse on outage color change
-     - Tile placeholder detection + retry + cache-buster
-     - Proxy-ready hooks included (server endpoints not provided here)
-  */
+  /* Full index.html with robust marker placement and zoom-based icon scaling */
 
   const SNAPSHOT_KEY = 'outageSnapshots_v1';
 
@@ -149,7 +141,7 @@
         ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank" style="color:#1a73e8;">Outage Map</a>` : ""}
       `;
       div.onclick = () => {
-        const entry = markers[store["Site #"]];
+        const entry = markers[String(store["Site #"])];
         if(entry && entry.marker) { map.setView(entry.marker.getLatLng(), 14); entry.marker.openPopup(); }
       };
       storeListDiv.appendChild(div);
@@ -250,15 +242,13 @@
     })();
 
     // --- HazardNow GeoJSON overlay (with proxy fallback) ---
-    // Replace HAZARDNOW_GEOJSON_URL with the actual feed URL if available.
-    const HAZARDNOW_GEOJSON_URL = "https://hazardnow.example.com/feeds/active.geojson";
+    const HAZARDNOW_GEOJSON_URL = "https://hazardnow.example.com/feeds/active.geojson"; // replace with real feed
     async function fetchHazardNow(url) {
       try {
         const r = await fetch(url, { cache: "no-store" });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return await r.json();
       } catch (err) {
-        // Try proxy fallback (server must implement /proxy/hazardnow?url=ENCODED_URL)
         try {
           const proxyUrl = "/proxy/hazardnow?url=" + encodeURIComponent(url);
           const rp = await fetch(proxyUrl, { cache: "no-store" });
@@ -304,7 +294,6 @@
       const MIN_Z = map.options.minZoom || 3;
       const MAX_Z = map.options.maxZoom || 10;
 
-      // Default: try direct RainViewer tiles. If blocked, you can switch to proxy path '/proxy/tile?z={z}&x={x}&y={y}'
       window.rainViewerLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/256/{z}/{x}/{y}/0/0_0.png', {
         pane: 'radarPane',
         opacity: 0.6,
@@ -411,7 +400,6 @@
         attemptTileRetry(window.rainViewerLayer);
       });
 
-      // Add attribution
       try { map.attributionControl.addAttribution('Radar: RainViewer'); } catch(e){}
     } catch (e) {
       console.warn("RainViewer integration failed", e);
@@ -419,17 +407,11 @@
 
     setTimeout(()=> map.invalidateSize(), 300);
 
-    // create markers for all stores (robust)
+    /* ---------- Robust marker creation with zoom-based scaling ---------- */
     (function createMarkersFromStores(){
       try {
-        if (typeof stores === "undefined" || !Array.isArray(stores)) {
-          console.warn("No stores array found.");
-          return;
-        }
-        if (typeof storeLayer === "undefined" || !storeLayer) {
-          console.warn("storeLayer not found. Ensure this runs after storeLayer is created.");
-          return;
-        }
+        if (!Array.isArray(stores)) { console.warn("No stores array found."); return; }
+        if (!storeLayer) { console.warn("storeLayer missing."); return; }
 
         markers = {};
         storeLayer.clearLayers();
@@ -437,31 +419,62 @@
         let firstLatLng = null;
         let created = 0;
 
+        // helper: parse and normalize lat/lon
+        function parseCoords(rawLat, rawLon) {
+          const clean = v => (typeof v === 'string') ? v.replace(/,/g,'').trim() : v;
+          let lat = parseFloat(clean(rawLat));
+          let lon = parseFloat(clean(rawLon));
+          if (!isFinite(lat) || !isFinite(lon)) return null;
+
+          // detect swapped coords (lat outside -90..90 or lon outside -180..180)
+          if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            // try swapping
+            if (lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
+              const tmp = lat; lat = lon; lon = tmp;
+            } else {
+              return null;
+            }
+          }
+          return { lat, lon };
+        }
+
+        // base icon sizes (will be scaled by zoom)
+        const BASE_ICON = { width: 25, height: 41 };
+
+        // create icon factory that returns an L.icon sized for current zoom
+        function makeIcon(color, zoom) {
+          const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
+          const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 10;
+          const z = Math.max(MIN_Z, Math.min(MAX_Z, zoom));
+          const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
+          const scale = 0.5 + 0.5 * t; // 0.5..1.0
+          const w = Math.round(BASE_ICON.width * scale);
+          const h = Math.round(BASE_ICON.height * scale);
+          const url = (color === 'red') ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
+                    : (color === 'yellow') ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
+                    : "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
+          return L.icon({
+            iconUrl: url,
+            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+            iconSize: [w, h],
+            iconAnchor: [Math.round(w/2), h],
+            popupAnchor: [1, -Math.round(h*0.8)]
+          });
+        }
+
+        // create markers
         stores.forEach((store, idx) => {
           const latRaw = store.Latitude ?? store.lat ?? store.Lat ?? store.outageLat;
           const lonRaw = store.Longitude ?? store.lon ?? store.Long ?? store.outageLon;
-
-          const lat = Number(latRaw);
-          const lon = Number(lonRaw);
-
-          if (!isFinite(lat) || !isFinite(lon)) {
-            console.warn(`Skipping store (missing coords) [index ${idx}]`, store["Site #"] || store.SiteName || store);
+          const coords = parseCoords(latRaw, lonRaw);
+          if (!coords) {
+            console.warn(`Skipping store index ${idx} (invalid coords)`, store["Site #"] || store.SiteName || store);
             return;
           }
+          const lat = coords.lat, lon = coords.lon;
 
-          const iconUrl = (store.color === "red")
-            ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
-            : (store.color === "yellow")
-              ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
-              : "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
-
-          const icon = L.icon({
-            iconUrl,
-            shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34]
-          });
+          const color = store.color === 'red' ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
+          const icon = makeIcon(color, map.getZoom());
 
           const marker = L.marker([lat, lon], { icon, pane: (storeLayer.options && storeLayer.options.pane) ? storeLayer.options.pane : undefined });
 
@@ -474,7 +487,6 @@
             <b>Last Updated:</b> ${store.lastUpdated || "N/A"}<br>
             ${store.providerWebsite ? `<br><a href="${store.providerWebsite}" target="_blank">Outage Map</a>` : ""}
           `;
-
           marker.bindPopup(popupHtml);
           marker.addTo(storeLayer);
 
@@ -493,6 +505,25 @@
         } else if (!created) {
           console.warn("No markers created. Check Sites.csv parsing and Latitude/Longitude fields.");
         }
+
+        // Zoom handler: update icon sizes dynamically
+        function updateMarkerIconsOnZoom() {
+          const z = map.getZoom();
+          Object.values(markers).forEach(entry => {
+            const store = entry.store;
+            const color = store.color === 'red' ? 'red' : (store.color === 'yellow' ? 'yellow' : 'gray');
+            const newIcon = makeIcon(color, z);
+            try { entry.marker.setIcon(newIcon); } catch(e) {}
+          });
+        }
+
+        // Attach zoomend once (avoid duplicate handlers)
+        map.off('zoomend', updateMarkerIconsOnZoom);
+        map.on('zoomend', updateMarkerIconsOnZoom);
+
+        // initial sizing
+        updateMarkerIconsOnZoom();
+
       } catch (err) {
         console.error("createMarkersFromStores error:", err);
       }
@@ -568,12 +599,21 @@
         ? "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png"
         : "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png";
 
+    // compute size for current zoom
+    const MIN_Z = map.getMinZoom ? map.getMinZoom() : 3;
+    const MAX_Z = map.getMaxZoom ? map.getMaxZoom() : 10;
+    const z = map.getZoom();
+    const t = (z - MIN_Z) / Math.max(1, (MAX_Z - MIN_Z));
+    const scale = 0.5 + 0.5 * t;
+    const w = Math.round(25 * scale);
+    const h = Math.round(41 * scale);
+
     const newIcon = L.icon({
       iconUrl,
       shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34]
+      iconSize: [w, h],
+      iconAnchor: [Math.round(w/2), h],
+      popupAnchor: [1, -Math.round(h*0.8)]
     });
     marker.setIcon(newIcon);
 
