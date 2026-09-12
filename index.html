@@ -796,16 +796,16 @@ filterSelect.addEventListener("change", () => {
     setTimeout(checkForUpdate, 5000);
     setInterval(loadWeatherAlerts, 300000);
 
-
 /* ------------------------------
    LOAD DATA + INIT
 --------------------------------*/
-    let stores=[];
+let stores = [];
+
 Promise.all([
     fetch("Sites.csv").then(r => r.text()),
     fetch("outages.json").then(r => r.json())
 ]).then(([csvText, outages]) => {
-    const stores = parseCSV(csvText);
+    stores = parseCSV(csvText);     // ⭐ FIXED — no const
     mergeOutageData(stores, outages);
 
     const currentOutages = stores.filter(s => s.color !== "white").length;
@@ -813,6 +813,7 @@ Promise.all([
 
     initMap(stores);
 });
+
 </script>
 
 </body>
