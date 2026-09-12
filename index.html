@@ -412,7 +412,13 @@
       snapshotMinimumIntervalMinutes:15,
       transitionMs:280,
       markerZoom:13,
-      usaBounds:[[24.2,-125.0],[49.5,-66.7]],
+      /*
+       * Navigation bounds include invisible padding around the country.
+       * This lets coastal states such as MA, ME, WA, and FL reach the
+       * true screen center when selected. The USA reset view below
+       * remains tightly fitted to the continental United States.
+       */
+      usaBounds:[[18.0,-140.0],[56.0,-52.0]],
       usaDisplayBounds:[[24.5,-124.8],[49.3,-67.0]]
     };
 
@@ -818,6 +824,14 @@
         if(openPopup) {
           map.once("moveend",() => {
             marker.openPopup();
+
+            /*
+             * Popup auto-pan may make a small adjustment. Re-center the
+             * selected coastal state after the popup has been measured.
+             */
+            setTimeout(() => {
+              map.panTo(stateLocation,{animate:true,duration:0.2});
+            },180);
           });
         }
       }
