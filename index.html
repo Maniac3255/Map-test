@@ -890,7 +890,7 @@
     function popupHTML(s){
       const city=esc(text(s.City)),state=esc(text(s.State));
       const provider=text(s["Vendor Name"]??s.Vendor??s.Provider),url=text(s.providerWebsite);
-      return `<div class="store-popup"><div class="store-popup-title">Store ${esc(keyOf(s))}${text(s.SiteName??s.Name)?` - ${esc(text(s.SiteName??s.Name))}`:""}</div>
+      return `<div class="store-popup"><div class="store-popup-title">Store ${esc(keyOf(s))}${text(s.Site Name??s.Name)?` - ${esc(text(s.Site Name??s.Name))}`:""}</div>
         <div class="store-popup-row">${esc(text(s.Location??s.Address??s["Street Address"])||"N/A")}</div>
         <div class="store-popup-row">${city}${city&&state?", ":""}${state}</div>
         <div class="store-popup-row"><b>Status:</b> ${esc(text(s.status)||statusLabel(color(s.color)))}</div>
@@ -923,7 +923,7 @@
       return stores.filter(s=>{
         const c=color(s.color);
         const statusOK=filter==="all"||(filter==="outages"&&c==="red")||(filter==="possible"&&c==="yellow")||(filter==="normal"&&c==="gray");
-        const hay=[keyOf(s),s.SiteName,s.Name,s.Location,s.Address,s.City,s.State,s["Vendor Name"],s.Vendor,s.Provider,s.status].map(text).join(" ").toLowerCase();
+        const hay=[keyOf(s),s.Site Name,s.Name,s.Location,s.Address,s.City,s.State,s["Vendor Name"],s.Vendor,s.Provider,s.status].map(text).join(" ").toLowerCase();
         const stateOK=!selectedState||stateCode(s.State)===selectedState;
         return stateOK&&statusOK&&(!q||hay.includes(q));
       });
@@ -939,7 +939,7 @@
       items.forEach(s=>{
         const item=document.createElement("div"); item.className="store-item"; item.tabIndex=0; item.setAttribute("role","button");
         const city=esc(text(s.City)),state=esc(text(s.State)),url=text(s.providerWebsite),c=color(s.color);
-        item.innerHTML=`<div class="store-title">Store ${esc(keyOf(s))}${text(s.SiteName??s.Name)?` - ${esc(text(s.SiteName??s.Name))}`:""}</div>
+        item.innerHTML=`<div class="store-title">Store ${esc(keyOf(s))}${text(s.Site Name??s.Name)?` - ${esc(text(s.Site Name??s.Name))}`:""}</div>
           <div class="store-address">${esc(text(s.Location??s.Address??s["Street Address"])||"N/A")}<br>${city}${city&&state?", ":""}${state}</div>
           <div class="store-status"><span class="status-dot" style="background:${statusHex(c)}"></span>${esc(text(s.status)||statusLabel(c))}</div>
           ${url?`<a class="provider-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Provider Outage Map</a>`:""}`;
