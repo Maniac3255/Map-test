@@ -3,14 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
   <title>Store Outage Map</title>
 
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    crossorigin=""
-  >
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 
   <style>
     :root {
@@ -26,579 +21,132 @@
       --dark-red: #8b0000;
       --green: #2e7d32;
       --gray: #707780;
-      --transition-speed: 0.28s;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #080b0e; }
+    button, input, select { font: inherit; }
 
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #080b0e;
-    }
-
-    button,
-    input,
-    select {
-      font: inherit;
-    }
-
-    /* MAP */
-
-    #map {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      background: #080b0e;
-    }
-
-    /* SIDEBAR */
+    #map { position: absolute; inset: 0; z-index: 1; background: #080b0e; }
 
     #sidebar {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: var(--sidebar-width);
-      padding: 14px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      color: #ffffff;
-      background: var(--panel);
-      border-left: 1px solid var(--panel-border);
-      z-index: 1000;
-      transform: translateX(0);
-      transition: transform var(--transition-speed) ease;
+      position: absolute; top: 0; right: 0; bottom: 0; width: var(--sidebar-width);
+      padding: 14px; overflow-y: auto; color: #fff; background: var(--panel);
+      border-left: 1px solid var(--panel-border); z-index: 1000;
+      transform: translateX(0); transition: transform .28s ease;
     }
-
-    body.sidebar-collapsed #sidebar {
-      transform: translateX(100%);
-    }
-
-    #sidebarHeader {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    #sidebarHeader h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-
-    #sidebarSubtitle {
-      margin-top: 4px;
-      color: #b9c0c8;
-      font-size: 12px;
-    }
-
-    .header-btn {
-      padding: 7px 9px;
-      color: #ffffff;
-      background: var(--input);
-      border: 1px solid #3a4149;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .header-btn:hover {
-      background: #2a2f36;
-    }
+    body.sidebar-collapsed #sidebar { transform: translateX(100%); }
 
     #sidebarTab {
-      position: absolute;
-      top: 50%;
-      right: var(--sidebar-width);
-      min-height: 118px;
-      padding: 12px 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-      transform: translateY(-50%);
-      color: #ffffff;
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-right: 0;
-      border-radius: 10px 0 0 10px;
-      box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.28);
-      cursor: pointer;
-      user-select: none;
-      z-index: 1001;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      transition:
-        right var(--transition-speed) ease,
-        background var(--transition-speed) ease;
+      position: absolute; top: 50%; right: var(--sidebar-width); min-height: 118px;
+      padding: 12px 8px; display: flex; align-items: center; justify-content: center;
+      writing-mode: vertical-rl; color: #fff; background: var(--panel);
+      border: 1px solid var(--panel-border); border-right: 0; border-radius: 10px 0 0 10px;
+      transform: translateY(-50%); cursor: pointer; z-index: 1001; font-weight: 700;
+      transition: right .28s ease;
     }
+    body.sidebar-collapsed #sidebarTab { right: 0; }
 
-    #sidebarTab:hover {
-      background: #22272d;
-    }
+    #sidebarHeader { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    #sidebarHeader h2 { margin: 0; font-size: 20px; }
+    #sidebarSubtitle { margin-top: 4px; color: #b9c0c8; font-size: 12px; }
+    .header-btn { padding: 7px 9px; color: #fff; background: var(--input); border: 1px solid #3a4149; border-radius: 6px; cursor: pointer; }
+    .sidebar-controls { position: sticky; top: -14px; z-index: 5; padding: 2px 0 10px; background: var(--panel); }
+    #filterSelect, #searchBar { width: 100%; margin-bottom: 9px; padding: 10px; color: #fff; background: var(--input); border: 1px solid #3a4149; border-radius: 6px; }
 
-    body.sidebar-collapsed #sidebarTab {
-      right: 0;
-    }
-
-    .sidebar-controls {
-      position: sticky;
-      top: -14px;
-      z-index: 5;
-      padding: 2px 0 10px;
-      background: var(--panel);
-    }
-
-    #filterSelect,
-    #searchBar {
-      width: 100%;
-      margin-bottom: 9px;
-      padding: 10px;
-      color: #ffffff;
-      background: var(--input);
-      border: 1px solid #3a4149;
-      border-radius: 6px;
-      outline: none;
-    }
-
-    #filterSelect:focus,
-    #searchBar:focus {
-      border-color: #1976d2;
-      box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.18);
-    }
-
-    #storeList {
-      padding-bottom: 28px;
-    }
-
-    .store-item {
-      padding: 12px;
-      color: #ffffff;
-      background: transparent;
-      border-bottom: 1px solid var(--panel-border);
-      cursor: pointer;
-    }
-
-    .store-item:hover {
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .store-title {
-      margin-bottom: 5px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .store-address {
-      margin-bottom: 5px;
-      color: #b9c0c8;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    .store-status {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      margin-top: 6px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      display: inline-block;
-      border: 1px solid rgba(255, 255, 255, 0.45);
-      border-radius: 50%;
-    }
-
-    .provider-link {
-      display: inline-block;
-      margin-top: 7px;
-      color: #64b5f6;
-      font-size: 12px;
-      text-decoration: none;
-    }
-
-    .provider-link:hover {
-      text-decoration: underline;
-    }
-
-    .no-stores {
-      padding: 30px 12px;
-      color: #b9c0c8;
-      text-align: center;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    /* DASHBOARD */
+    .store-item { padding: 12px; color: #fff; border-bottom: 1px solid var(--panel-border); cursor: pointer; }
+    .store-item:hover { background: rgba(255,255,255,.05); }
+    .store-title { margin-bottom: 5px; font-size: 14px; font-weight: 700; }
+    .store-address { color: #b9c0c8; font-size: 12px; line-height: 1.4; }
+    .store-status { display: flex; align-items: center; gap: 7px; margin-top: 6px; font-size: 12px; font-weight: 700; }
+    .status-dot { width: 10px; height: 10px; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; }
+    .provider-link { display: inline-block; margin-top: 7px; color: #64b5f6; font-size: 12px; }
+    .no-stores { padding: 30px 12px; color: #b9c0c8; text-align: center; font-size: 13px; }
 
     #bottomDashboard {
-      position: fixed;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      height: var(--dashboard-height);
-      color: #111111;
-      background: #f4f6f8;
-      border-top: 1px solid #c8ced5;
-      box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.22);
-      z-index: 999;
-      transform: translateY(100%);
-      transition: transform var(--transition-speed) ease;
+      position: fixed; right: 0; bottom: 0; left: 0; height: var(--dashboard-height);
+      color: #111; background: #f4f6f8; border-top: 1px solid #c8ced5;
+      box-shadow: 0 -4px 14px rgba(0,0,0,.22); z-index: 999;
+      transform: translateY(100%); transition: transform .28s ease;
     }
-
-    #bottomDashboard.expanded {
-      transform: translateY(0);
-    }
-
+    #bottomDashboard.expanded { transform: translateY(0); }
     #dashboardHandle {
-      position: absolute;
-      top: -38px;
-      left: 50%;
-      width: 180px;
-      height: 38px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      color: #ffffff;
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-bottom: 0;
-      border-radius: 12px 12px 0 0;
-      transform: translateX(-50%);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 700;
+      position: absolute; top: -38px; left: 50%; width: 180px; height: 38px;
+      color: #fff; background: var(--panel); border: 1px solid var(--panel-border);
+      border-bottom: 0; border-radius: 12px 12px 0 0; transform: translateX(-50%);
+      cursor: pointer; font-weight: 700;
     }
+    #dashboardContent { height: 100%; padding: 14px; overflow: auto; }
+    .dash-cards { display: grid; grid-template-columns: repeat(4, minmax(145px, 1fr)); gap: 10px; }
+    .dash-card { padding: 12px; background: #fff; border: 1px solid #d8dde3; border-radius: 8px; }
+    .dash-card h3 { margin: 0 0 8px; color: #4c545d; font-size: 12px; text-transform: uppercase; }
+    .dash-card p { margin: 0; font-size: 24px; font-weight: 700; }
 
-    #dashboardContent {
-      height: 100%;
-      padding: 14px;
-      overflow: auto;
-    }
+    .map-legend { padding: 10px 12px; color: #fff; background: rgba(21,24,27,.95); border: 1px solid #333941; border-radius: 8px; font-size: 12px; line-height: 1.8; }
+    .legend-row { display: flex; align-items: center; gap: 8px; }
+    .legend-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .usa-map-control { width: 36px; height: 36px; color: #fff; background: #171b20; border: 2px solid rgba(255,255,255,.25); border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 800; }
 
-    .dash-cards {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(135px, 1fr));
-      gap: 10px;
-    }
+    .state-marker-wrapper, .store-marker-wrapper { overflow: visible !important; background: transparent; border: 0; }
+    .state-badge { width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 3px 9px rgba(0,0,0,.65); font-weight: 800; transform: scale(var(--state-marker-scale,.72)); transition: transform .25s ease; }
+    .state-code { font-size: 14px; }
+    .state-count { font-size: 11px; }
 
-    .dash-card {
-      padding: 12px;
-      background: #ffffff;
-      border: 1px solid #d8dde3;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-    }
+    .store-pin { width: 28px; height: 28px; border: 3px solid #fff; border-radius: 50% 50% 50% 0; box-shadow: 0 3px 9px rgba(0,0,0,.75); transform: rotate(-45deg); }
+    .store-pin::after { content: ""; position: absolute; left: 7px; top: 7px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
 
-    .dash-card h3 {
-      margin: 0 0 8px;
-      color: #4c545d;
-      font-size: 12px;
-      text-transform: uppercase;
-    }
+    .store-popup { min-width: 250px; line-height: 1.45; }
+    .store-popup-title { margin-bottom: 7px; font-weight: 700; }
+    .store-popup-row { margin-top: 4px; }
+    .ack-section { margin-top: 12px; padding-top: 10px; border-top: 1px solid #3b424a; }
+    .ack-button, .status-select { width: 100%; padding: 8px; color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-weight: 700; }
+    .ack-button { background: var(--orange); }
+    .status-select { margin-top: 5px; }
+    .ack-meta { margin-top: 7px; color: #b9c0c8; font-size: 11px; }
+    .clear-override-button { width:100%; margin-top:8px; padding:7px; color:#fff; background:#343a40; border:1px solid #59616a; border-radius:6px; cursor:pointer; }
 
-    .dash-card p {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 700;
-    }
-
-    /* LEAFLET CONTROLS */
-
-    .usa-map-control {
-      width: 36px;
-      height: 36px;
-      padding: 0;
-      color: #ffffff;
-      background: #171b20;
-      border: 2px solid rgba(255, 255, 255, 0.25);
-      border-radius: 4px;
-      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
-      cursor: pointer;
-      font-size: 10px;
-      font-weight: 800;
-    }
-
-    .usa-map-control:hover {
-      background: #282e35;
-    }
-
-    .map-legend {
-      min-width: 165px;
-      padding: 10px 12px;
-      color: #ffffff;
-      background: rgba(21, 24, 27, 0.95);
-      border: 1px solid #333941;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
-      font-size: 12px;
-      line-height: 1.8;
-    }
-
-    .map-legend-title {
-      margin-bottom: 4px;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .legend-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .legend-dot {
-      width: 11px;
-      height: 11px;
-      display: inline-block;
-      border: 1px solid rgba(255, 255, 255, 0.55);
-      border-radius: 50%;
-    }
-
-    /* STATE MARKERS */
-
-    .state-marker-wrapper,
-    .store-marker-wrapper {
-      overflow: visible !important;
-      background: transparent;
-      border: 0;
-    }
-
-    .state-badge {
-      width: 50px;
-      height: 50px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #ffffff;
-      border: 3px solid #ffffff;
-      border-radius: 50%;
-      box-shadow:
-        0 3px 9px rgba(0, 0, 0, 0.65),
-        0 0 0 1px rgba(0, 0, 0, 0.35);
-      font-weight: 800;
-      transform: scale(var(--state-marker-scale, 0.72));
-      transition: transform 0.25s ease;
-    }
-
-    .state-code {
-      font-size: 14px;
-      font-weight: 900;
-      line-height: 1;
-    }
-
-    .state-count {
-      margin-top: 3px;
-      font-size: 11px;
-      line-height: 1;
-    }
-
-    /* STORE MARKERS */
-
-    .store-pin {
-      position: relative;
-      width: 28px;
-      height: 28px;
-      border: 3px solid #ffffff;
-      border-radius: 50% 50% 50% 0;
-      box-shadow:
-        0 3px 9px rgba(0, 0, 0, 0.75),
-        0 0 10px rgba(255, 255, 255, 0.15);
-      transform: rotate(-45deg);
-    }
-
-    .store-pin::after {
-      position: absolute;
-      left: 7px;
-      top: 7px;
-      width: 8px;
-      height: 8px;
-      background: #ffffff;
-      border-radius: 50%;
-      content: "";
-    }
-
-    .store-popup {
-      min-width: 250px;
-      line-height: 1.45;
-    }
-
-    .store-popup-title {
-      margin-bottom: 7px;
-      font-weight: 700;
-    }
-
-    .store-popup-row {
-      margin-top: 4px;
-    }
-
-    /* ACKNOWLEDGEMENT */
-
-    .ack-section {
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid #3b424a;
-    }
-
-    .ack-button,
-    .status-select {
-      width: 100%;
-      padding: 8px;
-      color: #ffffff;
-      border: 0;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 700;
-    }
-
-    .ack-button {
-      background: var(--orange);
-    }
-
-    .ack-button:hover {
-      background: #ff9e24;
-    }
-
-    .status-select {
-      margin-top: 5px;
-    }
-
-    .ack-meta {
-      margin-top: 7px;
-      color: #b9c0c8;
-      font-size: 11px;
-      line-height: 1.4;
-    }
-
-    /* DARK MAP */
-
-    .leaflet-tile-pane {
-      filter:
-        grayscale(1)
-        invert(0.92)
-        brightness(0.72)
-        contrast(0.88)
-        hue-rotate(180deg);
-    }
-
-    .leaflet-popup-content-wrapper,
-    .leaflet-popup-tip {
-      color: #ffffff;
-      background: #171b20;
-    }
-
-    .leaflet-popup-content-wrapper {
-      border: 1px solid #3b424a;
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.72);
-    }
-
-    .leaflet-popup-content a {
-      color: #64b5f6;
-    }
-
-    .leaflet-popup-close-button {
-      color: #ffffff !important;
-    }
+    .leaflet-tile-pane { filter: grayscale(1) invert(.92) brightness(.72) contrast(.88) hue-rotate(180deg); }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { color: #fff; background: #171b20; }
+    .leaflet-popup-content-wrapper { border: 1px solid #3b424a; }
+    .leaflet-popup-content a { color: #64b5f6; }
 
     @media (max-width: 800px) {
-      :root {
-        --sidebar-width: min(90vw, 360px);
-      }
-
-      .dash-cards {
-        grid-template-columns: repeat(2, minmax(120px, 1fr));
-      }
+      :root { --sidebar-width: min(90vw, 360px); }
+      .dash-cards { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
     }
   </style>
 </head>
-
 <body class="sidebar-collapsed">
   <div id="map"></div>
 
-  <aside
-    id="sidebar"
-    aria-label="Store outage list"
-    aria-hidden="true"
-  >
+  <aside id="sidebar" aria-label="Store outage list" aria-hidden="true">
     <div id="sidebarHeader">
       <div>
         <h2>Store Outages</h2>
         <div id="sidebarSubtitle">Loading stores...</div>
       </div>
-
-      <button
-        id="collapseSidebarBtn"
-        class="header-btn"
-        type="button"
-        aria-label="Collapse store panel"
-      >
-        ▶
-      </button>
+      <button id="collapseSidebarBtn" class="header-btn" type="button">▶</button>
     </div>
-
     <div class="sidebar-controls">
-      <select id="filterSelect" aria-label="Filter stores">
+      <select id="filterSelect">
         <option value="all">All Stores</option>
         <option value="outages">Active Outages Only</option>
         <option value="possible">Possible Outages Only</option>
         <option value="normal">Normal Stores Only</option>
       </select>
-
-      <input
-        id="searchBar"
-        type="search"
-        placeholder="Search store, name, city, state..."
-        autocomplete="off"
-      >
+      <input id="searchBar" type="search" placeholder="Search store, name, city, state...">
     </div>
-
     <div id="storeList"></div>
   </aside>
 
-  <button
-    id="sidebarTab"
-    type="button"
-    aria-expanded="false"
-  >
-    STORES
-  </button>
+  <button id="sidebarTab" type="button">STORES</button>
 
-  <section
-    id="bottomDashboard"
-    aria-label="Outage dashboard"
-  >
-    <button
-      id="dashboardHandle"
-      type="button"
-      aria-expanded="false"
-    >
-      <span id="dashboardArrow">▲</span>
-      <span>Dashboard</span>
-    </button>
-
+  <section id="bottomDashboard">
+    <button id="dashboardHandle" type="button"><span id="dashboardArrow">▲</span> Dashboard</button>
     <div id="dashboardContent"></div>
   </section>
 
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    crossorigin=""
-  ></script>
-
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
     "use strict";
 
@@ -607,165 +155,55 @@
       outagesFile: "outages.json",
       acknowledgementKey: "storeOutageAcknowledgements_v1",
       markerZoom: 13,
-      usaBounds: [
-        [18, -140],
-        [56, -52]
-      ],
-      usaDisplayBounds: [
-        [24.5, -124.8],
-        [49.3, -67]
-      ]
+      usaBounds: [[18, -140], [56, -52]],
+      usaDisplayBounds: [[24.5, -124.8], [49.3, -67]]
     };
 
     const STATE_CENTERS = {
-      AL: [32.8067, -86.7911],
-      AK: [64.2008, -152.4937],
-      AZ: [34.0489, -111.0937],
-      AR: [34.9697, -92.3731],
-      CA: [36.7783, -119.4179],
-      CO: [39.5501, -105.7821],
-      CT: [41.6032, -73.0877],
-      DE: [38.9108, -75.5277],
-      FL: [27.6648, -81.5158],
-      GA: [32.1656, -82.9001],
-      HI: [19.8968, -155.5828],
-      ID: [44.0682, -114.7420],
-      IL: [40.6331, -89.3985],
-      IN: [40.2672, -86.1349],
-      IA: [41.8780, -93.0977],
-      KS: [39.0119, -98.4842],
-      KY: [37.8393, -84.2700],
-      LA: [30.9843, -91.9623],
-      ME: [45.2538, -69.4455],
-      MD: [39.0458, -76.6413],
-      MA: [42.4072, -71.3824],
-      MI: [44.3148, -85.6024],
-      MN: [46.7296, -94.6859],
-      MS: [32.3547, -89.3985],
-      MO: [37.9643, -91.8318],
-      MT: [46.8797, -110.3626],
-      NE: [41.4925, -99.9018],
-      NV: [38.8026, -116.4194],
-      NH: [43.1939, -71.5724],
-      NJ: [40.0583, -74.4057],
-      NM: [34.5199, -105.8701],
-      NY: [43.0000, -75.0000],
-      NC: [35.7596, -79.0193],
-      ND: [47.5515, -101.0020],
-      OH: [40.4173, -82.9071],
-      OK: [35.0078, -97.0929],
-      OR: [43.8041, -120.5542],
-      PA: [41.2033, -77.1945],
-      RI: [41.5801, -71.4774],
-      SC: [33.8361, -80.8987],
-      SD: [43.9695, -99.9018],
-      TN: [35.5175, -86.5804],
-      TX: [31.9686, -99.9018],
-      UT: [39.3210, -111.0937],
-      VT: [44.5588, -72.5778],
-      VA: [37.4316, -78.6569],
-      WA: [47.4009, -120.7401],
-      WV: [38.5976, -80.4549],
-      WI: [43.7844, -88.7879],
-      WY: [43.0760, -107.2903],
-      DC: [38.9072, -77.0369]
+      AL:[32.8067,-86.7911],AK:[64.2008,-152.4937],AZ:[34.0489,-111.0937],AR:[34.9697,-92.3731],
+      CA:[36.7783,-119.4179],CO:[39.5501,-105.7821],CT:[41.6032,-73.0877],DE:[38.9108,-75.5277],
+      FL:[27.6648,-81.5158],GA:[32.1656,-82.9001],HI:[19.8968,-155.5828],ID:[44.0682,-114.7420],
+      IL:[40.6331,-89.3985],IN:[40.2672,-86.1349],IA:[41.878,-93.0977],KS:[39.0119,-98.4842],
+      KY:[37.8393,-84.27],LA:[30.9843,-91.9623],ME:[45.2538,-69.4455],MD:[39.0458,-76.6413],
+      MA:[42.4072,-71.3824],MI:[44.3148,-85.6024],MN:[46.7296,-94.6859],MS:[32.3547,-89.3985],
+      MO:[37.9643,-91.8318],MT:[46.8797,-110.3626],NE:[41.4925,-99.9018],NV:[38.8026,-116.4194],
+      NH:[43.1939,-71.5724],NJ:[40.0583,-74.4057],NM:[34.5199,-105.8701],NY:[43,-75],
+      NC:[35.7596,-79.0193],ND:[47.5515,-101.002],OH:[40.4173,-82.9071],OK:[35.0078,-97.0929],
+      OR:[43.8041,-120.5542],PA:[41.2033,-77.1945],RI:[41.5801,-71.4774],SC:[33.8361,-80.8987],
+      SD:[43.9695,-99.9018],TN:[35.5175,-86.5804],TX:[31.9686,-99.9018],UT:[39.321,-111.0937],
+      VT:[44.5588,-72.5778],VA:[37.4316,-78.6569],WA:[47.4009,-120.7401],WV:[38.5976,-80.4549],
+      WI:[43.7844,-88.7879],WY:[43.076,-107.2903],DC:[38.9072,-77.0369]
     };
 
     const STATE_NAMES = {
-      AL: "Alabama",
-      AK: "Alaska",
-      AZ: "Arizona",
-      AR: "Arkansas",
-      CA: "California",
-      CO: "Colorado",
-      CT: "Connecticut",
-      DE: "Delaware",
-      FL: "Florida",
-      GA: "Georgia",
-      HI: "Hawaii",
-      ID: "Idaho",
-      IL: "Illinois",
-      IN: "Indiana",
-      IA: "Iowa",
-      KS: "Kansas",
-      KY: "Kentucky",
-      LA: "Louisiana",
-      ME: "Maine",
-      MD: "Maryland",
-      MA: "Massachusetts",
-      MI: "Michigan",
-      MN: "Minnesota",
-      MS: "Mississippi",
-      MO: "Missouri",
-      MT: "Montana",
-      NE: "Nebraska",
-      NV: "Nevada",
-      NH: "New Hampshire",
-      NJ: "New Jersey",
-      NM: "New Mexico",
-      NY: "New York",
-      NC: "North Carolina",
-      ND: "North Dakota",
-      OH: "Ohio",
-      OK: "Oklahoma",
-      OR: "Oregon",
-      PA: "Pennsylvania",
-      RI: "Rhode Island",
-      SC: "South Carolina",
-      SD: "South Dakota",
-      TN: "Tennessee",
-      TX: "Texas",
-      UT: "Utah",
-      VT: "Vermont",
-      VA: "Virginia",
-      WA: "Washington",
-      WV: "West Virginia",
-      WI: "Wisconsin",
-      WY: "Wyoming",
-      DC: "District of Columbia"
+      AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",
+      FL:"Florida",GA:"Georgia",HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",
+      LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",
+      MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",NC:"North Carolina",
+      ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",SD:"South Dakota",
+      TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming",DC:"District of Columbia"
     };
 
     const STATE_ALIASES = Object.fromEntries(
-      Object.entries(STATE_NAMES).flatMap(
-        ([code, name]) => [
-          [code, code],
-          [name.toUpperCase(), code]
-        ]
-      )
+      Object.entries(STATE_NAMES).flatMap(([code, name]) => [[code, code], [name.toUpperCase(), code]])
     );
 
     const STATUS_COLORS = {
-      NEW: "#e53935",
-      ACKNOWLEDGED: "#fb8c00",
-      INVESTIGATING: "#fbc02d",
-      DISPATCHED: "#2196f3",
-      CONFIRMED_OUTAGE: "#8b0000",
-      FALSE_POSITIVE: "#707780",
-      RESOLVED: "#2e7d32"
+      RED: "#e53935",
+      YELLOW: "#fbc02d",
+      GREEN: "#2e7d32"
     };
 
-    let map = null;
-    let stateLayer = null;
-    let storeLayer = null;
+    let map;
+    let stateLayer;
+    let storeLayer;
     let stores = [];
     let selectedState = "";
 
     function text(value) {
-      if (value === null || value === undefined) {
-        return "";
-      }
-
+      if (value === null || value === undefined) return "";
       const result = String(value).trim();
-
-      if (
-        ["nan", "null", "undefined", "n/a"].includes(
-          result.toLowerCase()
-        )
-      ) {
-        return "";
-      }
-
-      return result;
+      return ["nan", "null", "undefined", "n/a"].includes(result.toLowerCase()) ? "" : result;
     }
 
     function escapeHtml(value) {
@@ -779,1729 +217,456 @@
 
     function siteNumber(value) {
       const raw = text(value).replace(/\.0$/, "");
-
-      if (/^\d+$/.test(raw)) {
-        return raw.padStart(4, "0");
-      }
-
-      return raw;
+      return /^\d+$/.test(raw) ? raw.padStart(4, "0") : raw;
     }
 
     function keyOf(store) {
-      return siteNumber(
-        store["Site #"] ??
-        store.Site ??
-        store.site ??
-        store.storeNumber
-      );
+      return siteNumber(store["Site #"] ?? store.Site ?? store.site ?? store.storeNumber);
     }
 
     function stateCode(value) {
-      const raw = text(value)
-        .toUpperCase()
-        .replaceAll(".", "");
-
+      const raw = text(value).toUpperCase().replaceAll(".", "");
       return STATE_ALIASES[raw] || raw;
     }
 
-    function validCoords(latitude, longitude) {
-      return (
-        Number.isFinite(latitude) &&
-        Number.isFinite(longitude) &&
-        latitude >= -90 &&
-        latitude <= 90 &&
-        longitude >= -180 &&
-        longitude <= 180
-      );
+    function validCoords(lat, lon) {
+      return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
     }
 
     function outageColor(value) {
       const status = text(value).toLowerCase();
-
-      if (
-        [
-          "red",
-          "outage",
-          "active",
-          "down",
-          "confirmed_outage"
-        ].includes(status)
-      ) {
-        return "red";
-      }
-
-      if (
-        [
-          "yellow",
-          "possible",
-          "warning",
-          "possible_outage_nearby"
-        ].includes(status)
-      ) {
-        return "yellow";
-      }
-
+      if (["red", "outage", "active", "down", "confirmed_outage"].includes(status)) return "red";
+      if (["yellow", "possible", "warning", "possible_outage_nearby"].includes(status)) return "yellow";
       return "gray";
+    }
+
+    function baseStatus(store) {
+      const currentColor = outageColor(store.color);
+      return currentColor === "red" ? "RED" : currentColor === "yellow" ? "YELLOW" : "GREEN";
     }
 
     function parseCSVRows(raw) {
       const rows = [];
-
-      let row = [];
-      let field = "";
-      let quoted = false;
-
+      let row = [], field = "", quoted = false;
       for (let index = 0; index < raw.length; index++) {
         const character = raw[index];
-        const nextCharacter = raw[index + 1];
-
+        const next = raw[index + 1];
         if (character === '"') {
-          if (quoted && nextCharacter === '"') {
-            field += '"';
-            index++;
-          } else {
-            quoted = !quoted;
-          }
-        } else if (
-          character === "," &&
-          !quoted
-        ) {
-          row.push(field);
-          field = "";
-        } else if (
-          (
-            character === "\n" ||
-            character === "\r"
-          ) &&
-          !quoted
-        ) {
-          if (
-            character === "\r" &&
-            nextCharacter === "\n"
-          ) {
-            index++;
-          }
-
-          row.push(field);
-          field = "";
-
-          if (
-            row.some(
-              item => String(item).trim()
-            )
-          ) {
-            rows.push(row);
-          }
-
+          if (quoted && next === '"') { field += '"'; index++; }
+          else quoted = !quoted;
+        } else if (character === "," && !quoted) {
+          row.push(field); field = "";
+        } else if ((character === "\n" || character === "\r") && !quoted) {
+          if (character === "\r" && next === "\n") index++;
+          row.push(field); field = "";
+          if (row.some(item => String(item).trim())) rows.push(row);
           row = [];
         } else {
           field += character;
         }
       }
-
       row.push(field);
-
-      if (
-        row.some(
-          item => String(item).trim()
-        )
-      ) {
-        rows.push(row);
-      }
-
+      if (row.some(item => String(item).trim())) rows.push(row);
       return rows;
     }
 
     function parseCSV(raw) {
-      if (!raw || !raw.trim()) {
-        return [];
-      }
-
       const rows = parseCSVRows(raw);
-
-      if (rows.length < 2) {
-        return [];
-      }
-
-      const headers = rows[0].map(
-        header =>
-          text(header)
-            .replace(/^\uFEFF/, "")
-            .trim()
-      );
-
+      if (rows.length < 2) return [];
+      const headers = rows[0].map(header => text(header).replace(/^\uFEFF/, ""));
       return rows.slice(1).map(columns => {
         const store = {};
-
-        headers.forEach((header, index) => {
-          store[header] = text(columns[index]);
-        });
-
-        store.Latitude = Number.parseFloat(
-          text(store.Latitude)
-            .replaceAll("'", "")
-            .replaceAll('"', "")
-        );
-
-        store.Longitude = Number.parseFloat(
-          text(store.Longitude)
-            .replaceAll("'", "")
-            .replaceAll('"', "")
-        );
-
+        headers.forEach((header, index) => store[header] = text(columns[index]));
+        store.Latitude = Number.parseFloat(text(store.Latitude).replaceAll("'", ""));
+        store.Longitude = Number.parseFloat(text(store.Longitude).replaceAll("'", ""));
         store["Site #"] = keyOf(store);
-
         return store;
       });
     }
 
     function mergeData(siteRows, outageRows) {
-      const outageLookup = new Map();
-
+      const lookup = new Map();
       outageRows.forEach(outage => {
-        const key = siteNumber(
-          outage.storeNumber ??
-          outage["Site #"] ??
-          outage.site ??
-          outage.Site
-        );
-
-        if (key) {
-          outageLookup.set(key, outage);
-        }
+        const key = siteNumber(outage.storeNumber ?? outage["Site #"] ?? outage.site ?? outage.Site);
+        if (key) lookup.set(key, outage);
       });
 
       return siteRows.map(store => {
-        const outage = outageLookup.get(
-          keyOf(store)
-        );
-
-        const vendorLink = text(
-          store["Vendor Link"] ??
-          store.VendorLink ??
-          store.providerWebsite
-        );
-
-        if (!outage) {
-          return {
-            ...store,
-            color: "gray",
-            status: "No outage",
-            outageId: "none",
-            etr: "",
-            lastUpdated: "",
-            providerWebsite: vendorLink
-          };
-        }
-
+        const outage = lookup.get(keyOf(store));
+        const providerLink = text(store["Vendor Link"] ?? store.VendorLink ?? store.providerWebsite);
+        if (!outage) return { ...store, color: "gray", status: "No outage", outageId: "none", providerWebsite: providerLink };
         return {
           ...store,
-          color: outageColor(
-            outage.color ??
-            outage.statusColor ??
-            outage.severity ??
-            outage.status
-          ),
-          status:
-            text(outage.status) ||
-            "Outage reported",
-          outageId:
-            text(
-              outage.outage_id ??
-              outage.outageId ??
-              outage.provider_outage_id
-            ) ||
-            "current",
-          etr: text(
-            outage.etr ??
-            outage.eta ??
-            outage.estimatedRestoration
-          ),
-          lastUpdated: text(
-            outage.lastUpdated ??
-            outage.updatedAt ??
-            outage.timestamp
-          ),
-          providerWebsite:
-            text(outage.providerWebsite) ||
-            vendorLink
+          color: outageColor(outage.color ?? outage.statusColor ?? outage.severity ?? outage.status),
+          status: text(outage.status) || "Outage reported",
+          outageId: text(outage.outage_id ?? outage.outageId ?? outage.provider_outage_id) || "current",
+          etr: text(outage.etr ?? outage.eta ?? outage.estimatedRestoration),
+          lastUpdated: text(outage.lastUpdated ?? outage.updatedAt ?? outage.timestamp),
+          providerWebsite: text(outage.providerWebsite) || providerLink
         };
       });
     }
 
-    function baseStatus(store) {
-      const color = outageColor(store.color);
-
-      if (color === "red") {
-        return "NEW";
-      }
-
-      if (color === "yellow") {
-        return "INVESTIGATING";
-      }
-
-      return "RESOLVED";
+    function ackStorage() {
+      try { return JSON.parse(localStorage.getItem(CONFIG.acknowledgementKey) || "{}"); }
+      catch { return {}; }
     }
 
-    function acknowledgementStorage() {
-      try {
-        return JSON.parse(
-          localStorage.getItem(
-            CONFIG.acknowledgementKey
-          ) || "{}"
-        );
-      } catch (error) {
-        console.warn(
-          "Could not read acknowledgements.",
-          error
-        );
-
-        return {};
-      }
-    }
-
-    function acknowledgementKey(store) {
-      return [
-        keyOf(store),
-        text(store.outageId) || "current"
-      ].join("_");
+    function ackKey(store) {
+      return `${keyOf(store)}_${text(store.outageId) || "current"}`;
     }
 
     function getAcknowledgement(store) {
-      const allAcknowledgements =
-        acknowledgementStorage();
-
-      return (
-        allAcknowledgements[
-          acknowledgementKey(store)
-        ] || {
-          status: baseStatus(store),
-          acknowledgedBy: "",
-          acknowledgedAt: ""
-        }
-      );
+      return ackStorage()[ackKey(store)] || {
+        status: baseStatus(store),
+        acknowledgedBy: "",
+        acknowledgedAt: ""
+      };
     }
 
-    function saveAcknowledgement(
-      store,
-      status,
-      acknowledgedBy = ""
-    ) {
-      const allAcknowledgements =
-        acknowledgementStorage();
-
-      const key =
-        acknowledgementKey(store);
-
-      const previous =
-        allAcknowledgements[key] || {};
-
-      allAcknowledgements[key] = {
+    function saveAcknowledgement(store, status, acknowledgedBy = "") {
+      const all = ackStorage();
+      const prior = all[ackKey(store)] || {};
+      all[ackKey(store)] = {
         status,
-        acknowledgedBy:
-          acknowledgedBy ||
-          previous.acknowledgedBy ||
-          "NOC",
-        acknowledgedAt:
-          previous.acknowledgedAt ||
-          new Date().toISOString()
+        acknowledgedBy: acknowledgedBy || prior.acknowledgedBy || "NOC",
+        acknowledgedAt: prior.acknowledgedAt || new Date().toISOString()
       };
-
-      try {
-        localStorage.setItem(
-          CONFIG.acknowledgementKey,
-          JSON.stringify(
-            allAcknowledgements
-          )
-        );
-      } catch (error) {
-        console.warn(
-          "Could not save acknowledgement.",
-          error
-        );
-      }
-
+      localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
       renderAll();
     }
 
-    window.acknowledgeOutage = function(
-      site,
-      outageId
-    ) {
-      const store = stores.find(item => {
-        return (
-          keyOf(item) === site &&
-          text(item.outageId) === outageId
-        );
-      });
-
-      if (!store) {
-        return;
-      }
-
-      const acknowledgedBy =
-        window.prompt(
-          "Enter your name or initials:",
-          ""
-        ) || "NOC";
-
-      saveAcknowledgement(
-        store,
-        "ACKNOWLEDGED",
-        acknowledgedBy
+    window.changeOutageStatus = function(site, outageId, status) {
+      const store = stores.find(item =>
+        keyOf(item) === site && (text(item.outageId) || "current") === outageId
       );
-    };
-
-    window.changeOutageStatus = function(
-      site,
-      outageId,
-      status
-    ) {
-      const store = stores.find(item => {
-        return (
-          keyOf(item) === site &&
-          text(item.outageId) === outageId
-        );
-      });
-
-      if (store) {
-        saveAcknowledgement(
-          store,
-          status
-        );
+      if (store && ["RED", "YELLOW", "GREEN"].includes(status)) {
+        saveAcknowledgement(store, status, "Manual override");
       }
     };
 
-    function responseStatus(store) {
-      return getAcknowledgement(store).status;
-    }
-
-    function responseStatusColor(store) {
-      return (
-        STATUS_COLORS[
-          responseStatus(store)
-        ] ||
-        STATUS_COLORS.RESOLVED
+    window.clearStatusOverride = function(site, outageId) {
+      const store = stores.find(item =>
+        keyOf(item) === site && (text(item.outageId) || "current") === outageId
       );
+      if (!store) return;
+      const all = ackStorage();
+      delete all[ackKey(store)];
+      localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
+      renderAll();
+      focusStore(store);
+    };
+
+    function statusColor(store) {
+      const ack = getAcknowledgement(store);
+      return STATUS_COLORS[ack.status] || "#707780";
     }
 
-    function responseStatusLabel(store) {
-      return responseStatus(store)
-        .replaceAll("_", " ");
+    function statusLabel(store) {
+      const value = getAcknowledgement(store).status;
+      return value === "RED" ? "Outage" : value === "YELLOW" ? "Possible Outage" : "No Outage";
     }
 
     function acknowledgementHTML(store) {
-      const acknowledgement =
-        getAcknowledgement(store);
-
-      const site =
-        escapeHtml(keyOf(store));
-
-      const outageId =
-        escapeHtml(
-          text(store.outageId) ||
-          "current"
-        );
-
-      if (
-        acknowledgement.status === "NEW"
-      ) {
-        return `
-          <div class="ack-section">
-            <button
-              class="ack-button"
-              type="button"
-              onclick="acknowledgeOutage(
-                '${site}',
-                '${outageId}'
-              )"
-            >
-              Acknowledge Outage
-            </button>
-          </div>
-        `;
-      }
-
-      const statuses = [
-        "ACKNOWLEDGED",
-        "INVESTIGATING",
-        "DISPATCHED",
-        "CONFIRMED_OUTAGE",
-        "FALSE_POSITIVE",
-        "RESOLVED"
-      ];
-
-      const options = statuses
-        .map(status => {
-          const selected =
-            status ===
-            acknowledgement.status
-              ? "selected"
-              : "";
-
-          return `
-            <option
-              value="${status}"
-              ${selected}
-            >
-              ${status.replaceAll("_", " ")}
-            </option>
-          `;
-        })
-        .join("");
-
-      const acknowledgedTime =
-        acknowledgement.acknowledgedAt
-          ? new Date(
-              acknowledgement.acknowledgedAt
-            ).toLocaleString()
-          : "";
-
-      return `
-        <div class="ack-section">
-          <label>
-            <b>Response status</b>
-          </label>
-
-          <select
-            class="status-select"
-            style="
-              background:
-              ${responseStatusColor(store)}
-            "
-            onchange="
-              changeOutageStatus(
-                '${site}',
-                '${outageId}',
-                this.value
-              )
-            "
-          >
-            ${options}
-          </select>
-
-          <div class="ack-meta">
-            Acknowledged by
-            ${escapeHtml(
-              acknowledgement.acknowledgedBy ||
-              "NOC"
-            )}
-            <br>
-            ${escapeHtml(acknowledgedTime)}
-          </div>
-        </div>
-      `;
+      const acknowledgement = getAcknowledgement(store);
+      const site = escapeHtml(keyOf(store));
+      const outageId = escapeHtml(text(store.outageId) || "current");
+      const options = ["RED", "YELLOW", "GREEN"].map(status => {
+        const label = status === "RED" ? "Outage" : status === "YELLOW" ? "Possible Outage" : "No Outage";
+        return `<option value="${status}" ${status === acknowledgement.status ? "selected" : ""}>${label}</option>`;
+      }).join("");
+      const overrideExists = Boolean(ackStorage()[ackKey(store)]);
+      const changed = acknowledgement.acknowledgedAt
+        ? new Date(acknowledgement.acknowledgedAt).toLocaleString()
+        : "";
+      return `<div class="ack-section">
+        <label><b>Store status</b></label>
+        <select class="status-select" style="background:${statusColor(store)}" onchange="changeOutageStatus('${site}','${outageId}',this.value)">${options}</select>
+        <div class="ack-meta">Automatic provider status${overrideExists ? " is manually overridden" : " is active"}.${changed ? `<br>Last changed: ${escapeHtml(changed)}` : ""}</div>
+        ${overrideExists ? `<button class="clear-override-button" type="button" onclick="clearStatusOverride('${site}','${outageId}')">Use automatic provider status</button>` : ""}
+      </div>`;
     }
 
     function initializeMap() {
-      if (typeof L === "undefined") {
-        throw new Error(
-          "Leaflet did not load. Check CDN access."
-        );
-      }
-
+      if (typeof L === "undefined") throw new Error("Leaflet did not load. Check CDN access.");
       map = L.map("map", {
-        minZoom: 4,
-        maxZoom: 18,
-        zoomSnap: 0.5,
-        zoomDelta: 0.5,
-        wheelPxPerZoomLevel: 90,
-        maxBounds: CONFIG.usaBounds,
-        maxBoundsViscosity: 1,
-        worldCopyJump: false
+        minZoom: 4, maxZoom: 18, zoomSnap: .5, zoomDelta: .5,
+        maxBounds: CONFIG.usaBounds, maxBoundsViscosity: 1, worldCopyJump: false
       });
 
-      L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          minZoom: 4,
-          maxZoom: 18,
-          noWrap: true,
-          attribution:
-            "&copy; OpenStreetMap contributors"
-        }
-      ).addTo(map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        minZoom: 4, maxZoom: 18, noWrap: true,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
 
-      stateLayer =
-        L.layerGroup().addTo(map);
-
-      storeLayer =
-        L.layerGroup().addTo(map);
-
+      stateLayer = L.layerGroup().addTo(map);
+      storeLayer = L.layerGroup().addTo(map);
       addLegend();
       addUSAControl();
+      addMapStyleControl();
+      map.on("zoom zoomend", updateStateMarkerSize);
       resetUSA();
-
-      map.on(
-        "zoom zoomend",
-        updateStateMarkerSize
-      );
-
-      map.on("drag", () => {
-        map.panInsideBounds(
-          CONFIG.usaBounds,
-          {
-            animate: false
-          }
-        );
-      });
-    }
-
-    function updateStateMarkerSize() {
-      if (!map) {
-        return;
-      }
-
-      const steps = Math.max(
-        0,
-        (
-          map.getZoom() -
-          4.5
-        ) /
-        0.5
-      );
-
-      const scale = Math.min(
-        1.25,
-        0.60 +
-        steps * 0.08
-      );
-
-      document.documentElement.style
-        .setProperty(
-          "--state-marker-scale",
-          scale.toFixed(2)
-        );
     }
 
     function resetUSA() {
-      if (!map) {
-        return;
-      }
-
       selectedState = "";
-
-      if (storeLayer) {
-        storeLayer.clearLayers();
-      }
-
       map.closePopup();
-
-      map.fitBounds(
-        CONFIG.usaDisplayBounds,
-        {
-          padding: [4, 4],
-          animate: false
-        }
-      );
-
+      storeLayer.clearLayers();
+      if (!map.hasLayer(stateLayer)) stateLayer.addTo(map);
+      document.getElementById("searchBar").value = "";
+      document.getElementById("filterSelect").value = "all";
+      renderStoreList();
+      map.fitBounds(CONFIG.usaDisplayBounds, { padding: [2, 2], animate: false });
+      map.setZoom(Math.min(map.getMaxZoom(), map.getZoom() + 0.5), { animate: false });
       updateStateMarkerSize();
     }
 
     function addUSAControl() {
-      const USAControl =
-        L.Control.extend({
-          options: {
-            position: "topleft"
-          },
-
-          onAdd() {
-            const button =
-              L.DomUtil.create(
-                "button",
-                "usa-map-control"
-              );
-
-            button.type = "button";
-            button.textContent = "USA";
-            button.title =
-              "Reset to continental USA";
-
-            L.DomEvent
-              .disableClickPropagation(button);
-
-            L.DomEvent
-              .disableScrollPropagation(button);
-
-            button.addEventListener(
-              "click",
-              () => {
-                selectedState = "";
-
-                document
-                  .getElementById(
-                    "searchBar"
-                  )
-                  .value = "";
-
-                document
-                  .getElementById(
-                    "filterSelect"
-                  )
-                  .value = "all";
-
-                setSidebar(true);
-                renderAll();
-                resetUSA();
-              }
-            );
-
-            return button;
-          }
-        });
-
-      map.addControl(
-        new USAControl()
-      );
+      const Control = L.Control.extend({
+        options: { position: "topleft" },
+        onAdd() {
+          const button = L.DomUtil.create("button", "usa-map-control");
+          button.type = "button";
+          button.textContent = "USA";
+          L.DomEvent.disableClickPropagation(button);
+          button.addEventListener("click", () => {
+            selectedState = "";
+            document.getElementById("searchBar").value = "";
+            document.getElementById("filterSelect").value = "all";
+            renderAll();
+            resetUSA();
+          });
+          return button;
+        }
+      });
+      map.addControl(new Control());
     }
 
     function addLegend() {
-      const legend =
-        L.control({
-          position: "bottomleft"
-        });
-
+      const legend = L.control({ position: "bottomleft" });
       legend.onAdd = () => {
-        const element =
-          L.DomUtil.create(
-            "div",
-            "map-legend"
-          );
-
+        const element = L.DomUtil.create("div", "map-legend");
         element.innerHTML = `
-          <div class="map-legend-title">
-            Response Status
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#e53935"
-            ></span>
-            New outage
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#fb8c00"
-            ></span>
-            Acknowledged
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#fbc02d"
-            ></span>
-            Investigating
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#2196f3"
-            ></span>
-            Dispatched
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#8b0000"
-            ></span>
-            Confirmed outage
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#707780"
-            ></span>
-            False positive
-          </div>
-
-          <div class="legend-row">
-            <span
-              class="legend-dot"
-              style="background:#2e7d32"
-            ></span>
-            Resolved or normal
-          </div>
-        `;
-
-        L.DomEvent
-          .disableClickPropagation(element);
-
+          <b>Store Status</b>
+          <div class="legend-row"><span class="legend-dot" style="background:#e53935"></span>Outage</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#fbc02d"></span>Possible Outage</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#2e7d32"></span>No Outage</div>`;
         return element;
       };
-
       legend.addTo(map);
+    }
+
+    function applyMapStyle(style) {
+      const filters = {
+        light: "grayscale(.82) saturate(.35) brightness(1.10) contrast(.84)",
+        dark: "grayscale(1) invert(.92) brightness(.72) contrast(.88) hue-rotate(180deg)",
+        street: "none"
+      };
+      map.getPane("tilePane").style.filter = filters[style] || filters.dark;
+      document.getElementById("map").style.background = style === "dark" ? "#080b0e" : "#edf0f2";
+      localStorage.setItem("storeOutageMapStyle_v1", style);
+    }
+
+    function addMapStyleControl() {
+      const StyleControl = L.Control.extend({
+        options: { position: "topright" },
+        onAdd() {
+          const container = L.DomUtil.create("div", "map-legend");
+          container.innerHTML = `<b>Map Style</b><br><select aria-label="Choose map style" style="width:100%;padding:7px;color:#fff;background:#252b32;border:1px solid #4a535d;border-radius:5px"><option value="light">Light Operations</option><option value="dark">Dark Operations</option><option value="street">Standard Street</option></select>`;
+          L.DomEvent.disableClickPropagation(container);
+          L.DomEvent.disableScrollPropagation(container);
+          const select = container.querySelector("select");
+          select.value = localStorage.getItem("storeOutageMapStyle_v1") || "dark";
+          setTimeout(() => applyMapStyle(select.value), 0);
+          select.addEventListener("change", () => applyMapStyle(select.value));
+          return container;
+        }
+      });
+      map.addControl(new StyleControl());
+    }
+
+    function updateStateMarkerSize() {
+      if (!map) return;
+      const steps = Math.max(0, (map.getZoom() - 4.5) / 0.5);
+      const scale = Math.min(1.30, 0.58 + steps * 0.09);
+      document.documentElement.style.setProperty("--state-marker-scale", scale.toFixed(2));
     }
 
     function groupedStates() {
       const groups = new Map();
-
       stores.forEach(store => {
-        const code =
-          stateCode(store.State);
-
-        if (!code) {
-          return;
-        }
-
-        if (!groups.has(code)) {
-          groups.set(code, []);
-        }
-
+        const code = stateCode(store.State);
+        if (!code) return;
+        if (!groups.has(code)) groups.set(code, []);
         groups.get(code).push(store);
       });
-
       return groups;
-    }
-
-    function stateMarkerColor(items) {
-      const activeCount =
-        items.filter(store => {
-          return (
-            outageColor(store.color) ===
-            "red"
-          );
-        }).length;
-
-      const possibleCount =
-        items.filter(store => {
-          return (
-            outageColor(store.color) ===
-            "yellow"
-          );
-        }).length;
-
-      if (activeCount > 0) {
-        return "#e53935";
-      }
-
-      if (possibleCount > 0) {
-        return "#fbc02d";
-      }
-
-      return "#707780";
     }
 
     function createStateMarkers() {
       stateLayer.clearLayers();
-
-      groupedStates().forEach(
-        (items, code) => {
-          const center =
-            STATE_CENTERS[code];
-
-          if (!center) {
-            return;
-          }
-
-          const impactedCount =
-            items.filter(store => {
-              return (
-                outageColor(store.color) !==
-                "gray"
-              );
-            }).length;
-
-          const markerColor =
-            stateMarkerColor(items);
-
-          const icon =
-            L.divIcon({
-              className:
-                "state-marker-wrapper",
-              html: `
-                <div
-                  class="state-badge"
-                  style="
-                    background:
-                    ${markerColor}
-                  "
-                >
-                  <span class="state-code">
-                    ${escapeHtml(code)}
-                  </span>
-
-                  <span class="state-count">
-                    ${items.length}
-                  </span>
-                </div>
-              `,
-              iconSize: [50, 50],
-              iconAnchor: [25, 25]
-            });
-
-          const marker =
-            L.marker(
-              center,
-              {
-                icon,
-                zIndexOffset:
-                  impactedCount > 0
-                    ? 1000
-                    : 0
-              }
-            );
-
-          marker.bindPopup(`
-            <b>
-              ${escapeHtml(
-                STATE_NAMES[code] ||
-                code
-              )}
-            </b>
-            <br>
-            ${items.length} stores
-            <br>
-            ${impactedCount} impacted
-            <br><br>
-            Click the state marker to view stores.
-          `);
-
-          marker.on(
-            "click",
-            () => {
-              selectState(
-                code,
-                items
-              );
-            }
-          );
-
-          marker.addTo(stateLayer);
-        }
-      );
-    }
-
-    function createStoreIcon(store) {
-      return L.divIcon({
-        className:
-          "store-marker-wrapper",
-        html: `
-          <div
-            class="store-pin"
-            style="
-              background:
-              ${responseStatusColor(store)}
-            "
-          ></div>
-        `,
-        iconSize: [34, 40],
-        iconAnchor: [17, 34],
-        popupAnchor: [0, -32]
+      groupedStates().forEach((items, code) => {
+        const center = STATE_CENTERS[code];
+        if (!center) return;
+        const redCount = items.filter(item => getAcknowledgement(item).status === "RED").length;
+        const yellowCount = items.filter(item => getAcknowledgement(item).status === "YELLOW").length;
+        const active = redCount + yellowCount;
+        const color = redCount > 0 ? "#e53935" : yellowCount > 0 ? "#fbc02d" : "#2e7d32";
+        const icon = L.divIcon({
+          className: "state-marker-wrapper",
+          html: `<div class="state-badge" style="background:${color}"><span class="state-code">${escapeHtml(code)}</span><span class="state-count">${items.length}</span></div>`,
+          iconSize: [50, 50], iconAnchor: [25, 25]
+        });
+        const marker = L.marker(center, { icon, zIndexOffset: active > 0 ? 1000 : 0 }).addTo(stateLayer);
+        marker.bindPopup(`<b>${escapeHtml(STATE_NAMES[code] || code)}</b><br>${items.length} stores<br>${active} impacted`);
+        marker.on("click", () => selectState(code, items));
       });
     }
 
-    function selectState(
-      code,
-      items
-    ) {
+    function selectState(code, items) {
       selectedState = code;
-
+      map.closePopup();
+      if (map.hasLayer(stateLayer)) map.removeLayer(stateLayer);
       renderStoreList();
-
       storeLayer.clearLayers();
-
       const bounds = [];
-
       items.forEach(store => {
-        const latitude =
-          Number(store.Latitude);
-
-        const longitude =
-          Number(store.Longitude);
-
-        if (
-          !validCoords(
-            latitude,
-            longitude
-          )
-        ) {
-          return;
-        }
-
-        const marker =
-          L.marker(
-            [
-              latitude,
-              longitude
-            ],
-            {
-              icon:
-                createStoreIcon(store)
-            }
-          );
-
-        marker.bindPopup(
-          popupHTML(store),
-          {
-            maxWidth: 360,
-            autoPan: true,
-            keepInView: true
-          }
-        );
-
-        marker.addTo(storeLayer);
-
-        bounds.push([
-          latitude,
-          longitude
-        ]);
+        const lat = Number(store.Latitude), lon = Number(store.Longitude);
+        if (!validCoords(lat, lon)) return;
+        const markerColor = statusColor(store);
+        const icon = L.divIcon({
+          className: "store-marker-wrapper",
+          html: `<div class="store-pin" style="background:${markerColor}"></div>`,
+          iconSize: [34, 40], iconAnchor: [17, 34]
+        });
+        L.marker([lat, lon], { icon }).bindPopup(popupHTML(store), { maxWidth: 360 }).addTo(storeLayer);
+        bounds.push([lat, lon]);
       });
-
-      if (bounds.length) {
-        map.fitBounds(
-          bounds,
-          {
-            padding: [45, 45],
-            maxZoom: 9
-          }
-        );
-      } else {
-        const center =
-          STATE_CENTERS[code];
-
-        if (center) {
-          map.setView(
-            center,
-            6
-          );
-        }
-      }
-
+      if (bounds.length) map.fitBounds(bounds, { padding: [45, 45], maxZoom: 9 });
       setSidebar(false);
     }
 
     function popupHTML(store) {
-      const provider = text(
-        store["Vendor Name"] ??
-        store.Vendor ??
-        store.Provider
-      );
-
-      const providerURL = text(
-        store.providerWebsite ??
-        store["Vendor Link"]
-      );
-
-      const siteName = text(
-        store["Site Name"] ??
-        store.SiteName ??
-        store.Name
-      );
-
-      const address = text(
-        store.Location ??
-        store.Address ??
-        store["Street Address"]
-      );
-
-      return `
-        <div
-          class="store-popup"
-          style="
-            border-left:
-            5px solid
-            ${responseStatusColor(store)};
-            padding-left:10px;
-          "
-        >
-          <div class="store-popup-title">
-            Store
-            ${escapeHtml(keyOf(store))}
-            ${
-              siteName
-                ? ` - ${escapeHtml(siteName)}`
-                : ""
-            }
-          </div>
-
-          <div>
-            ${escapeHtml(
-              address || "N/A"
-            )}
-          </div>
-
-          <div>
-            ${escapeHtml(text(store.City))}
-            ${
-              text(store.City) &&
-              text(store.State)
-                ? ", "
-                : ""
-            }
-            ${escapeHtml(text(store.State))}
-            ${escapeHtml(text(store.Zip))}
-          </div>
-
-          <div class="store-popup-row">
-            <b>Response status:</b>
-            ${escapeHtml(
-              responseStatusLabel(store)
-            )}
-          </div>
-
-          <div class="store-popup-row">
-            <b>Provider:</b>
-            ${escapeHtml(
-              provider || "N/A"
-            )}
-          </div>
-
-          <div class="store-popup-row">
-            <b>Estimated restoration:</b>
-            ${escapeHtml(
-              text(store.etr) || "N/A"
-            )}
-          </div>
-
-          <div class="store-popup-row">
-            <b>Last updated:</b>
-            ${escapeHtml(
-              text(store.lastUpdated) ||
-              "N/A"
-            )}
-          </div>
-
-          ${
-            providerURL
-              ? `
-                <div class="store-popup-row">
-                  <a
-                    href="${escapeHtml(providerURL)}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open Provider Outage Map
-                  </a>
-                </div>
-              `
-              : ""
-          }
-
-          ${
-            outageColor(store.color) !==
-            "gray"
-              ? acknowledgementHTML(store)
-              : ""
-          }
-        </div>
-      `;
+      const provider = text(store["Vendor Name"] ?? store.Vendor ?? store.Provider);
+      const url = text(store.providerWebsite ?? store["Vendor Link"]);
+      return `<div class="store-popup" style="border-left:5px solid ${statusColor(store)};padding-left:10px">
+        <div class="store-popup-title">Store ${escapeHtml(keyOf(store))}${text(store["Site Name"]) ? ` - ${escapeHtml(store["Site Name"])}` : ""}</div>
+        <div>${escapeHtml(text(store.Location ?? store.Address) || "N/A")}</div>
+        <div>${escapeHtml(text(store.City))}, ${escapeHtml(text(store.State))} ${escapeHtml(text(store.Zip))}</div>
+        <div class="store-popup-row"><b>Status:</b> ${escapeHtml(statusLabel(store))}</div>
+        <div class="store-popup-row"><b>Provider:</b> ${escapeHtml(provider || "N/A")}</div>
+        <div class="store-popup-row"><b>ETA:</b> ${escapeHtml(text(store.etr) || "N/A")}</div>
+        ${url ? `<div class="store-popup-row"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open Provider Outage Map</a></div>` : ""}
+        ${acknowledgementHTML(store)}
+      </div>`;
     }
 
     function filteredStores() {
-      const filter =
-        document
-          .getElementById(
-            "filterSelect"
-          )
-          .value;
-
-      const query =
-        document
-          .getElementById(
-            "searchBar"
-          )
-          .value
-          .trim()
-          .toLowerCase();
-
+      const filter = document.getElementById("filterSelect").value;
+      const query = document.getElementById("searchBar").value.trim().toLowerCase();
       return stores.filter(store => {
-        const currentColor =
-          outageColor(store.color);
-
-        const statusMatches =
-          filter === "all" ||
-          (
-            filter === "outages" &&
-            currentColor === "red"
-          ) ||
-          (
-            filter === "possible" &&
-            currentColor === "yellow"
-          ) ||
-          (
-            filter === "normal" &&
-            currentColor === "gray"
-          );
-
-        const stateMatches =
-          !selectedState ||
-          stateCode(store.State) ===
-            selectedState;
-
-        const searchableText = [
-          keyOf(store),
-          store["Site Name"],
-          store.SiteName,
-          store.Location,
-          store.Address,
-          store.City,
-          store.State,
-          store["Vendor Name"],
-          responseStatusLabel(store)
-        ]
-          .map(text)
-          .join(" ")
-          .toLowerCase();
-
-        const searchMatches =
-          !query ||
-          searchableText.includes(query);
-
-        return (
-          statusMatches &&
-          stateMatches &&
-          searchMatches
-        );
+        const color = outageColor(store.color);
+        const statusMatch = filter === "all" || (filter === "outages" && color === "red") || (filter === "possible" && color === "yellow") || (filter === "normal" && color === "gray");
+        const stateMatch = !selectedState || stateCode(store.State) === selectedState;
+        const haystack = [keyOf(store), store["Site Name"], store.Location, store.City, store.State, store["Vendor Name"], statusLabel(store)].map(text).join(" ").toLowerCase();
+        return statusMatch && stateMatch && (!query || haystack.includes(query));
       });
     }
 
     function focusStore(store) {
-      const latitude =
-        Number(store.Latitude);
-
-      const longitude =
-        Number(store.Longitude);
-
-      if (
-        !validCoords(
-          latitude,
-          longitude
-        )
-      ) {
-        window.alert(
-          `Store ${keyOf(store)} does not have valid coordinates.`
-        );
-
+      const lat = Number(store.Latitude), lon = Number(store.Longitude);
+      if (!validCoords(lat, lon)) {
+        alert(`Store ${keyOf(store)} does not have valid coordinates.`);
         return;
       }
-
       storeLayer.clearLayers();
-
-      const marker =
-        L.marker(
-          [
-            latitude,
-            longitude
-          ],
-          {
-            icon:
-              createStoreIcon(store)
-          }
-        );
-
-      marker.bindPopup(
-        popupHTML(store),
-        {
-          maxWidth: 360,
-          autoPan: true,
-          keepInView: true
-        }
-      );
-
-      marker.addTo(storeLayer);
-
-      map.setView(
-        [
-          latitude,
-          longitude
-        ],
-        CONFIG.markerZoom
-      );
-
+      const icon = L.divIcon({ className: "store-marker-wrapper", html: `<div class="store-pin" style="background:${statusColor(store)}"></div>`, iconSize: [34,40], iconAnchor: [17,34] });
+      const marker = L.marker([lat, lon], { icon }).bindPopup(popupHTML(store), { maxWidth: 360 }).addTo(storeLayer);
+      map.setView([lat, lon], CONFIG.markerZoom);
       marker.openPopup();
     }
 
     function renderStoreList() {
-      const items =
-        filteredStores();
-
-      const list =
-        document.getElementById(
-          "storeList"
-        );
-
-      const scope =
-        selectedState
-          ? (
-              STATE_NAMES[
-                selectedState
-              ] ||
-              selectedState
-            )
-          : "stores";
-
-      document
-        .getElementById(
-          "sidebarSubtitle"
-        )
-        .textContent =
-          `${items.length} ${scope}`;
-
+      const items = filteredStores();
+      const list = document.getElementById("storeList");
+      document.getElementById("sidebarSubtitle").textContent = `${items.length} ${selectedState ? STATE_NAMES[selectedState] || selectedState : "stores"}`;
       list.innerHTML = "";
-
       if (!items.length) {
-        list.innerHTML = `
-          <div class="no-stores">
-            No matching stores.
-          </div>
-        `;
-
+        list.innerHTML = '<div class="no-stores">No matching stores.</div>';
         return;
       }
-
-      const fragment =
-        document.createDocumentFragment();
-
       items.forEach(store => {
-        const item =
-          document.createElement("div");
-
+        const item = document.createElement("div");
         item.className = "store-item";
-        item.tabIndex = 0;
-        item.setAttribute(
-          "role",
-          "button"
-        );
-
-        const providerURL = text(
-          store.providerWebsite ??
-          store["Vendor Link"]
-        );
-
-        const siteName = text(
-          store["Site Name"] ??
-          store.SiteName ??
-          store.Name
-        );
-
-        const address = text(
-          store.Location ??
-          store.Address
-        );
-
-        const city =
-          text(store.City);
-
-        const state =
-          text(store.State);
-
-        item.innerHTML = `
-          <div class="store-title">
-            Store
-            ${escapeHtml(keyOf(store))}
-            ${
-              siteName
-                ? ` - ${escapeHtml(siteName)}`
-                : ""
-            }
-          </div>
-
-          <div class="store-address">
-            ${escapeHtml(address || "N/A")}
-            <br>
-            ${escapeHtml(city)}
-            ${
-              city && state
-                ? ", "
-                : ""
-            }
-            ${escapeHtml(state)}
-          </div>
-
-          <div class="store-status">
-            <span
-              class="status-dot"
-              style="
-                background:
-                ${responseStatusColor(store)}
-              "
-            ></span>
-
-            ${escapeHtml(
-              responseStatusLabel(store)
-            )}
-          </div>
-
-          ${
-            providerURL
-              ? `
-                <a
-                  class="provider-link"
-                  href="${escapeHtml(providerURL)}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Provider Outage Map
-                </a>
-              `
-              : ""
-          }
-        `;
-
-        item.addEventListener(
-          "click",
-          event => {
-            if (
-              !event.target.closest("a")
-            ) {
-              focusStore(store);
-            }
-          }
-        );
-
-        item.addEventListener(
-          "keydown",
-          event => {
-            if (
-              event.key === "Enter" ||
-              event.key === " "
-            ) {
-              event.preventDefault();
-              focusStore(store);
-            }
-          }
-        );
-
-        fragment.appendChild(item);
+        const url = text(store.providerWebsite ?? store["Vendor Link"]);
+        item.innerHTML = `<div class="store-title">Store ${escapeHtml(keyOf(store))}${text(store["Site Name"]) ? ` - ${escapeHtml(store["Site Name"])}` : ""}</div>
+          <div class="store-address">${escapeHtml(text(store.Location) || "N/A")}<br>${escapeHtml(text(store.City))}, ${escapeHtml(text(store.State))}</div>
+          <div class="store-status"><span class="status-dot" style="background:${statusColor(store)}"></span>${escapeHtml(statusLabel(store))}</div>
+          ${url ? `<a class="provider-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Provider Outage Map</a>` : ""}`;
+        item.addEventListener("click", event => { if (!event.target.closest("a")) focusStore(store); });
+        list.appendChild(item);
       });
-
-      list.appendChild(fragment);
     }
 
     function renderDashboard() {
-      const activeCount =
-        stores.filter(store => {
-          return (
-            outageColor(store.color) ===
-            "red"
-          );
-        }).length;
-
-      const possibleCount =
-        stores.filter(store => {
-          return (
-            outageColor(store.color) ===
-            "yellow"
-          );
-        }).length;
-
-      const acknowledgedCount =
-        stores.filter(store => {
-          return (
-            responseStatus(store) ===
-            "ACKNOWLEDGED"
-          );
-        }).length;
-
-      const providerCount =
-        new Set(
-          stores
-            .map(store =>
-              text(store["Vendor Name"])
-            )
-            .filter(Boolean)
-        ).size;
-
-      document
-        .getElementById(
-          "dashboardContent"
-        )
-        .innerHTML = `
-          <div class="dash-cards">
-            <div class="dash-card">
-              <h3>Total Stores</h3>
-              <p>${stores.length}</p>
-            </div>
-
-            <div class="dash-card">
-              <h3>Active Outages</h3>
-              <p style="color:#d32f2f">
-                ${activeCount}
-              </p>
-            </div>
-
-            <div class="dash-card">
-              <h3>Possible Outages</h3>
-              <p style="color:#a77e00">
-                ${possibleCount}
-              </p>
-            </div>
-
-            <div class="dash-card">
-              <h3>Acknowledged</h3>
-              <p style="color:#fb8c00">
-                ${acknowledgedCount}
-              </p>
-            </div>
-
-            <div class="dash-card">
-              <h3>Unique Providers</h3>
-              <p>${providerCount}</p>
-            </div>
-          </div>
-        `;
+      const active = stores.filter(store => outageColor(store.color) === "red").length;
+      const possible = stores.filter(store => outageColor(store.color) === "yellow").length;
+      const noOutage = stores.filter(store => getAcknowledgement(store).status === "GREEN").length;
+      const providers = new Set(stores.map(store => text(store["Vendor Name"])).filter(Boolean)).size;
+      document.getElementById("dashboardContent").innerHTML = `<div class="dash-cards">
+        <div class="dash-card"><h3>Total Stores</h3><p>${stores.length}</p></div>
+        <div class="dash-card"><h3>Active Outages</h3><p style="color:#d32f2f">${active}</p></div>
+        <div class="dash-card"><h3>Possible Outages</h3><p style="color:#a77e00">${possible}</p></div>
+        <div class="dash-card"><h3>No Outage</h3><p style="color:#2e7d32">${noOutage}</p></div>
+        <div class="dash-card"><h3>Unique Providers</h3><p>${providers}</p></div>
+      </div>`;
     }
 
     function renderAll() {
       createStateMarkers();
       renderStoreList();
       renderDashboard();
-
       if (selectedState) {
-        const stateStores =
-          stores.filter(store => {
-            return (
-              stateCode(store.State) ===
-              selectedState
-            );
-          });
-
-        selectState(
-          selectedState,
-          stateStores
-        );
+        const items = stores.filter(store => stateCode(store.State) === selectedState);
+        selectState(selectedState, items);
       }
     }
 
     function setSidebar(collapsed) {
-      document.body.classList.toggle(
-        "sidebar-collapsed",
-        collapsed
-      );
-
-      document
-        .getElementById("sidebar")
-        .setAttribute(
-          "aria-hidden",
-          String(collapsed)
-        );
-
-      document
-        .getElementById("sidebarTab")
-        .setAttribute(
-          "aria-expanded",
-          String(!collapsed)
-        );
-
-      setTimeout(() => {
-        if (map) {
-          map.invalidateSize({
-            animate: false
-          });
-        }
-      }, 300);
-    }
-
-    function toggleDashboard() {
-      const dashboard =
-        document.getElementById(
-          "bottomDashboard"
-        );
-
-      dashboard.classList.toggle(
-        "expanded"
-      );
-
-      const expanded =
-        dashboard.classList.contains(
-          "expanded"
-        );
-
-      document
-        .getElementById(
-          "dashboardArrow"
-        )
-        .textContent =
-          expanded ? "▼" : "▲";
-
-      document
-        .getElementById(
-          "dashboardHandle"
-        )
-        .setAttribute(
-          "aria-expanded",
-          String(expanded)
-        );
-
-      if (expanded) {
-        renderDashboard();
-      }
+      document.body.classList.toggle("sidebar-collapsed", collapsed);
+      document.getElementById("sidebar").setAttribute("aria-hidden", String(collapsed));
+      setTimeout(() => map && map.invalidateSize(), 300);
     }
 
     function wireUI() {
-      document
-        .getElementById(
-          "sidebarTab"
-        )
-        .addEventListener(
-          "click",
-          () => {
-            setSidebar(
-              !document.body.classList
-                .contains(
-                  "sidebar-collapsed"
-                )
-            );
-          }
-        );
-
-      document
-        .getElementById(
-          "collapseSidebarBtn"
-        )
-        .addEventListener(
-          "click",
-          () => {
-            setSidebar(true);
-          }
-        );
-
-      document
-        .getElementById(
-          "filterSelect"
-        )
-        .addEventListener(
-          "change",
-          renderStoreList
-        );
-
-      document
-        .getElementById(
-          "searchBar"
-        )
-        .addEventListener(
-          "input",
-          renderStoreList
-        );
-
-      document
-        .getElementById(
-          "searchBar"
-        )
-        .addEventListener(
-          "keydown",
-          event => {
-            if (event.key !== "Enter") {
-              return;
-            }
-
-            const results =
-              filteredStores();
-
-            if (results.length === 1) {
-              focusStore(results[0]);
-            }
-          }
-        );
-
-      document
-        .getElementById(
-          "dashboardHandle"
-        )
-        .addEventListener(
-          "click",
-          toggleDashboard
-        );
-
-      window.addEventListener(
-        "resize",
-        () => {
-          if (map) {
-            map.invalidateSize({
-              animate: false
-            });
-          }
-        }
-      );
+      document.getElementById("sidebarTab").addEventListener("click", () => setSidebar(!document.body.classList.contains("sidebar-collapsed")));
+      document.getElementById("collapseSidebarBtn").addEventListener("click", () => setSidebar(true));
+      document.getElementById("filterSelect").addEventListener("change", renderStoreList);
+      document.getElementById("searchBar").addEventListener("input", renderStoreList);
+      document.getElementById("dashboardHandle").addEventListener("click", () => {
+        const dashboard = document.getElementById("bottomDashboard");
+        dashboard.classList.toggle("expanded");
+        document.getElementById("dashboardArrow").textContent = dashboard.classList.contains("expanded") ? "▼" : "▲";
+      });
+      window.addEventListener("resize", () => map && map.invalidateSize());
     }
 
     async function fetchText(path) {
-      const response =
-        await fetch(
-          path,
-          {
-            cache: "no-store"
-          }
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          `${path}: HTTP ${response.status}`
-        );
-      }
-
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
       return response.text();
     }
 
     async function fetchJSON(path) {
-      const response =
-        await fetch(
-          path,
-          {
-            cache: "no-store"
-          }
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          `${path}: HTTP ${response.status}`
-        );
-      }
-
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
       return response.json();
     }
 
-    function showStartupError(error) {
-      console.error(
-        "Application startup failed:",
-        error
-      );
-
-      document
-        .getElementById(
-          "sidebarSubtitle"
-        )
-        .textContent =
-          "Application load failed";
-
-      document
-        .getElementById(
-          "storeList"
-        )
-        .innerHTML = `
-          <div class="no-stores">
-            <b>
-              Unable to load the map.
-            </b>
-
-            <br><br>
-
-            ${escapeHtml(
-              error &&
-              error.message
-                ? error.message
-                : error
-            )}
-
-            <br><br>
-
-            Confirm that:
-            <br>
-            data/Sites.csv exists
-            <br>
-            outages.json exists
-            <br>
-            Leaflet CDN access is available
-          </div>
-        `;
-
+    function showError(error) {
+      console.error(error);
+      document.getElementById("sidebarSubtitle").textContent = "Application load failed";
+      document.getElementById("storeList").innerHTML = `<div class="no-stores"><b>Unable to load the map.</b><br><br>${escapeHtml(error.message || error)}<br><br>Confirm that data/Sites.csv and outages.json exist and that Leaflet CDN access is available.</div>`;
       setSidebar(false);
     }
 
@@ -2509,80 +674,20 @@
       try {
         wireUI();
         initializeMap();
-
-        const [
-          sitesResult,
-          outagesResult
-        ] = await Promise.allSettled([
+        const [sitesText, outageData] = await Promise.all([
           fetchText(CONFIG.sitesFile),
-          fetchJSON(CONFIG.outagesFile)
+          fetchJSON(CONFIG.outagesFile).catch(() => [])
         ]);
-
-        if (
-          sitesResult.status !==
-          "fulfilled"
-        ) {
-          throw sitesResult.reason;
-        }
-
-        const siteRows =
-          parseCSV(sitesResult.value);
-
-        let outageRows = [];
-
-        if (
-          outagesResult.status ===
-          "fulfilled"
-        ) {
-          const outageData =
-            outagesResult.value;
-
-          if (
-            Array.isArray(outageData)
-          ) {
-            outageRows = outageData;
-          } else if (
-            Array.isArray(
-              outageData?.outages
-            )
-          ) {
-            outageRows =
-              outageData.outages;
-          } else if (
-            Array.isArray(
-              outageData?.impactedSites
-            )
-          ) {
-            outageRows =
-              outageData.impactedSites;
-          }
-        } else {
-          console.warn(
-            "Outages file could not be loaded. Stores will display as normal.",
-            outagesResult.reason
-          );
-        }
-
-        stores = mergeData(
-          siteRows,
-          outageRows
-        );
-
-        console.log(
-          `Loaded ${stores.length} stores`
-        );
-
+        const outageRows = Array.isArray(outageData) ? outageData : Array.isArray(outageData.outages) ? outageData.outages : [];
+        stores = mergeData(parseCSV(sitesText), outageRows);
         renderAll();
         resetUSA();
       } catch (error) {
-        showStartupError(error);
+        showError(error);
       }
     }
 
-    window.addEventListener(
-      "DOMContentLoaded",
-      start
-    );
+    window.addEventListener("DOMContentLoaded", start);
   </script>
 </body>
 </html>
