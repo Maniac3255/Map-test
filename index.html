@@ -1,845 +1,937 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Operations Outage Map</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Store Outage Map</title>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 
   <style>
     :root {
-      --bg: #07111f;
-      --panel: rgba(12, 25, 43, 0.96);
-      --panel-2: #10243c;
-      --text: #eef6ff;
-      --muted: #9fb2c8;
-      --border: rgba(255, 255, 255, 0.13);
-      --accent: #33a7ff;
-      --red: #ef4444;
-      --yellow: #facc15;
-      --green: #22c55e;
-      --shadow: 0 14px 38px rgba(0, 0, 0, 0.32);
       --sidebar-width: 360px;
+      --dashboard-height: 300px;
+      --panel: #15181b;
+      --panel-border: #30353b;
+      --input: #20242a;
+      --red: #e53935;
+      --orange: #fb8c00;
+      --yellow: #fbc02d;
+      --blue: #2196f3;
+      --dark-red: #8b0000;
+      --green: #2e7d32;
+      --gray: #707780;
     }
 
     * { box-sizing: border-box; }
-
-    html, body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--text);
-      background: var(--bg);
-    }
-
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #080b0e; }
     button, input, select { font: inherit; }
 
-    #app { position: relative; width: 100%; height: 100%; }
-    #map { position: absolute; inset: 0; z-index: 1; }
+    #map { position: absolute; inset: 0; z-index: 1; background: #080b0e; }
 
-    .topbar {
-      position: absolute;
-      z-index: 1000;
-      top: 14px;
-      left: 54px;
-      right: 14px;
-      min-height: 58px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      background: rgba(7, 17, 31, 0.9);
-      backdrop-filter: blur(14px);
-      box-shadow: var(--shadow);
+    #sidebar {
+      position: absolute; top: 0; right: 0; bottom: 0; width: var(--sidebar-width);
+      padding: 14px; overflow-y: auto; color: #fff; background: var(--panel);
+      border-left: 1px solid var(--panel-border); z-index: 1000;
+      transform: translateX(0); transition: transform .28s ease;
+    }
+    body.sidebar-collapsed #sidebar { transform: translateX(100%); }
+
+    #sidebarTab {
+      position: absolute; top: 50%; right: var(--sidebar-width); min-height: 118px;
+      padding: 12px 8px; display: flex; align-items: center; justify-content: center;
+      writing-mode: vertical-rl; color: #fff; background: var(--panel);
+      border: 1px solid var(--panel-border); border-right: 0; border-radius: 10px 0 0 10px;
+      transform: translateY(-50%); cursor: pointer; z-index: 1001; font-weight: 700;
+      transition: right .28s ease;
+    }
+    body.sidebar-collapsed #sidebarTab { right: 0; }
+
+    #sidebarHeader { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    #sidebarHeader h2 { margin: 0; font-size: 20px; }
+    #sidebarSubtitle { margin-top: 4px; color: #b9c0c8; font-size: 12px; }
+    .header-btn { padding: 7px 9px; color: #fff; background: var(--input); border: 1px solid #3a4149; border-radius: 6px; cursor: pointer; }
+    .sidebar-controls { position: sticky; top: -14px; z-index: 5; padding: 2px 0 10px; background: var(--panel); }
+    #filterSelect, #searchBar { width: 100%; margin-bottom: 9px; padding: 10px; color: #fff; background: var(--input); border: 1px solid #3a4149; border-radius: 6px; }
+
+    .store-item { padding: 12px; color: #fff; border-bottom: 1px solid var(--panel-border); cursor: pointer; }
+    .store-item:hover { background: rgba(255,255,255,.05); }
+    .store-title { margin-bottom: 5px; font-size: 14px; font-weight: 700; }
+    .store-address { color: #b9c0c8; font-size: 12px; line-height: 1.4; }
+    .store-status { display: flex; align-items: center; gap: 7px; margin-top: 6px; font-size: 12px; font-weight: 700; }
+    .status-dot { width: 10px; height: 10px; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; }
+    .provider-link { display: inline-block; margin-top: 7px; color: #64b5f6; font-size: 12px; }
+    .no-stores { padding: 30px 12px; color: #b9c0c8; text-align: center; font-size: 13px; }
+
+    #bottomDashboard {
+      position: fixed; right: 0; bottom: 0; left: 0; height: var(--dashboard-height);
+      color: #111; background: #f4f6f8; border-top: 1px solid #c8ced5;
+      box-shadow: 0 -4px 14px rgba(0,0,0,.22); z-index: 999;
+      transform: translateY(100%); transition: transform .28s ease;
+    }
+    #bottomDashboard.expanded { transform: translateY(0); }
+    #dashboardHandle {
+      position: absolute; top: -38px; left: 50%; width: 180px; height: 38px;
+      color: #fff; background: var(--panel); border: 1px solid var(--panel-border);
+      border-bottom: 0; border-radius: 12px 12px 0 0; transform: translateX(-50%);
+      cursor: pointer; font-weight: 700;
+    }
+    #dashboardContent { height: 100%; padding: 14px; overflow: auto; }
+    .dash-cards { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 10px; }
+    .dash-card { padding: 12px; background: #fff; border: 1px solid #d8dde3; border-radius: 8px; }
+    .dash-card h3 { margin: 0 0 8px; color: #4c545d; font-size: 12px; text-transform: uppercase; }
+    .dash-card p { margin: 0; font-size: 24px; font-weight: 700; }
+
+    .map-legend { padding: 10px 12px; color: #fff; background: rgba(21,24,27,.95); border: 1px solid #333941; border-radius: 8px; font-size: 12px; line-height: 1.8; }
+    .legend-row { display: flex; align-items: center; gap: 8px; }
+    .legend-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .usa-map-control { width: 36px; height: 36px; color: #fff; background: #171b20; border: 2px solid rgba(255,255,255,.25); border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 800; }
+
+    .state-marker-wrapper, .store-marker-wrapper { overflow: visible !important; background: transparent; border: 0; }
+    .state-badge { width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 3px 9px rgba(0,0,0,.65); font-weight: 800; transform: scale(var(--state-marker-scale,.72)); transition: transform .25s ease; }
+    .state-code { font-size: 14px; }
+    .state-count { font-size: 11px; }
+
+    .store-pin { width: 28px; height: 28px; border: 3px solid #fff; border-radius: 50% 50% 50% 0; box-shadow: 0 3px 9px rgba(0,0,0,.75); transform: rotate(-45deg); }
+    .store-pin::after { content: ""; position: absolute; left: 7px; top: 7px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+
+    .store-popup { min-width: 250px; line-height: 1.45; }
+    .store-popup-title { margin-bottom: 7px; font-weight: 700; }
+    .store-popup-row { margin-top: 4px; }
+    .ack-section { margin-top: 12px; padding-top: 10px; border-top: 1px solid #3b424a; }
+    .ack-button, .status-select { width: 100%; padding: 8px; color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-weight: 700; }
+    .ack-button { background: var(--orange); }
+    .status-select { margin-top: 5px; }
+    .ack-meta { margin-top: 7px; color: #b9c0c8; font-size: 11px; }
+    .clear-override-button { width:100%; margin-top:8px; padding:7px; color:#fff; background:#343a40; border:1px solid #59616a; border-radius:6px; cursor:pointer; }
+
+    .leaflet-tile-pane { filter: grayscale(1) invert(.92) brightness(.72) contrast(.88) hue-rotate(180deg); }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { color: #fff; background: #171b20; }
+    .leaflet-popup-content-wrapper { border: 1px solid #3b424a; }
+    .leaflet-popup-content a { color: #64b5f6; }
+
+    @media (max-width: 800px) {
+      :root { --sidebar-width: min(90vw, 360px); }
+      .dash-cards { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
     }
 
-    .brand { display: flex; align-items: center; gap: 10px; min-width: 220px; }
-    .brand-mark {
-      width: 36px; height: 36px; border-radius: 11px;
-      display: grid; place-items: center;
-      background: linear-gradient(135deg, #0ea5e9, #2563eb);
-      font-weight: 900;
-    }
-    .brand-title { font-weight: 800; line-height: 1.1; }
-    .brand-subtitle { margin-top: 3px; color: var(--muted); font-size: 12px; }
-
-    .controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-
-    .control, .action-button {
-      min-height: 38px;
-      padding: 8px 11px;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--panel-2);
-      outline: none;
-    }
-
-    select.control { cursor: pointer; }
-    input.control { width: min(260px, 34vw); }
-    input.control::placeholder { color: #8296ae; }
-
-    .action-button { cursor: pointer; font-weight: 750; }
-    .action-button:hover { border-color: rgba(51, 167, 255, 0.75); }
-
-    .status-strip {
-      position: absolute;
-      z-index: 900;
-      left: 14px;
-      bottom: 14px;
-      display: flex;
-      gap: 8px;
-      padding: 8px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: rgba(7, 17, 31, 0.9);
-      backdrop-filter: blur(12px);
-      box-shadow: var(--shadow);
-    }
-
-    .metric {
-      min-width: 92px;
-      padding: 8px 10px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.05);
-    }
-    .metric-label { color: var(--muted); font-size: 11px; }
-    .metric-value { margin-top: 2px; font-weight: 900; font-size: 20px; }
-    .metric.red .metric-value { color: #ff6b6b; }
-    .metric.yellow .metric-value { color: #fde047; }
-    .metric.green .metric-value { color: #4ade80; }
-
-    .sidebar {
-      position: absolute;
-      z-index: 1100;
-      top: 86px;
-      right: 14px;
-      bottom: 14px;
-      width: min(var(--sidebar-width), calc(100vw - 28px));
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
-      transform: translateX(calc(100% + 30px));
-      transition: transform 220ms ease;
-    }
-    .sidebar.open { transform: translateX(0); }
-
-    .sidebar-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .sidebar-title { font-weight: 850; font-size: 18px; }
-    .sidebar-count { color: var(--muted); font-size: 12px; margin-top: 3px; }
-    .icon-button {
-      width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px;
-      color: var(--text); background: rgba(255,255,255,.06); cursor: pointer;
-    }
-
-    #storeList { overflow: auto; padding: 10px; }
-
-    .store-card {
-      width: 100%;
-      margin-bottom: 8px;
-      padding: 12px;
-      text-align: left;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-left: 5px solid var(--status-color, var(--green));
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.045);
-      cursor: pointer;
-    }
-    .store-card:hover { background: rgba(255, 255, 255, 0.085); }
-    .store-card-title { font-weight: 800; }
-    .store-card-meta { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }
-    .store-card-status { margin-top: 8px; font-size: 12px; font-weight: 800; color: var(--status-color); }
-
-    .empty-state { padding: 32px 16px; text-align: center; color: var(--muted); }
-
-    .leaflet-control-zoom a { background: #10243c !important; color: white !important; border-color: var(--border) !important; }
-    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #0d1d31; color: var(--text); }
-    .leaflet-popup-content { min-width: 250px; margin: 14px; }
-
-    .state-circle, .store-marker { background: transparent; border: none; }
-
-    .state-bubble {
-      width: var(--size); height: var(--size);
-      display: grid; place-items: center;
-      border: 3px solid rgba(255,255,255,.95);
-      border-radius: 50%;
-      background: var(--bubble-color);
-      color: white;
-      box-shadow: 0 5px 16px rgba(0,0,0,.45);
-      font-weight: 900;
-      font-size: 12px;
-      line-height: 1;
-      text-shadow: 0 1px 2px rgba(0,0,0,.75);
-    }
-    .state-bubble small { display: block; margin-top: 2px; font-size: 9px; opacity: .95; }
-
-    .pin {
-      width: 25px; height: 25px;
-      display: grid; place-items: center;
-      border: 3px solid white;
-      border-radius: 50% 50% 50% 0;
-      background: var(--pin-color);
-      box-shadow: 0 4px 12px rgba(0,0,0,.5);
-      transform: rotate(-45deg);
-    }
-    .pin::after {
-      content: "";
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: white;
-    }
-    .pin > span { transform: rotate(45deg); }
-
-    .popup-title { font-size: 16px; font-weight: 900; margin-bottom: 4px; }
-    .popup-meta { color: #adc0d5; font-size: 12px; line-height: 1.5; }
-    .popup-status { margin: 10px 0; font-weight: 900; }
-    .popup-label { display: block; margin: 10px 0 5px; color: #adc0d5; font-size: 11px; }
-    .popup-select, .popup-button {
-      width: 100%; padding: 8px; border-radius: 8px;
-      border: 1px solid rgba(255,255,255,.18); color: white; background: #17304d;
-    }
-    .popup-button { margin-top: 7px; cursor: pointer; font-weight: 750; }
-
-    .leaflet-tooltip.state-tooltip {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      background: #0d1d31;
-      box-shadow: var(--shadow);
-    }
-
-    @media (max-width: 820px) {
-      .topbar { left: 12px; right: 12px; align-items: stretch; flex-direction: column; }
-      .brand { min-width: 0; }
-      .controls { justify-content: stretch; }
-      input.control { flex: 1 1 160px; width: auto; }
-      .sidebar { top: 150px; }
-      .status-strip { right: 12px; overflow-x: auto; }
-      .metric { min-width: 80px; }
-    }
+    #outageTracker { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1100; display: flex; gap: 8px; padding: 8px; color: #fff; background: #15181b; border: 1px solid #30353b; border-radius: 16px; box-shadow: 0 5px 18px rgba(0,0,0,.45); }
+    .tracker-card { min-width: 94px; padding: 10px 12px; background: #20242a; border-radius: 11px; }
+    .tracker-label { color: #b9c0c8; font-size: 11px; }
+    .tracker-count { margin-top: 5px; font-size: 20px; font-weight: 800; }
+    #trackerRed { color: #ff5252; } #trackerYellow { color: #ffeb3b; } #trackerGreen { color: #41e66f; }
   </style>
 </head>
-<body>
-<div id="app">
+<body class="sidebar-collapsed">
   <div id="map"></div>
 
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark">O</div>
+  <aside id="sidebar" aria-label="Store outage list" aria-hidden="true">
+    <div id="sidebarHeader">
       <div>
-        <div class="brand-title">Operations Outage Map</div>
-        <div id="viewLabel" class="brand-subtitle">USA overview</div>
+        <h2>Store Outages</h2>
+        <div id="sidebarSubtitle">Loading stores...</div>
       </div>
+      <button id="collapseSidebarBtn" class="header-btn" type="button">▶</button>
     </div>
-
-    <div class="controls">
-      <input id="searchBar" class="control" type="search" placeholder="Search site, city, state, provider">
-      <select id="filterSelect" class="control" aria-label="Store filter">
+    <div class="sidebar-controls">
+      <select id="filterSelect" aria-label="Filter stores">
         <option value="all">All Stores</option>
         <option value="outages">Outages</option>
       </select>
-      <select id="mapStyleSelect" class="control" aria-label="Map style">
-        <option value="light">Light Operations</option>
-        <option value="dark">Dark Operations</option>
-        <option value="street">Standard Street</option>
-      </select>
-      <button id="storesButton" class="action-button" type="button">Stores</button>
-      <button id="usaButton" class="action-button" type="button">USA</button>
-    </div>
-  </header>
-
-  <aside id="sidebar" class="sidebar" aria-label="Stores panel">
-    <div class="sidebar-header">
-      <div>
-        <div class="sidebar-title">Stores</div>
-        <div id="sidebarCount" class="sidebar-count">0 locations</div>
-      </div>
-      <button id="closeSidebar" class="icon-button" type="button" aria-label="Close stores panel">X</button>
+      <input id="searchBar" type="search" placeholder="Search store, name, city, state...">
     </div>
     <div id="storeList"></div>
   </aside>
 
-  <div class="status-strip">
-    <div class="metric red"><div class="metric-label">Outage</div><div id="redCount" class="metric-value">0</div></div>
-    <div class="metric yellow"><div class="metric-label">Possible</div><div id="yellowCount" class="metric-value">0</div></div>
-    <div class="metric green"><div class="metric-label">No outage</div><div id="greenCount" class="metric-value">0</div></div>
-  </div>
-</div>
+  <button id="sidebarTab" type="button">STORES</button>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script>
-"use strict";
+  <section id="outageTracker" aria-label="Outage tracker">
+    <div class="tracker-card"><div class="tracker-label">Outage</div><div id="trackerRed" class="tracker-count">0</div></div>
+    <div class="tracker-card"><div class="tracker-label">Possible</div><div id="trackerYellow" class="tracker-count">0</div></div>
+    <div class="tracker-card"><div class="tracker-label">No outage</div><div id="trackerGreen" class="tracker-count">0</div></div>
+  </section>
 
-const CONFIG = {
-  sitesUrl: "data/Sites.csv",
-  outagesUrl: "outages.json",
-  usaDisplayBounds: [[24.2, -125.2], [49.7, -66.4]],
-  sidebarPadding: 390,
-  manualStorageKey: "operations-outage-map-manual-status-v4",
-  mapStyleStorageKey: "operations-outage-map-style-v2"
-};
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    "use strict";
 
-const STATE_NAMES = {
-  AL:"Alabama", AK:"Alaska", AZ:"Arizona", AR:"Arkansas", CA:"California", CO:"Colorado",
-  CT:"Connecticut", DE:"Delaware", FL:"Florida", GA:"Georgia", HI:"Hawaii", ID:"Idaho",
-  IL:"Illinois", IN:"Indiana", IA:"Iowa", KS:"Kansas", KY:"Kentucky", LA:"Louisiana",
-  ME:"Maine", MD:"Maryland", MA:"Massachusetts", MI:"Michigan", MN:"Minnesota",
-  MS:"Mississippi", MO:"Missouri", MT:"Montana", NE:"Nebraska", NV:"Nevada",
-  NH:"New Hampshire", NJ:"New Jersey", NM:"New Mexico", NY:"New York",
-  NC:"North Carolina", ND:"North Dakota", OH:"Ohio", OK:"Oklahoma", OR:"Oregon",
-  PA:"Pennsylvania", RI:"Rhode Island", SC:"South Carolina", SD:"South Dakota",
-  TN:"Tennessee", TX:"Texas", UT:"Utah", VT:"Vermont", VA:"Virginia", WA:"Washington",
-  WV:"West Virginia", WI:"Wisconsin", WY:"Wyoming", DC:"District of Columbia"
-};
-
-const STATE_CENTERS = {
-  AL:[32.806671,-86.791130], AK:[61.370716,-152.404419], AZ:[33.729759,-111.431221],
-  AR:[34.969704,-92.373123], CA:[36.116203,-119.681564], CO:[39.059811,-105.311104],
-  CT:[41.597782,-72.755371], DE:[39.318523,-75.507141], FL:[27.766279,-81.686783],
-  GA:[33.040619,-83.643074], HI:[21.094318,-157.498337], ID:[44.240459,-114.478828],
-  IL:[40.349457,-88.986137], IN:[39.849426,-86.258278], IA:[42.011539,-93.210526],
-  KS:[38.526600,-96.726486], KY:[37.668140,-84.670067], LA:[31.169546,-91.867805],
-  ME:[44.693947,-69.381927], MD:[39.063946,-76.802101], MA:[42.230171,-71.530106],
-  MI:[43.326618,-84.536095], MN:[45.694454,-93.900192], MS:[32.741646,-89.678696],
-  MO:[38.456085,-92.288368], MT:[46.921925,-110.454353], NE:[41.125370,-98.268082],
-  NV:[38.313515,-117.055374], NH:[43.452492,-71.563896], NJ:[40.298904,-74.521011],
-  NM:[34.840515,-106.248482], NY:[42.165726,-74.948051], NC:[35.630066,-79.806419],
-  ND:[47.528912,-99.784012], OH:[40.388783,-82.764915], OK:[35.565342,-96.928917],
-  OR:[44.572021,-122.070938], PA:[40.590752,-77.209755], RI:[41.680893,-71.511780],
-  SC:[33.856892,-80.945007], SD:[44.299782,-99.438828], TN:[35.747845,-86.692345],
-  TX:[31.054487,-97.563461], UT:[40.150032,-111.862434], VT:[44.045876,-72.710686],
-  VA:[37.769337,-78.169968], WA:[47.400902,-121.490494], WV:[38.491226,-80.954453],
-  WI:[44.268543,-89.616508], WY:[42.755966,-107.302490], DC:[38.9072,-77.0369]
-};
-
-const STATUS = {
-  RED: { label: "Outage", color: "#ef4444", rank: 0 },
-  YELLOW: { label: "Possible Outage", color: "#eab308", rank: 1 },
-  GREEN: { label: "No Outage", color: "#22c55e", rank: 2 }
-};
-
-const map = L.map("map", { zoomControl: true, minZoom: 3, maxZoom: 18, preferCanvas: true });
-const stateLayer = L.layerGroup().addTo(map);
-const storeLayer = L.layerGroup().addTo(map);
-const tileLayers = {
-  light: L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 20, attribution: "&copy; OpenStreetMap &copy; CARTO" }),
-  dark: L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom: 20, attribution: "&copy; OpenStreetMap &copy; CARTO" }),
-  street: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" })
-};
-
-let stores = [];
-let providerOutages = [];
-let providerStatusBySite = new Map();
-let markerBySite = new Map();
-let selectedState = "";
-let activeTileLayer = null;
-let manualStatuses = loadManualStatuses();
-
-function clean(value) {
-  if (value === null || value === undefined) return "";
-  const result = String(value).trim();
-  return ["nan", "none", "null", "undefined", "n/a"].includes(result.toLowerCase()) ? "" : result;
-}
-
-function firstValue(object, keys) {
-  for (const key of keys) {
-    const value = clean(object?.[key]);
-    if (value !== "") return value;
-  }
-  return "";
-}
-
-function stateCode(value) { return clean(value).toUpperCase(); }
-
-function keyOf(store) {
-  const raw = firstValue(store, ["Site #", "Site#", "Site Number", "SiteNumber", "Store #", "Store Number", "siteNumber", "storeNumber", "id"]);
-  if (!raw) return "";
-  const withoutDecimal = raw.replace(/\.0$/, "");
-  return /^\d+$/.test(withoutDecimal) ? withoutDecimal.padStart(4, "0") : withoutDecimal;
-}
-
-function siteName(store) {
-  return firstValue(store, ["Site Name", "SiteName", "Store Name", "StoreName", "Location Name", "name"]) || `Site ${keyOf(store)}`;
-}
-
-function latitudeOf(store) { return Number(firstValue(store, ["Latitude", "latitude", "lat", "LAT"])); }
-function longitudeOf(store) { return Number(firstValue(store, ["Longitude", "longitude", "lon", "lng", "LON", "LONG"])); }
-
-function validCoords(latitude, longitude) {
-  return Number.isFinite(latitude) && Number.isFinite(longitude) &&
-    latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180 &&
-    !(latitude === 0 && longitude === 0);
-}
-
-function normalizeStatus(value) {
-  const status = clean(value).toUpperCase();
-  if (["RED", "OUTAGE", "ACTIVE OUTAGE", "1"].includes(status)) return "RED";
-  if (["YELLOW", "POSSIBLE", "POSSIBLE OUTAGE", "WARNING", "2"].includes(status)) return "YELLOW";
-  return "GREEN";
-}
-
-function loadManualStatuses() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CONFIG.manualStorageKey) || "{}");
-    return saved && typeof saved === "object" ? saved : {};
-  } catch (error) {
-    console.warn("Manual status storage could not be read.", error);
-    return {};
-  }
-}
-
-function saveManualStatuses() {
-  localStorage.setItem(CONFIG.manualStorageKey, JSON.stringify(manualStatuses));
-}
-
-function providerStatus(store) {
-  return providerStatusBySite.get(keyOf(store)) || "GREEN";
-}
-
-function getAcknowledgement(store) {
-  const siteKey = keyOf(store);
-  const automatic = providerStatus(store);
-  const manual = manualStatuses[siteKey];
-
-  if (manual && manual.providerStatusAtChange !== automatic) {
-    delete manualStatuses[siteKey];
-    saveManualStatuses();
-  }
-
-  const current = manualStatuses[siteKey];
-  return {
-    status: current?.status || automatic,
-    providerStatus: automatic,
-    source: current ? "Manual" : "Provider automatic",
-    changedAt: current?.changedAt || ""
-  };
-}
-
-function setManualStatus(siteKey, status) {
-  const store = stores.find(item => keyOf(item) === siteKey);
-  if (!store) return;
-
-  if (status === "AUTO") {
-    delete manualStatuses[siteKey];
-  } else {
-    manualStatuses[siteKey] = {
-      status: normalizeStatus(status),
-      providerStatusAtChange: providerStatus(store),
-      changedAt: new Date().toISOString()
+    const CONFIG = {
+      sitesFile: "data/Sites.csv",
+      outagesFile: "outages.json",
+      acknowledgementKey: "storeOutageAcknowledgements_v1",
+      markerZoom: 13,
+      usaBounds: [[18, -140], [56, -52]],
+      usaDisplayBounds: [[24.5, -124.8], [49.3, -67]]
     };
-  }
 
-  saveManualStatuses();
-  refreshCurrentView();
+    const STATE_CENTERS = {
+      AL:[32.8067,-86.7911],AK:[64.2008,-152.4937],AZ:[34.0489,-111.0937],AR:[34.9697,-92.3731],
+      CA:[36.7783,-119.4179],CO:[39.5501,-105.7821],CT:[41.6032,-73.0877],DE:[38.9108,-75.5277],
+      FL:[27.6648,-81.5158],GA:[32.1656,-82.9001],HI:[19.8968,-155.5828],ID:[44.0682,-114.7420],
+      IL:[40.6331,-89.3985],IN:[40.2672,-86.1349],IA:[41.878,-93.0977],KS:[39.0119,-98.4842],
+      KY:[37.8393,-84.27],LA:[30.9843,-91.9623],ME:[45.2538,-69.4455],MD:[39.0458,-76.6413],
+      MA:[42.4072,-71.3824],MI:[44.3148,-85.6024],MN:[46.7296,-94.6859],MS:[32.3547,-89.3985],
+      MO:[37.9643,-91.8318],MT:[46.8797,-110.3626],NE:[41.4925,-99.9018],NV:[38.8026,-116.4194],
+      NH:[43.1939,-71.5724],NJ:[40.0583,-74.4057],NM:[34.5199,-105.8701],NY:[43,-75],
+      NC:[35.7596,-79.0193],ND:[47.5515,-101.002],OH:[40.4173,-82.9071],OK:[35.0078,-97.0929],
+      OR:[43.8041,-120.5542],PA:[41.2033,-77.1945],RI:[41.5801,-71.4774],SC:[33.8361,-80.8987],
+      SD:[43.9695,-99.9018],TN:[35.5175,-86.5804],TX:[31.9686,-99.9018],UT:[39.321,-111.0937],
+      VT:[44.5588,-72.5778],VA:[37.4316,-78.6569],WA:[47.4009,-120.7401],WV:[38.5976,-80.4549],
+      WI:[43.7844,-88.7879],WY:[43.076,-107.2903],DC:[38.9072,-77.0369]
+    };
 
-  const marker = markerBySite.get(siteKey);
-  if (marker) marker.openPopup();
-}
+    const STATE_NAMES = {
+      AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",
+      FL:"Florida",GA:"Georgia",HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",
+      LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",
+      MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",NC:"North Carolina",
+      ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",SD:"South Dakota",
+      TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming",DC:"District of Columbia"
+    };
 
-window.setManualStatus = setManualStatus;
-
-function statusLabel(store) { return STATUS[getAcknowledgement(store).status].label; }
-function statusColor(store) { return STATUS[getAcknowledgement(store).status].color; }
-
-function markerPriority(store) {
-  const status = getAcknowledgement(store).status;
-  if (status === "RED") return 30000;
-  if (status === "YELLOW") return 20000;
-  return 1000;
-}
-
-function storeIcon(store) {
-  return L.divIcon({
-    className: "store-marker",
-    html: `<div class="pin" style="--pin-color:${statusColor(store)}"><span></span></div>`,
-    iconSize: [28, 34], iconAnchor: [14, 31], popupAnchor: [0, -29]
-  });
-}
-
-function stateIcon(code, items) {
-  const counts = countStatuses(items);
-  const status = counts.RED > 0 ? "RED" : counts.YELLOW > 0 ? "YELLOW" : "GREEN";
-  const impacted = counts.RED + counts.YELLOW;
-  const size = Math.max(42, Math.min(68, 40 + Math.sqrt(items.length) * 3));
-  return L.divIcon({
-    className: "state-circle",
-    html: `<div class="state-bubble" style="--size:${size}px;--bubble-color:${STATUS[status].color}"><div>${code}<small>${impacted}</small></div></div>`,
-    iconSize: [size, size], iconAnchor: [size / 2, size / 2]
-  });
-}
-
-function addressOf(store) {
-  return [
-    firstValue(store, ["Location", "Address", "Street", "Address 1"]),
-    firstValue(store, ["City"]),
-    stateCode(store.State),
-    firstValue(store, ["ZIP", "Zip", "Zip Code", "Postal Code"])
-  ].filter(Boolean).join(", ");
-}
-
-function escapeHtml(value) {
-  return clean(value).replace(/[&<>'"]/g, chr => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;"}[chr]));
-}
-
-function popupHTML(store) {
-  const acknowledgement = getAcknowledgement(store);
-  const siteKey = keyOf(store);
-  const provider = firstValue(store, ["Vendor Name", "Vendor", "Provider", "Utility"]);
-  const changedText = acknowledgement.changedAt ? new Date(acknowledgement.changedAt).toLocaleString() : "";
-
-  return `
-    <div class="popup-title">${escapeHtml(siteName(store))}</div>
-    <div class="popup-meta">
-      Site ${escapeHtml(siteKey)}<br>
-      ${escapeHtml(addressOf(store))}<br>
-      ${provider ? `Provider: ${escapeHtml(provider)}<br>` : ""}
-      Source: ${escapeHtml(acknowledgement.source)}<br>
-      Provider status: ${escapeHtml(STATUS[acknowledgement.providerStatus].label)}
-      ${changedText ? `<br>Manual change: ${escapeHtml(changedText)}` : ""}
-    </div>
-    <div class="popup-status" style="color:${STATUS[acknowledgement.status].color}">${escapeHtml(STATUS[acknowledgement.status].label)}</div>
-    <label class="popup-label" for="manual-${escapeHtml(siteKey)}">Manual status</label>
-    <select id="manual-${escapeHtml(siteKey)}" class="popup-select" onchange="setManualStatus('${escapeHtml(siteKey)}', this.value)">
-      <option value="AUTO" ${acknowledgement.source !== "Manual" ? "selected" : ""}>Use provider automatic</option>
-      <option value="RED" ${acknowledgement.source === "Manual" && acknowledgement.status === "RED" ? "selected" : ""}>Outage</option>
-      <option value="YELLOW" ${acknowledgement.source === "Manual" && acknowledgement.status === "YELLOW" ? "selected" : ""}>Possible Outage</option>
-      <option value="GREEN" ${acknowledgement.source === "Manual" && acknowledgement.status === "GREEN" ? "selected" : ""}>No Outage</option>
-    </select>
-    <button class="popup-button" type="button" onclick="setManualStatus('${escapeHtml(siteKey)}','AUTO')">Return to provider status</button>
-  `;
-}
-
-function countStatuses(items) {
-  const counts = { RED: 0, YELLOW: 0, GREEN: 0 };
-  items.forEach(store => counts[getAcknowledgement(store).status]++);
-  return counts;
-}
-
-function updateMetrics() {
-  const counts = countStatuses(stores);
-  document.getElementById("redCount").textContent = counts.RED;
-  document.getElementById("yellowCount").textContent = counts.YELLOW;
-  document.getElementById("greenCount").textContent = counts.GREEN;
-}
-
-function setSidebar(closed) {
-  document.getElementById("sidebar").classList.toggle("open", !closed);
-  window.setTimeout(() => map.invalidateSize({ animate: false }), 230);
-}
-
-function sortedStores(items) {
-  return [...items].sort((a, b) => {
-    const rankDifference = STATUS[getAcknowledgement(a).status].rank - STATUS[getAcknowledgement(b).status].rank;
-    if (rankDifference !== 0) return rankDifference;
-    return keyOf(a).localeCompare(keyOf(b), undefined, { numeric: true });
-  });
-}
-
-function filteredStores() {
-  const filter = document.getElementById("filterSelect").value;
-  const query = document.getElementById("searchBar").value.trim().toLowerCase();
-
-  return stores.filter(store => {
-    const status = getAcknowledgement(store).status;
-    const statusMatch = filter === "all" || (filter === "outages" && ["RED", "YELLOW"].includes(status));
-
-    // Outages is intentionally nationwide. All Stores respects the selected state.
-    const stateMatch = filter === "outages" || !selectedState || stateCode(store.State) === selectedState;
-
-    const searchable = [keyOf(store), siteName(store), addressOf(store), stateCode(store.State),
-      firstValue(store, ["Vendor Name", "Vendor", "Provider", "Utility"]), STATUS[status].label]
-      .join(" ").toLowerCase();
-
-    return statusMatch && stateMatch && (!query || searchable.includes(query));
-  });
-}
-
-function renderStoreList() {
-  const items = sortedStores(filteredStores());
-  const list = document.getElementById("storeList");
-  document.getElementById("sidebarCount").textContent = `${items.length} location${items.length === 1 ? "" : "s"}`;
-
-  if (!items.length) {
-    list.innerHTML = `<div class="empty-state">No stores match the current view.</div>`;
-    return;
-  }
-
-  list.innerHTML = items.map(store => `
-    <button class="store-card" type="button" style="--status-color:${statusColor(store)}" data-site="${escapeHtml(keyOf(store))}">
-      <div class="store-card-title">${escapeHtml(siteName(store))}</div>
-      <div class="store-card-meta">Site ${escapeHtml(keyOf(store))}<br>${escapeHtml(addressOf(store))}</div>
-      <div class="store-card-status">${escapeHtml(statusLabel(store))}</div>
-    </button>
-  `).join("");
-
-  list.querySelectorAll(".store-card").forEach(card => {
-    card.addEventListener("click", () => focusStore(card.dataset.site));
-  });
-}
-
-function focusStore(siteKey) {
-  const store = stores.find(item => keyOf(item) === siteKey);
-  if (!store) return;
-  const latitude = latitudeOf(store);
-  const longitude = longitudeOf(store);
-  if (!validCoords(latitude, longitude)) return;
-
-  let marker = markerBySite.get(siteKey);
-  if (!marker) {
-    renderStoreMarkers([store], false);
-    marker = markerBySite.get(siteKey);
-  }
-
-  map.setView([latitude, longitude], Math.max(map.getZoom(), 11), { animate: true });
-  marker?.setZIndexOffset(60000);
-  marker?.openPopup();
-}
-
-function makeStoreMarker(store) {
-  const latitude = latitudeOf(store);
-  const longitude = longitudeOf(store);
-  if (!validCoords(latitude, longitude)) return null;
-
-  const marker = L.marker([latitude, longitude], {
-    icon: storeIcon(store),
-    zIndexOffset: markerPriority(store),
-    riseOnHover: true,
-    riseOffset: 50000
-  });
-
-  marker.bindPopup(() => popupHTML(store), { maxWidth: 360, autoPan: true, keepInView: true });
-  markerBySite.set(keyOf(store), marker);
-  return marker;
-}
-
-function renderStoreMarkers(items, fitView = true, nationwide = false) {
-  if (!map.hasLayer(storeLayer)) storeLayer.addTo(map);
-  storeLayer.clearLayers();
-  markerBySite.clear();
-  const bounds = [];
-
-  sortedStores(items).reverse().forEach(store => {
-    const marker = makeStoreMarker(store);
-    if (!marker) return;
-    marker.addTo(storeLayer);
-    bounds.push(marker.getLatLng());
-  });
-
-  if (!fitView || !bounds.length) return;
-
-  window.setTimeout(() => {
-    map.invalidateSize({ animate: false, pan: false });
-    if (bounds.length === 1) {
-      map.setView(bounds[0], nationwide ? 6 : 10, { animate: true });
-    } else {
-      map.fitBounds(L.latLngBounds(bounds), {
-        paddingTopLeft: [45, 95],
-        paddingBottomRight: [document.getElementById("sidebar").classList.contains("open") ? CONFIG.sidebarPadding : 45, 45],
-        maxZoom: nationwide ? 7 : 10,
-        animate: true
-      });
-    }
-  }, 300);
-}
-
-function createStateMarkers() {
-  stateLayer.clearLayers();
-  const grouped = new Map();
-
-  stores.forEach(store => {
-    const code = stateCode(store.State);
-    if (!code) return;
-    if (!grouped.has(code)) grouped.set(code, []);
-    grouped.get(code).push(store);
-  });
-
-  grouped.forEach((items, code) => {
-    const valid = items.filter(store => validCoords(latitudeOf(store), longitudeOf(store)));
-    let center = STATE_CENTERS[code];
-    if (valid.length) {
-      center = [
-        valid.reduce((sum, store) => sum + latitudeOf(store), 0) / valid.length,
-        valid.reduce((sum, store) => sum + longitudeOf(store), 0) / valid.length
-      ];
-    }
-    if (!center) return;
-
-    const counts = countStatuses(items);
-    const marker = L.marker(center, {
-      icon: stateIcon(code, items),
-      zIndexOffset: counts.RED ? 30000 : counts.YELLOW ? 20000 : 1000
-    });
-
-    marker.bindTooltip(
-      `<strong>${escapeHtml(STATE_NAMES[code] || code)}</strong><br>${items.length} stores<br>${counts.RED + counts.YELLOW} impacted<br><small>Click to view stores</small>`,
-      { direction: "top", offset: [0, -20], className: "state-tooltip" }
+    const STATE_ALIASES = Object.fromEntries(
+      Object.entries(STATE_NAMES).flatMap(([code, name]) => [[code, code], [name.toUpperCase(), code]])
     );
 
-    marker.on("click", event => {
-      if (event?.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
-      selectState(code);
-    });
+    const STATUS_COLORS = {
+      RED: "#e53935",
+      YELLOW: "#fbc02d",
+      GREEN: "#2e7d32"
+    };
 
-    marker.addTo(stateLayer);
-  });
-}
+    let map;
+    let stateLayer;
+    let storeLayer;
+    let stores = [];
+    let selectedState = "";
 
-function selectState(code) {
-  const normalizedCode = stateCode(code);
-  if (!normalizedCode) return;
+    function text(value) {
+      if (value === null || value === undefined) return "";
+      const result = String(value).trim();
+      return ["nan", "null", "undefined", "n/a"].includes(result.toLowerCase()) ? "" : result;
+    }
 
-  selectedState = normalizedCode;
-  map.closePopup();
-  if (map.hasLayer(stateLayer)) map.removeLayer(stateLayer);
-  if (!map.hasLayer(storeLayer)) storeLayer.addTo(map);
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
 
-  document.getElementById("filterSelect").value = "all";
-  document.getElementById("searchBar").value = "";
+    function siteNumber(value) {
+      const raw = text(value).replace(/\.0$/, "");
+      return /^\d+$/.test(raw) ? raw.padStart(4, "0") : raw;
+    }
 
-  const stateStores = stores.filter(store => stateCode(store.State) === normalizedCode);
-  document.getElementById("viewLabel").textContent = `${STATE_NAMES[normalizedCode] || normalizedCode} store view`;
+    function keyOf(store) {
+      return siteNumber(store["Site #"] ?? store.Site ?? store.site ?? store.storeNumber);
+    }
 
-  setSidebar(false);
-  renderStoreList();
-  renderStoreMarkers(stateStores, true, false);
-}
+    function stateCode(value) {
+      const raw = text(value).toUpperCase().replaceAll(".", "");
+      return STATE_ALIASES[raw] || raw;
+    }
 
-function resetUSA() {
-  selectedState = "";
-  map.closePopup();
-  storeLayer.clearLayers();
-  markerBySite.clear();
-  document.getElementById("searchBar").value = "";
-  document.getElementById("filterSelect").value = "all";
-  document.getElementById("viewLabel").textContent = "USA overview";
-  setSidebar(true);
-  createStateMarkers();
-  if (!map.hasLayer(stateLayer)) stateLayer.addTo(map);
-  renderStoreList();
-  map.fitBounds(CONFIG.usaDisplayBounds, { padding: [2, 2], animate: false });
-}
+    function validCoords(lat, lon) {
+      return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    }
 
-function showNationwideOutages() {
-  selectedState = "";
-  map.closePopup();
-  if (map.hasLayer(stateLayer)) map.removeLayer(stateLayer);
-  document.getElementById("viewLabel").textContent = "Nationwide outages";
-  setSidebar(false);
-  const items = sortedStores(filteredStores());
-  renderStoreList();
-  renderStoreMarkers(items, true, true);
-}
+    function outageColor(value) {
+      const status = text(value).toLowerCase();
+      if (["red", "outage", "active", "down", "confirmed_outage"].includes(status)) return "red";
+      if (["yellow", "possible", "warning", "possible_outage_nearby"].includes(status)) return "yellow";
+      return "gray";
+    }
 
-function refreshCurrentView() {
-  updateMetrics();
-  createStateMarkers();
+    function baseStatus(store) {
+      const currentColor = outageColor(store.color);
+      return currentColor === "red" ? "RED" : currentColor === "yellow" ? "YELLOW" : "GREEN";
+    }
 
-  const filter = document.getElementById("filterSelect").value;
-  if (filter === "outages") {
-    showNationwideOutages();
-  } else if (selectedState) {
-    selectState(selectedState);
-  } else {
-    resetUSA();
-  }
-}
+    function parseCSVRows(raw) {
+      const rows = [];
+      let row = [], field = "", quoted = false;
+      for (let index = 0; index < raw.length; index++) {
+        const character = raw[index];
+        const next = raw[index + 1];
+        if (character === '"') {
+          if (quoted && next === '"') { field += '"'; index++; }
+          else quoted = !quoted;
+        } else if (character === "," && !quoted) {
+          row.push(field); field = "";
+        } else if ((character === "\n" || character === "\r") && !quoted) {
+          if (character === "\r" && next === "\n") index++;
+          row.push(field); field = "";
+          if (row.some(item => String(item).trim())) rows.push(row);
+          row = [];
+        } else {
+          field += character;
+        }
+      }
+      row.push(field);
+      if (row.some(item => String(item).trim())) rows.push(row);
+      return rows;
+    }
 
-function changeMapStyle(style) {
-  if (!tileLayers[style]) style = "light";
-  if (activeTileLayer) map.removeLayer(activeTileLayer);
-  activeTileLayer = tileLayers[style].addTo(map);
-  document.getElementById("mapStyleSelect").value = style;
-  localStorage.setItem(CONFIG.mapStyleStorageKey, style);
-}
+    function parseCSV(raw) {
+      const rows = parseCSVRows(raw);
+      if (rows.length < 2) return [];
+      const headers = rows[0].map(header => text(header).replace(/^\uFEFF/, ""));
+      return rows.slice(1).map(columns => {
+        const store = {};
+        headers.forEach((header, index) => store[header] = text(columns[index]));
+        store.Latitude = Number.parseFloat(text(store.Latitude).replaceAll("'", ""));
+        store.Longitude = Number.parseFloat(text(store.Longitude).replaceAll("'", ""));
+        store["Site #"] = keyOf(store);
+        return store;
+      });
+    }
 
-function buildProviderLookup(outages) {
-  providerStatusBySite.clear();
-  outages.forEach(item => {
-    const key = keyOf(item);
-    if (!key) return;
-    const status = normalizeStatus(firstValue(item, ["status", "Status", "color", "Color", "outageStatus", "effectiveStatus"]));
-    const existing = providerStatusBySite.get(key);
-    if (!existing || STATUS[status].rank < STATUS[existing].rank) providerStatusBySite.set(key, status);
-  });
-}
+    function mergeData(siteRows, outageRows) {
+      const lookup = new Map();
+      outageRows.forEach(outage => {
+        const key = siteNumber(outage.storeNumber ?? outage["Site #"] ?? outage.site ?? outage.Site);
+        if (key) lookup.set(key, outage);
+      });
 
-async function loadJson(url) {
-  try {
-    const response = await fetch(`${url}?v=${Date.now()}`, { cache: "no-store" });
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    const value = await response.json();
-    return Array.isArray(value) ? value : Array.isArray(value.outages) ? value.outages : Array.isArray(value.sites) ? value.sites : [];
-  } catch (error) {
-    console.warn(`Could not load ${url}.`, error);
-    return [];
-  }
-}
+      return siteRows.map(store => {
+        const outage = lookup.get(keyOf(store));
+        const providerLink = text(store["Vendor Link"] ?? store.VendorLink ?? store.providerWebsite);
+        if (!outage) return { ...store, color: "gray", status: "No outage", outageId: "none", providerWebsite: providerLink };
+        return {
+          ...store,
+          color: outageColor(outage.color ?? outage.statusColor ?? outage.severity ?? outage.status),
+          status: text(outage.status) || "Outage reported",
+          outageId: text(outage.outage_id ?? outage.outageId ?? outage.provider_outage_id) || "current",
+          etr: text(outage.etr ?? outage.eta ?? outage.estimatedRestoration),
+          lastUpdated: text(outage.lastUpdated ?? outage.updatedAt ?? outage.timestamp),
+          providerWebsite: text(outage.providerWebsite) || providerLink
+        };
+      });
+    }
 
-async function loadSites() {
-  const response = await fetch(`${CONFIG.sitesUrl}?v=${Date.now()}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Sites CSV failed: ${response.status} ${response.statusText}`);
-  const csvText = await response.text();
-  const result = Papa.parse(csvText, { header: true, skipEmptyLines: true, dynamicTyping: false });
-  if (result.errors.length) console.warn("CSV parse warnings:", result.errors);
-  return result.data.filter(store => keyOf(store));
-}
+    function ackStorage() {
+      try {
+        return JSON.parse(localStorage.getItem(CONFIG.acknowledgementKey) || "{}");
+      } catch {
+        return {};
+      }
+    }
 
-function attachEvents() {
-  document.getElementById("usaButton").addEventListener("click", resetUSA);
-  document.getElementById("storesButton").addEventListener("click", () => {
-    document.getElementById("sidebar").classList.toggle("open");
-    window.setTimeout(() => map.invalidateSize({ animate: false }), 230);
-  });
-  document.getElementById("closeSidebar").addEventListener("click", () => setSidebar(true));
-  document.getElementById("searchBar").addEventListener("input", renderStoreList);
-  document.getElementById("mapStyleSelect").addEventListener("change", event => changeMapStyle(event.target.value));
-  document.getElementById("filterSelect").addEventListener("change", event => {
-    if (event.target.value === "outages") showNationwideOutages();
-    else if (selectedState) selectState(selectedState);
-    else resetUSA();
-  });
-}
+    function ackKey(store) {
+      return `site_${keyOf(store)}`;
+    }
 
-async function initialize() {
-  changeMapStyle(localStorage.getItem(CONFIG.mapStyleStorageKey) || "light");
-  map.fitBounds(CONFIG.usaDisplayBounds, { padding: [2, 2], animate: false });
-  attachEvents();
+    function automaticStatus(store) {
+      return baseStatus(store);
+    }
 
-  try {
-    const [siteData, outageData] = await Promise.all([loadSites(), loadJson(CONFIG.outagesUrl)]);
-    stores = siteData;
-    providerOutages = outageData;
-    buildProviderLookup(providerOutages);
-    updateMetrics();
-    createStateMarkers();
-    renderStoreList();
-    console.log(`Loaded ${stores.length} stores and ${providerOutages.length} outage records.`);
-  } catch (error) {
-    console.error(error);
-    document.getElementById("storeList").innerHTML = `<div class="empty-state">The store file could not be loaded. Confirm data/Sites.csv exists and open this page through GitHub Pages or a web server.</div>`;
-  }
-}
+    function getStoredOverride(store) {
+      const all = ackStorage();
+      const saved = all[ackKey(store)];
+      return saved || null;
+    }
 
-initialize();
-</script>
+    function providerChangedSinceOverride(store, saved) {
+      return Boolean(
+        saved &&
+        saved.automaticStatusAtOverride !== automaticStatus(store)
+      );
+    }
+
+    function getAcknowledgement(store) {
+      const saved = getStoredOverride(store);
+
+      if (
+        saved &&
+        ["RED", "YELLOW", "GREEN"].includes(saved.status) &&
+        !providerChangedSinceOverride(store, saved)
+      ) {
+        return saved;
+      }
+
+      return {
+        status: automaticStatus(store),
+        source: "automatic",
+        acknowledgedBy: "",
+        acknowledgedAt: "",
+        automaticStatusAtOverride: automaticStatus(store),
+        priorManualStatus: saved ? saved.status : "",
+        providerSupersededManual: providerChangedSinceOverride(store, saved)
+      };
+    }
+
+    function isManualStatus(store) {
+      const saved = getStoredOverride(store);
+      return Boolean(saved && !providerChangedSinceOverride(store, saved));
+    }
+
+    function hasManualHistory(store) {
+      return Boolean(getStoredOverride(store));
+    }
+
+    function saveAcknowledgement(store, status, acknowledgedBy = "Manual override") {
+      if (!["RED", "YELLOW", "GREEN"].includes(status)) return;
+
+      const all = ackStorage();
+      all[ackKey(store)] = {
+        status,
+        source: "manual",
+        acknowledgedBy,
+        acknowledgedAt: new Date().toISOString(),
+        automaticStatusAtOverride: automaticStatus(store)
+      };
+
+      localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
+      renderAll();
+      focusStore(store);
+    }
+
+    window.changeOutageStatus = function(site, outageId, status) {
+      const store = stores.find(item =>
+        keyOf(item) === site && (text(item.outageId) || "current") === outageId
+      );
+
+      if (store) saveAcknowledgement(store, status);
+    };
+
+    window.clearStatusOverride = function(site, outageId) {
+      const store = stores.find(item =>
+        keyOf(item) === site && (text(item.outageId) || "current") === outageId
+      );
+
+      if (!store) return;
+
+      const all = ackStorage();
+      delete all[ackKey(store)];
+      localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
+      renderAll();
+      focusStore(store);
+    };
+
+    function statusColor(store) {
+      const ack = getAcknowledgement(store);
+      return STATUS_COLORS[ack.status] || "#707780";
+    }
+
+    function statusLabel(store) {
+      const value = getAcknowledgement(store).status;
+      return value === "RED" ? "Outage" : value === "YELLOW" ? "Possible Outage" : "No Outage";
+    }
+
+    function acknowledgementHTML(store) {
+      const acknowledgement = getAcknowledgement(store);
+      const saved = getStoredOverride(store);
+      const automatic = automaticStatus(store);
+      const site = escapeHtml(keyOf(store));
+      const outageId = escapeHtml(text(store.outageId) || "current");
+      const manualActive = isManualStatus(store);
+      const manualHistory = hasManualHistory(store);
+
+      const labelFor = status =>
+        status === "RED" ? "Outage" :
+        status === "YELLOW" ? "Possible Outage" :
+        "No Outage";
+
+      const options = ["RED", "YELLOW", "GREEN"].map(status =>
+        `<option value="${status}" ${status === acknowledgement.status ? "selected" : ""}>${labelFor(status)}</option>`
+      ).join("");
+
+      const changed = saved && saved.acknowledgedAt
+        ? new Date(saved.acknowledgedAt).toLocaleString()
+        : "";
+
+      const historyText = manualHistory
+        ? `<br>Last manual selection: <b>${labelFor(saved.status)}</b>${changed ? ` on ${escapeHtml(changed)}` : ""}`
+        : "";
+
+      const syncText = acknowledgement.providerSupersededManual
+        ? `<br><b>Provider changed to ${labelFor(automatic)}. Automatic status is now active.</b>`
+        : manualActive
+          ? `<br>Manual override remains active until the provider status changes.`
+          : "";
+
+      return `<div class="ack-section">
+        <label><b>Store status</b></label>
+        <select class="status-select" style="background:${statusColor(store)}" onchange="changeOutageStatus('${site}','${outageId}',this.value)">${options}</select>
+        <div class="ack-meta">
+          Current source: <b>${manualActive ? "Manual" : "Provider automatic"}</b><br>
+          Provider status: <b>${labelFor(automatic)}</b>
+          ${historyText}
+          ${syncText}
+        </div>
+        ${manualHistory ? `<button class="clear-override-button" type="button" onclick="clearStatusOverride('${site}','${outageId}')">Clear manual status history</button>` : ""}
+      </div>`;
+    }
+
+    function markerPriority(store) {
+      const status = getAcknowledgement(store).status;
+
+      if (status === "RED") return 30000;
+      if (status === "YELLOW") return 20000;
+      return 1000;
+    }
+
+    function initializeMap() {
+      if (typeof L === "undefined") throw new Error("Leaflet did not load. Check CDN access.");
+      map = L.map("map", {
+        minZoom: 4, maxZoom: 18, zoomSnap: .5, zoomDelta: .5,
+        maxBounds: CONFIG.usaBounds, maxBoundsViscosity: 1, worldCopyJump: false
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        minZoom: 4, maxZoom: 18, noWrap: true,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      stateLayer = L.layerGroup().addTo(map);
+      storeLayer = L.layerGroup().addTo(map);
+      addLegend();
+      addUSAControl();
+      addMapStyleControl();
+      map.on("zoom zoomend", updateStateMarkerSize);
+      resetUSA();
+    }
+
+    function resetUSA() {
+      selectedState = "";
+      map.closePopup();
+      storeLayer.clearLayers();
+      if (!map.hasLayer(stateLayer)) stateLayer.addTo(map);
+      document.getElementById("searchBar").value = "";
+      document.getElementById("filterSelect").value = "all";
+      renderStoreList();
+      setSidebar(true);
+      map.invalidateSize({ animate: false, pan: false });
+      map.fitBounds(CONFIG.usaDisplayBounds, { padding: [2, 2], animate: false });
+      map.setZoom(Math.min(map.getMaxZoom(), map.getZoom() + 0.5), { animate: false });
+      updateStateMarkerSize();
+    }
+
+    function addUSAControl() {
+      const Control = L.Control.extend({
+        options: { position: "topleft" },
+        onAdd() {
+          const button = L.DomUtil.create("button", "usa-map-control");
+          button.type = "button";
+          button.textContent = "USA";
+          L.DomEvent.disableClickPropagation(button);
+          button.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            resetUSA();
+          });
+          return button;
+        }
+      });
+      map.addControl(new Control());
+    }
+
+    function addLegend() {
+      const legend = L.control({ position: "bottomleft" });
+      legend.onAdd = () => {
+        const element = L.DomUtil.create("div", "map-legend");
+        element.innerHTML = `
+          <b>Store Status</b>
+          <div class="legend-row"><span class="legend-dot" style="background:#e53935"></span>Outage</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#fbc02d"></span>Possible Outage</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#2e7d32"></span>No Outage</div>`;
+        return element;
+      };
+      legend.addTo(map);
+    }
+
+    function applyMapStyle(style) {
+      const filters = {
+        light: "grayscale(.82) saturate(.35) brightness(1.10) contrast(.84)",
+        dark: "grayscale(1) invert(.92) brightness(.72) contrast(.88) hue-rotate(180deg)",
+        street: "none"
+      };
+      map.getPane("tilePane").style.filter = filters[style] || filters.dark;
+      document.getElementById("map").style.background = style === "dark" ? "#080b0e" : "#edf0f2";
+      localStorage.setItem("storeOutageMapStyle_v1", style);
+    }
+
+    function addMapStyleControl() {
+      const StyleControl = L.Control.extend({
+        options: { position: "topright" },
+        onAdd() {
+          const container = L.DomUtil.create("div", "map-legend");
+          container.innerHTML = `<b>Map Style</b><br><select aria-label="Choose map style" style="width:100%;padding:7px;color:#fff;background:#252b32;border:1px solid #4a535d;border-radius:5px"><option value="light">Light Operations</option><option value="dark">Dark Operations</option><option value="street">Standard Street</option></select>`;
+          L.DomEvent.disableClickPropagation(container);
+          L.DomEvent.disableScrollPropagation(container);
+          const select = container.querySelector("select");
+          select.value = localStorage.getItem("storeOutageMapStyle_v1") || "dark";
+          setTimeout(() => applyMapStyle(select.value), 0);
+          select.addEventListener("change", () => applyMapStyle(select.value));
+          return container;
+        }
+      });
+      map.addControl(new StyleControl());
+    }
+
+    function updateStateMarkerSize() {
+      if (!map) return;
+      const steps = Math.max(0, (map.getZoom() - 4.5) / 0.5);
+      const scale = Math.min(1.30, 0.58 + steps * 0.09);
+      document.documentElement.style.setProperty("--state-marker-scale", scale.toFixed(2));
+    }
+
+    function groupedStates() {
+      const groups = new Map();
+      stores.forEach(store => {
+        const code = stateCode(store.State);
+        if (!code) return;
+        if (!groups.has(code)) groups.set(code, []);
+        groups.get(code).push(store);
+      });
+      return groups;
+    }
+
+    function createStateMarkers() {
+      stateLayer.clearLayers();
+      groupedStates().forEach((items, code) => {
+        const center = STATE_CENTERS[code];
+        if (!center) return;
+        const redCount = items.filter(item => getAcknowledgement(item).status === "RED").length;
+        const yellowCount = items.filter(item => getAcknowledgement(item).status === "YELLOW").length;
+        const active = redCount + yellowCount;
+        const color = redCount > 0 ? "#e53935" : yellowCount > 0 ? "#fbc02d" : "#2e7d32";
+        const icon = L.divIcon({
+          className: "state-marker-wrapper",
+          html: `<div class="state-badge" style="background:${color}"><span class="state-code">${escapeHtml(code)}</span><span class="state-count">${items.length}</span></div>`,
+          iconSize: [50, 50], iconAnchor: [25, 25]
+        });
+        const statePriority =
+          redCount > 0
+            ? 30000
+            : yellowCount > 0
+              ? 20000
+              : 1000;
+
+        const marker = L.marker(center, {
+          icon,
+          zIndexOffset: statePriority,
+          riseOnHover: true,
+          riseOffset: 50000
+        }).addTo(stateLayer);
+        marker.bindTooltip(
+          `<b>${escapeHtml(STATE_NAMES[code] || code)}</b><br>${items.length} stores<br>${active} impacted<br>Click to view stores`,
+          {
+            direction: "top",
+            offset: [0, -22],
+            opacity: 0.96,
+            sticky: true
+          }
+        );
+
+        marker.on("click", () => {
+          selectState(code, items);
+        });
+      });
+    }
+
+    function selectState(code, items) {
+      selectedState = stateCode(code);
+      map.stop();
+      map.closePopup();
+
+      const stateCenter = STATE_CENTERS[selectedState];
+
+      document.getElementById("searchBar").value = "";
+      document.getElementById("filterSelect").value = "all";
+
+      if (map.hasLayer(stateLayer)) {
+        map.removeLayer(stateLayer);
+      }
+
+      /* Ensure the individual-store layer is attached to the map. */
+      if (!map.hasLayer(storeLayer)) {
+        storeLayer.addTo(map);
+      }
+
+      storeLayer.clearLayers();
+      setSidebar(false);
+      renderStoreList();
+
+      const bounds = L.latLngBounds([]);
+      const stateMarkers = [];
+
+      items.forEach(store => {
+        const latitude = parseFloat(store.Latitude);
+        const longitude = parseFloat(store.Longitude);
+
+        if (!validCoords(latitude, longitude)) {
+          console.warn(
+            `Store ${keyOf(store)} skipped because coordinates are invalid:`,
+            store.Latitude,
+            store.Longitude
+          );
+          return;
+        }
+
+        const marker = L.marker(
+          [latitude, longitude],
+          {
+            icon: createStoreIcon(store),
+            zIndexOffset: markerPriority(store),
+            riseOnHover: true,
+            riseOffset: 50000,
+            keyboard: true
+          }
+        );
+
+        marker.bindPopup(
+          popupHTML(store),
+          {
+            maxWidth: 360,
+            autoPan: true,
+            keepInView: true
+          }
+        );
+
+        marker.addTo(storeLayer);
+        stateMarkers.push(marker);
+        bounds.extend(marker.getLatLng());
+      });
+
+      console.log(
+        `State ${selectedState}: ${items.length} stores, ${stateMarkers.length} visible markers`
+      );
+
+      /* First move directly to the state so markers are visible immediately. */
+      if (stateCenter) {
+        map.setView(stateCenter, 6, { animate: false });
+      }
+
+      /* Recalculate after the sidebar transition and center all store markers. */
+      window.setTimeout(() => {
+        map.invalidateSize({ animate: false, pan: false });
+
+        if (bounds.isValid() && stateMarkers.length > 1) {
+          map.fitBounds(bounds, {
+            paddingTopLeft: [55, 70],
+            paddingBottomRight: [55, 70],
+            maxZoom: 9,
+            animate: true,
+            duration: 0.4
+          });
+
+          /* Shift the fitted markers left so the open sidebar does not cover them. */
+          if (window.innerWidth > 800) {
+            window.setTimeout(() => {
+              map.panBy([180, 0], { animate: true, duration: 0.25 });
+            }, 420);
+          }
+        } else if (bounds.isValid() && stateMarkers.length === 1) {
+          map.setView(bounds.getCenter(), 9, { animate: true });
+
+          if (window.innerWidth > 800) {
+            map.panBy([180, 0], { animate: true, duration: 0.25 });
+          }
+        } else if (stateCenter) {
+          map.setView(stateCenter, 6, { animate: true });
+        }
+      }, 320);
+    }
+
+    function popupHTML(store) {
+      const provider = text(store["Vendor Name"] ?? store.Vendor ?? store.Provider);
+      const url = text(store.providerWebsite ?? store["Vendor Link"]);
+      return `<div class="store-popup" style="border-left:5px solid ${statusColor(store)};padding-left:10px">
+        <div class="store-popup-title">Store ${escapeHtml(keyOf(store))}${text(store["Site Name"]) ? ` - ${escapeHtml(store["Site Name"])}` : ""}</div>
+        <div>${escapeHtml(text(store.Location ?? store.Address) || "N/A")}</div>
+        <div>${escapeHtml(text(store.City))}, ${escapeHtml(text(store.State))} ${escapeHtml(text(store.Zip))}</div>
+        <div class="store-popup-row"><b>Status:</b> ${escapeHtml(statusLabel(store))}</div>
+        <div class="store-popup-row"><b>Provider:</b> ${escapeHtml(provider || "N/A")}</div>
+        <div class="store-popup-row"><b>ETA:</b> ${escapeHtml(text(store.etr) || "N/A")}</div>
+        ${url ? `<div class="store-popup-row"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open Provider Outage Map</a></div>` : ""}
+        ${acknowledgementHTML(store)}
+      </div>`;
+    }
+
+    function filteredStores() {
+      const filter = document.getElementById("filterSelect").value;
+      const query = document.getElementById("searchBar").value.trim().toLowerCase();
+
+      const filtered = stores.filter(store => {
+        const effectiveStatus = getAcknowledgement(store).status;
+
+        const statusMatch =
+          filter === "all" ||
+          (
+            filter === "outages" &&
+            ["RED", "YELLOW"].includes(effectiveStatus)
+          );
+
+        const stateMatch =
+          !selectedState ||
+          stateCode(store.State) === selectedState;
+
+        const searchableText = [
+          keyOf(store),
+          store["Site Name"],
+          store.SiteName,
+          store.Location,
+          store.Address,
+          store.City,
+          store.State,
+          store["Vendor Name"],
+          store.Vendor,
+          store.Provider,
+          statusLabel(store)
+        ]
+          .map(text)
+          .join(" ")
+          .toLowerCase();
+
+        const searchMatch =
+          !query || searchableText.includes(query);
+
+        return statusMatch && stateMatch && searchMatch;
+      });
+
+      const statusOrder = {
+        RED: 0,
+        YELLOW: 1,
+        GREEN: 2
+      };
+
+      return filtered.sort((firstStore, secondStore) => {
+        const firstStatus = getAcknowledgement(firstStore).status;
+        const secondStatus = getAcknowledgement(secondStore).status;
+
+        const statusDifference =
+          (statusOrder[firstStatus] ?? 99) -
+          (statusOrder[secondStatus] ?? 99);
+
+        if (statusDifference !== 0) {
+          return statusDifference;
+        }
+
+        return keyOf(firstStore).localeCompare(
+          keyOf(secondStore),
+          undefined,
+          {
+            numeric: true,
+            sensitivity: "base"
+          }
+        );
+      });
+    }
+
+    function focusStore(store) {
+      const lat = Number(store.Latitude), lon = Number(store.Longitude);
+      if (!validCoords(lat, lon)) {
+        alert(`Store ${keyOf(store)} does not have valid coordinates.`);
+        return;
+      }
+      storeLayer.clearLayers();
+      const icon = L.divIcon({ className: "store-marker-wrapper", html: `<div class="store-pin" style="background:${statusColor(store)}"></div>`, iconSize: [34,40], iconAnchor: [17,34] });
+      const marker = L.marker([lat, lon], {
+        icon,
+        zIndexOffset: 60000,
+        riseOnHover: true,
+        riseOffset: 70000
+      }).bindPopup(
+        popupHTML(store),
+        { maxWidth: 360 }
+      ).addTo(storeLayer);
+      map.setView([lat, lon], CONFIG.markerZoom);
+      marker.openPopup();
+    }
+
+    function renderStoreList() {
+      const items = filteredStores();
+      const list = document.getElementById("storeList");
+      document.getElementById("sidebarSubtitle").textContent = `${items.length} ${selectedState ? STATE_NAMES[selectedState] || selectedState : "stores"}`;
+      list.innerHTML = "";
+      if (!items.length) {
+        list.innerHTML = '<div class="no-stores">No matching stores.</div>';
+        return;
+      }
+      items.forEach(store => {
+        const item = document.createElement("div");
+        item.className = "store-item";
+        const url = text(store.providerWebsite ?? store["Vendor Link"]);
+        item.innerHTML = `<div class="store-title">Store ${escapeHtml(keyOf(store))}${text(store["Site Name"]) ? ` - ${escapeHtml(store["Site Name"])}` : ""}</div>
+          <div class="store-address">${escapeHtml(text(store.Location) || "N/A")}<br>${escapeHtml(text(store.City))}, ${escapeHtml(text(store.State))}</div>
+          <div class="store-status"><span class="status-dot" style="background:${statusColor(store)}"></span>${escapeHtml(statusLabel(store))}</div>
+          ${url ? `<a class="provider-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Provider Outage Map</a>` : ""}`;
+        item.addEventListener("click", event => { if (!event.target.closest("a")) focusStore(store); });
+        list.appendChild(item);
+      });
+    }
+
+    function renderDashboard() {
+      document.getElementById("trackerRed").textContent = stores.filter(store => getAcknowledgement(store).status === "RED").length;
+      document.getElementById("trackerYellow").textContent = stores.filter(store => getAcknowledgement(store).status === "YELLOW").length;
+      document.getElementById("trackerGreen").textContent = stores.filter(store => getAcknowledgement(store).status === "GREEN").length;
+    }
+
+    function renderAll() {
+      createStateMarkers();
+      renderStoreList();
+      renderDashboard();
+      if (selectedState) {
+        const items = stores.filter(store => stateCode(store.State) === selectedState);
+        selectState(selectedState, items);
+      }
+    }
+
+    function setSidebar(collapsed) {
+      document.body.classList.toggle("sidebar-collapsed", collapsed);
+      document.getElementById("sidebar").setAttribute("aria-hidden", String(collapsed));
+      setTimeout(() => map && map.invalidateSize(), 300);
+    }
+
+    function wireUI() {
+      document.getElementById("sidebarTab").addEventListener("click", () => setSidebar(!document.body.classList.contains("sidebar-collapsed")));
+      document.getElementById("collapseSidebarBtn").addEventListener("click", () => setSidebar(true));
+      document.getElementById("filterSelect").addEventListener("change", renderStoreList);
+      document.getElementById("searchBar").addEventListener("input", renderStoreList);
+      window.addEventListener("resize", () => map && map.invalidateSize());
+    }
+
+    async function fetchText(path) {
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+      return response.text();
+    }
+
+    async function fetchJSON(path) {
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+      return response.json();
+    }
+
+    function showError(error) {
+      console.error(error);
+      document.getElementById("sidebarSubtitle").textContent = "Application load failed";
+      document.getElementById("storeList").innerHTML = `<div class="no-stores"><b>Unable to load the map.</b><br><br>${escapeHtml(error.message || error)}<br><br>Confirm that data/Sites.csv and outages.json exist and that Leaflet CDN access is available.</div>`;
+      setSidebar(false);
+    }
+
+    async function start() {
+      try {
+        wireUI();
+        initializeMap();
+        const [sitesText, outageData] = await Promise.all([
+          fetchText(CONFIG.sitesFile),
+          fetchJSON(CONFIG.outagesFile).catch(() => [])
+        ]);
+        const outageRows = Array.isArray(outageData) ? outageData : Array.isArray(outageData.outages) ? outageData.outages : [];
+        stores = mergeData(parseCSV(sitesText), outageRows);
+        renderAll();
+        resetUSA();
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", start);
+  </script>
 </body>
 </html>
