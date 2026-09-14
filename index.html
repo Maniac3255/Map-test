@@ -3,466 +3,552 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>Store Outage Map</title>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  >
 
   <style>
     :root {
       --sidebar-width: 360px;
-      --dashboard-height: 320px;
-      --transition-speed: 0.28s;
+      --dashboard-height: 300px;
       --panel: #15181b;
       --panel-border: #30353b;
       --input: #20242a;
       --red: #e53935;
+      --orange: #fb8c00;
       --yellow: #fbc02d;
+      --blue: #2196f3;
+      --dark-red: #8b0000;
+      --green: #2e7d32;
       --gray: #707780;
+      --transition-speed: 0.28s;
     }
 
-    * { box-sizing: border-box; }
-    html, body { width:100%; height:100%; margin:0; overflow:hidden; font-family:Arial,Helvetica,sans-serif; background:#101214; }
-    button, input, select { font:inherit; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #080b0e;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
 
     /* MAP */
+
     #map {
-      position:absolute;
-      inset:0 var(--sidebar-width) 0 0;
-      z-index:1;
-      background:#dce3e8;
-      transition:right var(--transition-speed) ease, bottom var(--transition-speed) ease;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: #080b0e;
     }
-    body.sidebar-collapsed #map { right:0; }
-    body.dashboard-open #map { bottom:var(--dashboard-height); }
 
-    /* RIGHT PANEL */
+    /* SIDEBAR */
+
     #sidebar {
-      position:absolute;
-      top:0;
-      right:0;
-      bottom:0;
-      width:var(--sidebar-width);
-      padding:14px;
-      overflow-y:auto;
-      overflow-x:hidden;
-      color:#fff;
-      background:var(--panel);
-      border-left:1px solid var(--panel-border);
-      z-index:1000;
-      transform:translateX(0);
-      transition:transform var(--transition-speed) ease;
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: var(--sidebar-width);
+      padding: 14px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      color: #ffffff;
+      background: var(--panel);
+      border-left: 1px solid var(--panel-border);
+      z-index: 1000;
+      transform: translateX(0);
+      transition: transform var(--transition-speed) ease;
     }
-    body.sidebar-collapsed #sidebar { transform:translateX(100%); }
 
-    #sidebarHeader { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
-    #sidebarHeader h2 { margin:0; font-size:20px; }
-    #sidebarSubtitle { margin-top:4px; color:#b9c0c8; font-size:12px; }
-    .header-actions { display:flex; gap:6px; }
-    .header-btn { padding:7px 9px; color:#fff; background:var(--input); border:1px solid #3a4149; border-radius:6px; cursor:pointer; }
-    .header-btn:hover { background:#2a2f36; }
+    body.sidebar-collapsed #sidebar {
+      transform: translateX(100%);
+    }
 
-    /* Rounded edge faces the map. The tab itself is not rotated. */
+    #sidebarHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    #sidebarHeader h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    #sidebarSubtitle {
+      margin-top: 4px;
+      color: #b9c0c8;
+      font-size: 12px;
+    }
+
+    .header-btn {
+      padding: 7px 9px;
+      color: #ffffff;
+      background: var(--input);
+      border: 1px solid #3a4149;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .header-btn:hover {
+      background: #2a2f36;
+    }
+
     #sidebarTab {
-      position:absolute;
-      top:50%;
-      right:var(--sidebar-width);
-      min-height:118px;
-      padding:12px 8px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      writing-mode:vertical-rl;
-      text-orientation:mixed;
-      transform:translateY(-50%);
-      color:#fff;
-      background:var(--panel);
-      border:1px solid var(--panel-border);
-      border-right:0;
-      border-radius:10px 0 0 10px;
-      box-shadow:-2px 2px 8px rgba(0,0,0,.28);
-      cursor:pointer;
-      user-select:none;
-      z-index:1001;
-      font-size:13px;
-      font-weight:700;
-      letter-spacing:1px;
-      transition:right var(--transition-speed) ease, background var(--transition-speed) ease;
+      position: absolute;
+      top: 50%;
+      right: var(--sidebar-width);
+      min-height: 118px;
+      padding: 12px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: translateY(-50%);
+      color: #ffffff;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-right: 0;
+      border-radius: 10px 0 0 10px;
+      box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.28);
+      cursor: pointer;
+      user-select: none;
+      z-index: 1001;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      transition:
+        right var(--transition-speed) ease,
+        background var(--transition-speed) ease;
     }
-    #sidebarTab:hover { background:#22272d; }
-    body.sidebar-collapsed #sidebarTab { right:0; }
 
-    .sidebar-controls { position:sticky; top:-14px; z-index:5; padding:2px 0 10px; background:var(--panel); }
-    #filterSelect, #searchBar { width:100%; margin:0 0 9px; padding:10px; color:#fff; background:var(--input); border:1px solid #3a4149; border-radius:6px; outline:none; }
-    #filterSelect:focus, #searchBar:focus { border-color:#1976d2; box-shadow:0 0 0 2px rgba(25,118,210,.18); }
-    #storeList { padding-bottom:28px; }
-    .store-item { margin:0; padding:12px 4px 12px 12px; color:#fff; background:transparent; border:0; border-bottom:1px solid var(--panel-border); cursor:pointer; }
-    .store-item:hover { background:rgba(255,255,255,.05); }
-    .store-item:focus-visible { outline:2px solid #1976d2; outline-offset:-2px; }
-    .store-title { margin-bottom:5px; font-size:14px; font-weight:700; }
-    .store-address { margin-bottom:5px; color:#b9c0c8; font-size:12px; line-height:1.4; }
-    .store-status { display:flex; align-items:center; gap:7px; margin-top:6px; font-size:12px; font-weight:700; }
-    .status-dot { width:10px; height:10px; display:inline-block; border:1px solid rgba(255,255,255,.4); border-radius:50%; }
-    .provider-link { display:inline-block; margin-top:7px; color:#64b5f6; font-size:12px; text-decoration:none; }
-    .provider-link:hover { text-decoration:underline; }
-    .no-stores { padding:30px 12px; color:#b9c0c8; text-align:center; font-size:13px; }
+    #sidebarTab:hover {
+      background: #22272d;
+    }
+
+    body.sidebar-collapsed #sidebarTab {
+      right: 0;
+    }
+
+    .sidebar-controls {
+      position: sticky;
+      top: -14px;
+      z-index: 5;
+      padding: 2px 0 10px;
+      background: var(--panel);
+    }
+
+    #filterSelect,
+    #searchBar {
+      width: 100%;
+      margin-bottom: 9px;
+      padding: 10px;
+      color: #ffffff;
+      background: var(--input);
+      border: 1px solid #3a4149;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    #filterSelect:focus,
+    #searchBar:focus {
+      border-color: #1976d2;
+      box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.18);
+    }
+
+    #storeList {
+      padding-bottom: 28px;
+    }
+
+    .store-item {
+      padding: 12px;
+      color: #ffffff;
+      background: transparent;
+      border-bottom: 1px solid var(--panel-border);
+      cursor: pointer;
+    }
+
+    .store-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .store-title {
+      margin-bottom: 5px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .store-address {
+      margin-bottom: 5px;
+      color: #b9c0c8;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .store-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      display: inline-block;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      border-radius: 50%;
+    }
+
+    .provider-link {
+      display: inline-block;
+      margin-top: 7px;
+      color: #64b5f6;
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    .provider-link:hover {
+      text-decoration: underline;
+    }
+
+    .no-stores {
+      padding: 30px 12px;
+      color: #b9c0c8;
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.5;
+    }
 
     /* DASHBOARD */
+
     #bottomDashboard {
-      position:fixed;
-      right:var(--sidebar-width);
-      bottom:0;
-      left:0;
-      height:var(--dashboard-height);
-      color:#111;
-      background:#f4f6f8;
-      border-top:1px solid #c8ced5;
-      box-shadow:0 -4px 14px rgba(0,0,0,.22);
-      z-index:999;
-      transform:translateY(100%);
-      transition:transform var(--transition-speed) ease, right var(--transition-speed) ease;
+      position: fixed;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: var(--dashboard-height);
+      color: #111111;
+      background: #f4f6f8;
+      border-top: 1px solid #c8ced5;
+      box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.22);
+      z-index: 999;
+      transform: translateY(100%);
+      transition: transform var(--transition-speed) ease;
     }
-    body.sidebar-collapsed #bottomDashboard { right:0; }
-    #bottomDashboard.expanded { transform:translateY(0); }
+
+    #bottomDashboard.expanded {
+      transform: translateY(0);
+    }
+
     #dashboardHandle {
-      position:absolute;
-      top:-38px;
-      left:50%;
-      width:180px;
-      height:38px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:7px;
-      color:#fff;
-      background:var(--panel);
-      border:1px solid var(--panel-border);
-      border-bottom:0;
-      border-radius:12px 12px 0 0;
-      transform:translateX(-50%);
-      cursor:pointer;
-      font-size:13px;
-      font-weight:700;
+      position: absolute;
+      top: -38px;
+      left: 50%;
+      width: 180px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      color: #ffffff;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-bottom: 0;
+      border-radius: 12px 12px 0 0;
+      transform: translateX(-50%);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
     }
-    #dashboardContent { height:100%; padding:14px; overflow:auto; }
-    .dash-cards { display:grid; grid-template-columns:repeat(4,minmax(145px,1fr)); gap:10px; margin-bottom:14px; }
-    .dash-card, .dashboard-section { background:#fff; border:1px solid #d8dde3; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.06); }
-    .dash-card { min-height:82px; padding:12px; }
-    .dash-card h3 { margin:0 0 8px; color:#4c545d; font-size:12px; text-transform:uppercase; }
-    .dash-card p { margin:0; font-size:24px; font-weight:700; }
-    .dashboard-grid { display:grid; grid-template-columns:minmax(180px,.75fr) minmax(180px,.75fr) minmax(300px,1.5fr); gap:14px; }
-    .dashboard-section { padding:12px; }
-    .dashboard-section h3 { margin:0 0 10px; font-size:14px; }
-    .dash-list-item { padding:7px 2px; border-bottom:1px solid #edf0f2; font-size:13px; cursor:pointer; }
-    .dash-list-item:hover { color:#1976d2; }
-    .chart-wrapper { position:relative; height:175px; }
 
-    /* USA RESET MAP CONTROL */
+    #dashboardContent {
+      height: 100%;
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .dash-cards {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(135px, 1fr));
+      gap: 10px;
+    }
+
+    .dash-card {
+      padding: 12px;
+      background: #ffffff;
+      border: 1px solid #d8dde3;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    }
+
+    .dash-card h3 {
+      margin: 0 0 8px;
+      color: #4c545d;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .dash-card p {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    /* LEAFLET CONTROLS */
+
     .usa-map-control {
-      width:34px;
-      height:34px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:0;
-      color:#111;
-      background:#fff;
-      border:2px solid rgba(0,0,0,.2);
-      border-radius:4px;
-      background-clip:padding-box;
-      box-shadow:0 1px 5px rgba(0,0,0,.35);
-      cursor:pointer;
-      user-select:none;
-      font-size:10px;
-      font-weight:800;
-      line-height:1;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      color: #ffffff;
+      background: #171b20;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 800;
     }
-    .usa-map-control:hover { background:#f4f4f4; }
-    .usa-map-control:focus-visible { outline:3px solid rgba(25,118,210,.45); outline-offset:2px; }
 
-    /* LEGEND */
-    .map-legend { min-width:150px; padding:10px 12px; color:#fff; background:rgba(21,24,27,.95); border:1px solid #333941; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.32); font-size:12px; line-height:1.8; }
-    .map-legend-title { margin-bottom:4px; font-size:13px; font-weight:700; }
-    .legend-row { display:flex; align-items:center; gap:8px; }
-    .legend-dot { width:11px; height:11px; display:inline-block; border:1px solid rgba(255,255,255,.55); border-radius:50%; }
+    .usa-map-control:hover {
+      background: #282e35;
+    }
 
-    /* STATE SUMMARY MARKERS */
-    .state-marker-wrapper {
-      overflow:visible !important;
-      background:transparent;
-      border:0;
+    .map-legend {
+      min-width: 165px;
+      padding: 10px 12px;
+      color: #ffffff;
+      background: rgba(21, 24, 27, 0.95);
+      border: 1px solid #333941;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+      font-size: 12px;
+      line-height: 1.8;
     }
-    .state-marker-container {
-      position:relative;
-      width:64px;
-      height:64px;
-      overflow:visible;
-    }
-    .state-marker-badge {
-      position:absolute;
-      left:7px;
-      top:7px;
-      width:50px;
-      height:50px;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      color:#fff;
-      border:3px solid #fff;
-      border-radius:50%;
-      box-shadow:0 3px 9px rgba(0,0,0,.65),0 0 0 1px rgba(0,0,0,.35);
-      cursor:pointer;
-      z-index:3;
-    }
-    .state-marker-red .state-marker-badge {
-      background:var(--red);
-      box-shadow:0 3px 9px rgba(0,0,0,.7),0 0 14px rgba(229,57,53,.95);
-    }
-    .state-marker-yellow .state-marker-badge {
-      background:#c89700;
-      box-shadow:0 3px 9px rgba(0,0,0,.7),0 0 12px rgba(251,192,45,.85);
-    }
-    .state-marker-gray .state-marker-badge { background:var(--gray); }
-    .state-code { font-size:14px; font-weight:900; line-height:1; letter-spacing:.4px; }
-    .state-count { margin-top:3px; font-size:12px; font-weight:800; line-height:1; }
-    .state-pulse-ring {
-      position:absolute;
-      left:4px;
-      top:4px;
-      width:56px;
-      height:56px;
-      border:4px solid var(--red);
-      border-radius:50%;
-      background:rgba(229,57,53,.14);
-      pointer-events:none;
-      z-index:1;
-      animation:statePulse 1.7s ease-out infinite;
-    }
-    .state-marker-yellow .state-pulse-ring {
-      border-color:var(--yellow);
-      background:rgba(251,192,45,.14);
-    }
-    @keyframes statePulse {
-      0% { transform:scale(.82); opacity:1; }
-      75% { transform:scale(1.28); opacity:.25; }
-      100% { transform:scale(1.42); opacity:0; }
-    }
-    .state-popup { min-width:205px; line-height:1.5; }
-    .state-popup-title { margin-bottom:7px; font-size:15px; font-weight:800; }
-    .state-popup-row { display:flex; justify-content:space-between; gap:16px; }
-    .state-popup-action { margin-top:8px; color:#1976d2; font-weight:700; }
 
-    /* TEMPORARY EXACT STORE MARKER */
-    .exact-store-marker-wrapper { overflow:visible !important; background:transparent; border:0; }
-    .exact-store-marker {
-      position:relative;
-      width:34px;
-      height:34px;
-      border:4px solid #fff;
-      border-radius:50% 50% 50% 0;
-      background:#1976d2;
-      box-shadow:0 3px 10px rgba(0,0,0,.8),0 0 14px rgba(25,118,210,.95);
-      transform:rotate(-45deg);
+    .map-legend-title {
+      margin-bottom: 4px;
+      font-size: 13px;
+      font-weight: 700;
     }
-    .exact-store-marker::after {
-      position:absolute;
-      left:8px;
-      top:8px;
-      width:10px;
-      height:10px;
-      background:#fff;
-      border-radius:50%;
-      content:"";
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-dot {
+      width: 11px;
+      height: 11px;
+      display: inline-block;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 50%;
+    }
+
+    /* STATE MARKERS */
+
+    .state-marker-wrapper,
+    .store-marker-wrapper {
+      overflow: visible !important;
+      background: transparent;
+      border: 0;
+    }
+
+    .state-badge {
+      width: 50px;
+      height: 50px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow:
+        0 3px 9px rgba(0, 0, 0, 0.65),
+        0 0 0 1px rgba(0, 0, 0, 0.35);
+      font-weight: 800;
+      transform: scale(var(--state-marker-scale, 0.72));
+      transition: transform 0.25s ease;
+    }
+
+    .state-code {
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .state-count {
+      margin-top: 3px;
+      font-size: 11px;
+      line-height: 1;
     }
 
     /* STORE MARKERS */
-    .store-marker-wrapper { overflow:visible !important; background:transparent; border:0; }
-    .store-marker-container { position:relative; width:58px; height:58px; overflow:visible; pointer-events:auto; }
-    .store-marker-pin {
-      position:absolute;
-      left:17px;
-      bottom:8px;
-      width:24px;
-      height:24px;
-      background:var(--gray);
-      border:3px solid #fff;
-      border-radius:50% 50% 50% 0;
-      box-shadow:0 2px 7px rgba(0,0,0,.75),0 0 0 1px rgba(0,0,0,.4);
-      transform:rotate(-45deg);
-      z-index:3;
-    }
-    .store-marker-pin::after { position:absolute; top:6px; left:6px; width:6px; height:6px; background:#fff; border-radius:50%; content:""; }
-    .marker-red { background:var(--red); }
-    .marker-yellow { background:var(--yellow); }
-    .marker-gray { background:var(--gray); }
-    .active-outage-marker .store-marker-pin::after, .possible-outage-marker .store-marker-pin::after { display:none; }
-    .marker-symbol { position:absolute; top:1px; left:2px; width:15px; height:15px; display:flex; align-items:center; justify-content:center; color:#fff; transform:rotate(45deg); font-size:13px; font-weight:900; line-height:1; z-index:4; }
-    .outage-pulse-ring {
-      position:absolute;
-      left:9px;
-      top:9px;
-      width:40px;
-      height:40px;
-      border:4px solid var(--red);
-      border-radius:50%;
-      background:rgba(229,57,53,.22);
-      box-shadow:0 0 0 3px rgba(255,255,255,.9),0 0 16px 7px rgba(229,57,53,.65);
-      pointer-events:none;
-      z-index:1;
-      animation:outagePulse 1.6s ease-out infinite;
-    }
-    .possible-outage-marker .outage-pulse-ring { border-color:var(--yellow); background:rgba(251,192,45,.23); box-shadow:0 0 0 3px rgba(255,255,255,.9),0 0 16px 7px rgba(251,192,45,.65); }
-    .active-outage-marker .store-marker-pin { left:15px; width:28px; height:28px; border-width:4px; box-shadow:0 3px 9px rgba(0,0,0,.85),0 0 12px rgba(229,57,53,.95); }
-    .active-outage-marker .marker-symbol { top:2px; left:3px; width:17px; height:17px; }
-    @keyframes outagePulse { 0%{transform:scale(.72);opacity:1} 70%{transform:scale(1.25);opacity:.35} 100%{transform:scale(1.42);opacity:0} }
-    @media (prefers-reduced-motion:reduce) { .outage-pulse-ring { animation:none; transform:scale(1); opacity:.85; } }
 
-    .store-popup { min-width:210px; line-height:1.45; }
-    .store-popup-title { margin-bottom:6px; font-weight:700; }
-    .store-popup-row { margin-top:3px; }
-
-    @media (max-width:800px) {
-      :root { --sidebar-width:min(90vw,360px); }
-      #map, #bottomDashboard { right:0; }
-      .dash-cards { grid-template-columns:repeat(2,minmax(120px,1fr)); }
-      .dashboard-grid { grid-template-columns:1fr; }
-    }
-    @media (max-height:600px) { :root { --dashboard-height:270px; } }
-  
-    /* DARK OPERATIONS BASEMAP STYLE */
-    #map,
-    body.sidebar-collapsed #map,
-    body.dashboard-open #map,
-    body.sidebar-collapsed.dashboard-open #map {
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      background:#080b0e;
+    .store-pin {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      border: 3px solid #ffffff;
+      border-radius: 50% 50% 50% 0;
+      box-shadow:
+        0 3px 9px rgba(0, 0, 0, 0.75),
+        0 0 10px rgba(255, 255, 255, 0.15);
+      transform: rotate(-45deg);
     }
 
-    #bottomDashboard,
-    body.sidebar-collapsed #bottomDashboard { right:0; }
+    .store-pin::after {
+      position: absolute;
+      left: 7px;
+      top: 7px;
+      width: 8px;
+      height: 8px;
+      background: #ffffff;
+      border-radius: 50%;
+      content: "";
+    }
 
-    /* SWITCHABLE BASEMAP APPEARANCE */
+    .store-popup {
+      min-width: 250px;
+      line-height: 1.45;
+    }
+
+    .store-popup-title {
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .store-popup-row {
+      margin-top: 4px;
+    }
+
+    /* ACKNOWLEDGEMENT */
+
+    .ack-section {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #3b424a;
+    }
+
+    .ack-button,
+    .status-select {
+      width: 100%;
+      padding: 8px;
+      color: #ffffff;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .ack-button {
+      background: var(--orange);
+    }
+
+    .ack-button:hover {
+      background: #ff9e24;
+    }
+
+    .status-select {
+      margin-top: 5px;
+    }
+
+    .ack-meta {
+      margin-top: 7px;
+      color: #b9c0c8;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    /* DARK MAP */
+
     .leaflet-tile-pane {
-      transition:filter .28s ease;
+      filter:
+        grayscale(1)
+        invert(0.92)
+        brightness(0.72)
+        contrast(0.88)
+        hue-rotate(180deg);
     }
-
-    #map.map-style-street .leaflet-tile-pane {
-      filter:none;
-    }
-
-    #map.map-style-light .leaflet-tile-pane {
-      filter:grayscale(.82) saturate(.35) brightness(1.10) contrast(.84);
-    }
-
-    #map.map-style-dark .leaflet-tile-pane {
-      filter:grayscale(1) invert(.92) brightness(.72) contrast(.88) hue-rotate(180deg);
-    }
-
-    .leaflet-tile { transition:opacity .2s ease; }
-
-    .map-style-control {
-      min-width:168px;
-      padding:9px 10px;
-      color:#fff;
-      background:rgba(23,27,32,.96);
-      border:1px solid #3b424a;
-      border-radius:7px;
-      box-shadow:0 2px 9px rgba(0,0,0,.42);
-    }
-
-    .map-style-control label {
-      display:block;
-      margin-bottom:5px;
-      color:#cbd2d9;
-      font-size:11px;
-      font-weight:800;
-      letter-spacing:.45px;
-      text-transform:uppercase;
-    }
-
-    .map-style-control select {
-      width:100%;
-      padding:7px 28px 7px 8px;
-      color:#fff;
-      background:#252b32;
-      border:1px solid #4a535d;
-      border-radius:5px;
-      cursor:pointer;
-      outline:none;
-      font-size:12px;
-      font-weight:700;
-    }
-
-    .map-style-control select:focus {
-      border-color:#64b5f6;
-      box-shadow:0 0 0 2px rgba(100,181,246,.22);
-    }
-
-    .leaflet-control-zoom a,
-    .usa-map-control,
-    .leaflet-control-layers {
-      color:#fff;
-      background:#171b20;
-      border-color:#3b424a;
-    }
-    .leaflet-control-zoom a:hover,
-    .usa-map-control:hover { color:#fff; background:#282e35; }
-
-    .leaflet-control-attribution {
-      color:#b9c1c9;
-      background:rgba(10,12,15,.88) !important;
-    }
-    .leaflet-control-attribution a,
-    .leaflet-popup-content a { color:#64b5f6; }
 
     .leaflet-popup-content-wrapper,
-    .leaflet-popup-tip { color:#fff; background:#171b20; }
-    .leaflet-popup-content-wrapper {
-      border:1px solid #3b424a;
-      box-shadow:0 4px 18px rgba(0,0,0,.72);
+    .leaflet-popup-tip {
+      color: #ffffff;
+      background: #171b20;
     }
-    .leaflet-popup-close-button { color:#fff !important; }
-    .leaflet-popup-close-button:hover { color:#64b5f6 !important; }
 
-    .state-marker-container {
-      transform-origin:center center;
-      transform:scale(var(--state-marker-scale,.58));
-      transition:transform .35s cubic-bezier(.22,1,.36,1);
-      will-change:transform;
+    .leaflet-popup-content-wrapper {
+      border: 1px solid #3b424a;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.72);
     }
-    .state-marker-badge {
-      border-color:#fff;
-      box-shadow:0 3px 10px rgba(0,0,0,.88),0 0 0 1px rgba(255,255,255,.32);
+
+    .leaflet-popup-content a {
+      color: #64b5f6;
     }
-    .state-marker-gray .state-marker-badge { background:#626c76; }
-    .state-marker-red .state-marker-badge {
-      background:var(--red);
-      box-shadow:0 3px 10px rgba(0,0,0,.9),0 0 16px rgba(229,57,53,1);
+
+    .leaflet-popup-close-button {
+      color: #ffffff !important;
     }
-    .state-marker-yellow .state-marker-badge {
-      background:#c89700;
-      box-shadow:0 3px 10px rgba(0,0,0,.9),0 0 15px rgba(251,192,45,.95);
+
+    @media (max-width: 800px) {
+      :root {
+        --sidebar-width: min(90vw, 360px);
+      }
+
+      .dash-cards {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
     }
-    @media (prefers-reduced-motion:reduce) {
-      .state-marker-container { transition:none; }
-    }
-</style>
+  </style>
 </head>
+
 <body class="sidebar-collapsed">
   <div id="map"></div>
 
-  <aside id="sidebar" aria-label="Store outage list" aria-hidden="true">
+  <aside
+    id="sidebar"
+    aria-label="Store outage list"
+    aria-hidden="true"
+  >
     <div id="sidebarHeader">
       <div>
         <h2>Store Outages</h2>
         <div id="sidebarSubtitle">Loading stores...</div>
       </div>
-      <div class="header-actions">
-        <button id="collapseSidebarBtn" class="header-btn" type="button" aria-label="Collapse store panel">&#9654;</button>
-      </div>
+
+      <button
+        id="collapseSidebarBtn"
+        class="header-btn"
+        type="button"
+        aria-label="Collapse store panel"
+      >
+        ▶
+      </button>
     </div>
 
     <div class="sidebar-controls">
@@ -472,657 +558,2031 @@
         <option value="possible">Possible Outages Only</option>
         <option value="normal">Normal Stores Only</option>
       </select>
-      <input id="searchBar" type="search" placeholder="Search store, name, city, state..." autocomplete="off">
+
+      <input
+        id="searchBar"
+        type="search"
+        placeholder="Search store, name, city, state..."
+        autocomplete="off"
+      >
     </div>
+
     <div id="storeList"></div>
   </aside>
 
-  <button id="sidebarTab" type="button" aria-expanded="false">STORES</button>
+  <button
+    id="sidebarTab"
+    type="button"
+    aria-expanded="false"
+  >
+    STORES
+  </button>
 
-  <section id="bottomDashboard" aria-label="Outage dashboard">
-    <button id="dashboardHandle" type="button" aria-expanded="false">
-      <span id="dashboardArrow">&#9650;</span><span>Dashboard</span>
+  <section
+    id="bottomDashboard"
+    aria-label="Outage dashboard"
+  >
+    <button
+      id="dashboardHandle"
+      type="button"
+      aria-expanded="false"
+    >
+      <span id="dashboardArrow">▲</span>
+      <span>Dashboard</span>
     </button>
+
     <div id="dashboardContent"></div>
   </section>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin=""
+  ></script>
 
   <script>
     "use strict";
 
     const CONFIG = {
-      sitesFile:"Sites.csv",
-      outagesFile:"outages.json",
-      snapshotKey:"storeOutageSnapshots_v3",
-      mapStyleKey:"storeOutageMapStyle_v1",
-      snapshotRetentionHours:48,
-      snapshotMinimumIntervalMinutes:15,
-      transitionMs:280,
-      markerZoom:13,
-      usaBounds:[[18.0,-140.0],[56.0,-52.0]],
-      usaDisplayBounds:[[24.5,-124.8],[49.3,-67.0]]
+      sitesFile: "data/Sites.csv",
+      outagesFile: "outages.json",
+      acknowledgementKey: "storeOutageAcknowledgements_v1",
+      markerZoom: 13,
+      usaBounds: [
+        [18, -140],
+        [56, -52]
+      ],
+      usaDisplayBounds: [
+        [24.5, -124.8],
+        [49.3, -67]
+      ]
     };
 
     const STATE_CENTERS = {
-      AL:[32.8067,-86.7911], AK:[64.2008,-152.4937], AZ:[34.0489,-111.0937], AR:[34.9697,-92.3731],
-      CA:[36.7783,-119.4179], CO:[39.5501,-105.7821], CT:[41.6032,-73.0877], DE:[38.9108,-75.5277],
-      FL:[27.6648,-81.5158], GA:[32.1656,-82.9001], HI:[19.8968,-155.5828], ID:[44.0682,-114.7420],
-      IL:[40.6331,-89.3985], IN:[40.2672,-86.1349], IA:[41.8780,-93.0977], KS:[39.0119,-98.4842],
-      KY:[37.8393,-84.2700], LA:[30.9843,-91.9623], ME:[45.2538,-69.4455], MD:[39.0458,-76.6413],
-      MA:[42.4072,-71.3824], MI:[44.3148,-85.6024], MN:[46.7296,-94.6859], MS:[32.3547,-89.3985],
-      MO:[37.9643,-91.8318], MT:[46.8797,-110.3626], NE:[41.4925,-99.9018], NV:[38.8026,-116.4194],
-      NH:[43.1939,-71.5724], NJ:[40.0583,-74.4057], NM:[34.5199,-105.8701], NY:[43.0000,-75.0000],
-      NC:[35.7596,-79.0193], ND:[47.5515,-101.0020], OH:[40.4173,-82.9071], OK:[35.0078,-97.0929],
-      OR:[43.8041,-120.5542], PA:[41.2033,-77.1945], RI:[41.5801,-71.4774], SC:[33.8361,-80.8987],
-      SD:[43.9695,-99.9018], TN:[35.5175,-86.5804], TX:[31.9686,-99.9018], UT:[39.3210,-111.0937],
-      VT:[44.5588,-72.5778], VA:[37.4316,-78.6569], WA:[47.4009,-120.7401], WV:[38.5976,-80.4549],
-      WI:[43.7844,-88.7879], WY:[43.0760,-107.2903], DC:[38.9072,-77.0369]
+      AL: [32.8067, -86.7911],
+      AK: [64.2008, -152.4937],
+      AZ: [34.0489, -111.0937],
+      AR: [34.9697, -92.3731],
+      CA: [36.7783, -119.4179],
+      CO: [39.5501, -105.7821],
+      CT: [41.6032, -73.0877],
+      DE: [38.9108, -75.5277],
+      FL: [27.6648, -81.5158],
+      GA: [32.1656, -82.9001],
+      HI: [19.8968, -155.5828],
+      ID: [44.0682, -114.7420],
+      IL: [40.6331, -89.3985],
+      IN: [40.2672, -86.1349],
+      IA: [41.8780, -93.0977],
+      KS: [39.0119, -98.4842],
+      KY: [37.8393, -84.2700],
+      LA: [30.9843, -91.9623],
+      ME: [45.2538, -69.4455],
+      MD: [39.0458, -76.6413],
+      MA: [42.4072, -71.3824],
+      MI: [44.3148, -85.6024],
+      MN: [46.7296, -94.6859],
+      MS: [32.3547, -89.3985],
+      MO: [37.9643, -91.8318],
+      MT: [46.8797, -110.3626],
+      NE: [41.4925, -99.9018],
+      NV: [38.8026, -116.4194],
+      NH: [43.1939, -71.5724],
+      NJ: [40.0583, -74.4057],
+      NM: [34.5199, -105.8701],
+      NY: [43.0000, -75.0000],
+      NC: [35.7596, -79.0193],
+      ND: [47.5515, -101.0020],
+      OH: [40.4173, -82.9071],
+      OK: [35.0078, -97.0929],
+      OR: [43.8041, -120.5542],
+      PA: [41.2033, -77.1945],
+      RI: [41.5801, -71.4774],
+      SC: [33.8361, -80.8987],
+      SD: [43.9695, -99.9018],
+      TN: [35.5175, -86.5804],
+      TX: [31.9686, -99.9018],
+      UT: [39.3210, -111.0937],
+      VT: [44.5588, -72.5778],
+      VA: [37.4316, -78.6569],
+      WA: [47.4009, -120.7401],
+      WV: [38.5976, -80.4549],
+      WI: [43.7844, -88.7879],
+      WY: [43.0760, -107.2903],
+      DC: [38.9072, -77.0369]
     };
 
     const STATE_NAMES = {
-      AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",
-      FL:"Florida",GA:"Georgia",HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",
-      LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",
-      MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",
-      NC:"North Carolina",ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",
-      SC:"South Carolina",SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",
-      WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming",DC:"District of Columbia"
+      AL: "Alabama",
+      AK: "Alaska",
+      AZ: "Arizona",
+      AR: "Arkansas",
+      CA: "California",
+      CO: "Colorado",
+      CT: "Connecticut",
+      DE: "Delaware",
+      FL: "Florida",
+      GA: "Georgia",
+      HI: "Hawaii",
+      ID: "Idaho",
+      IL: "Illinois",
+      IN: "Indiana",
+      IA: "Iowa",
+      KS: "Kansas",
+      KY: "Kentucky",
+      LA: "Louisiana",
+      ME: "Maine",
+      MD: "Maryland",
+      MA: "Massachusetts",
+      MI: "Michigan",
+      MN: "Minnesota",
+      MS: "Mississippi",
+      MO: "Missouri",
+      MT: "Montana",
+      NE: "Nebraska",
+      NV: "Nevada",
+      NH: "New Hampshire",
+      NJ: "New Jersey",
+      NM: "New Mexico",
+      NY: "New York",
+      NC: "North Carolina",
+      ND: "North Dakota",
+      OH: "Ohio",
+      OK: "Oklahoma",
+      OR: "Oregon",
+      PA: "Pennsylvania",
+      RI: "Rhode Island",
+      SC: "South Carolina",
+      SD: "South Dakota",
+      TN: "Tennessee",
+      TX: "Texas",
+      UT: "Utah",
+      VT: "Vermont",
+      VA: "Virginia",
+      WA: "Washington",
+      WV: "West Virginia",
+      WI: "Wisconsin",
+      WY: "Wyoming",
+      DC: "District of Columbia"
     };
 
     const STATE_ALIASES = Object.fromEntries(
-      Object.entries(STATE_NAMES).flatMap(([code,name]) => [[code,code],[name.toUpperCase(),code]])
+      Object.entries(STATE_NAMES).flatMap(
+        ([code, name]) => [
+          [code, code],
+          [name.toUpperCase(), code]
+        ]
+      )
     );
 
-    let map=null;
-    let stateLayer=null;
-    let exactStoreLayer=null;
-    let stores=[];
-    let stateMarkers=new Map();
-    let stateSummaries=new Map();
-    let selectedState="";
-    let exactStoreMarker=null;
-    let trendChart=null;
+    const STATUS_COLORS = {
+      NEW: "#e53935",
+      ACKNOWLEDGED: "#fb8c00",
+      INVESTIGATING: "#fbc02d",
+      DISPATCHED: "#2196f3",
+      CONFIRMED_OUTAGE: "#8b0000",
+      FALSE_POSITIVE: "#707780",
+      RESOLVED: "#2e7d32"
+    };
 
-    function text(v){
-      if(v===null||v===undefined) return "";
-      const s=String(v).trim();
-      return ["nan","null","undefined","n/a"].includes(s.toLowerCase()) ? "" : s;
+    let map = null;
+    let stateLayer = null;
+    let storeLayer = null;
+    let stores = [];
+    let selectedState = "";
+
+    function text(value) {
+      if (value === null || value === undefined) {
+        return "";
+      }
+
+      const result = String(value).trim();
+
+      if (
+        ["nan", "null", "undefined", "n/a"].includes(
+          result.toLowerCase()
+        )
+      ) {
+        return "";
+      }
+
+      return result;
     }
-    function siteNumber(v){ return text(v).replace(/\.0$/,""); }
-    function esc(v){ return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
-    function color(v){
-      const c=text(v).toLowerCase();
-      if(["red","outage","active","down"].includes(c)) return "red";
-      if(["yellow","possible","warning"].includes(c)) return "yellow";
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function siteNumber(value) {
+      const raw = text(value).replace(/\.0$/, "");
+
+      if (/^\d+$/.test(raw)) {
+        return raw.padStart(4, "0");
+      }
+
+      return raw;
+    }
+
+    function keyOf(store) {
+      return siteNumber(
+        store["Site #"] ??
+        store.Site ??
+        store.site ??
+        store.storeNumber
+      );
+    }
+
+    function stateCode(value) {
+      const raw = text(value)
+        .toUpperCase()
+        .replaceAll(".", "");
+
+      return STATE_ALIASES[raw] || raw;
+    }
+
+    function validCoords(latitude, longitude) {
+      return (
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180
+      );
+    }
+
+    function outageColor(value) {
+      const status = text(value).toLowerCase();
+
+      if (
+        [
+          "red",
+          "outage",
+          "active",
+          "down",
+          "confirmed_outage"
+        ].includes(status)
+      ) {
+        return "red";
+      }
+
+      if (
+        [
+          "yellow",
+          "possible",
+          "warning",
+          "possible_outage_nearby"
+        ].includes(status)
+      ) {
+        return "yellow";
+      }
+
       return "gray";
     }
-    function statusLabel(c){ return c==="red"?"Active Outage":c==="yellow"?"Possible Outage":"Normal"; }
-    function statusHex(c){ return c==="red"?"#e53935":c==="yellow"?"#fbc02d":"#707780"; }
-    function keyOf(s){ return siteNumber(s["Site #"]??s.Site??s.site??s.storeNumber); }
-    function stateCode(v){
-      const raw=text(v).toUpperCase().replaceAll(".","");
-      return STATE_ALIASES[raw]||raw;
-    }
-    function validCoords(lat,lon){ return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180; }
-    function storageGet(k){ try{return localStorage.getItem(k)}catch{return null} }
-    function storageSet(k,v){ try{localStorage.setItem(k,v)}catch{} }
 
-    function parseCSVRows(raw){
-      const rows=[]; let row=[],field="",quoted=false;
-      for(let i=0;i<raw.length;i++){
-        const ch=raw[i],next=raw[i+1];
-        if(ch==='"'){
-          if(quoted&&next==='"'){field+='"';i++;} else quoted=!quoted;
-        } else if(ch===","&&!quoted){ row.push(field); field=""; }
-        else if((ch==="\n"||ch==="\r")&&!quoted){
-          if(ch==="\r"&&next==="\n") i++;
-          row.push(field); field="";
-          if(row.some(x=>String(x).trim())) rows.push(row);
-          row=[];
-        } else field+=ch;
+    function parseCSVRows(raw) {
+      const rows = [];
+
+      let row = [];
+      let field = "";
+      let quoted = false;
+
+      for (let index = 0; index < raw.length; index++) {
+        const character = raw[index];
+        const nextCharacter = raw[index + 1];
+
+        if (character === '"') {
+          if (quoted && nextCharacter === '"') {
+            field += '"';
+            index++;
+          } else {
+            quoted = !quoted;
+          }
+        } else if (
+          character === "," &&
+          !quoted
+        ) {
+          row.push(field);
+          field = "";
+        } else if (
+          (
+            character === "\n" ||
+            character === "\r"
+          ) &&
+          !quoted
+        ) {
+          if (
+            character === "\r" &&
+            nextCharacter === "\n"
+          ) {
+            index++;
+          }
+
+          row.push(field);
+          field = "";
+
+          if (
+            row.some(
+              item => String(item).trim()
+            )
+          ) {
+            rows.push(row);
+          }
+
+          row = [];
+        } else {
+          field += character;
+        }
       }
-      row.push(field); if(row.some(x=>String(x).trim())) rows.push(row);
+
+      row.push(field);
+
+      if (
+        row.some(
+          item => String(item).trim()
+        )
+      ) {
+        rows.push(row);
+      }
+
       return rows;
     }
 
-    function parseCSV(raw){
-      if(!raw||!raw.trim()) return [];
-      const rows=parseCSVRows(raw); if(rows.length<2) return [];
-      const headers=rows[0].map(text);
-      return rows.slice(1).map(cols=>{
-        const s={}; headers.forEach((h,i)=>s[h]=text(cols[i]));
-        s.Latitude=Number.parseFloat(s.Latitude??s.latitude??s.Lat??s.lat);
-        s.Longitude=Number.parseFloat(s.Longitude??s.longitude??s.Lon??s.lon??s.Long??s.lng);
-        s["Site #"]=keyOf(s);
-        return s;
+    function parseCSV(raw) {
+      if (!raw || !raw.trim()) {
+        return [];
+      }
+
+      const rows = parseCSVRows(raw);
+
+      if (rows.length < 2) {
+        return [];
+      }
+
+      const headers = rows[0].map(
+        header =>
+          text(header)
+            .replace(/^\uFEFF/, "")
+            .trim()
+      );
+
+      return rows.slice(1).map(columns => {
+        const store = {};
+
+        headers.forEach((header, index) => {
+          store[header] = text(columns[index]);
+        });
+
+        store.Latitude = Number.parseFloat(
+          text(store.Latitude)
+            .replaceAll("'", "")
+            .replaceAll('"', "")
+        );
+
+        store.Longitude = Number.parseFloat(
+          text(store.Longitude)
+            .replaceAll("'", "")
+            .replaceAll('"', "")
+        );
+
+        store["Site #"] = keyOf(store);
+
+        return store;
       });
     }
 
-    function mergeData(siteRows,outageRows){
-      const lookup=new Map();
-      outageRows.forEach(o=>{ const k=siteNumber(o.storeNumber??o["Site #"]??o.site??o.Site); if(k) lookup.set(k,o); });
-      return siteRows.map(s=>{
-        const o=lookup.get(keyOf(s));
-        const vendorLink=text(s["Vendor Link"]??s.VendorLink??s.providerWebsite);
-        if(!o) return {...s,color:"gray",status:"No outage",etr:"",lastUpdated:"",providerWebsite:vendorLink};
-        return {...s,
-          color:color(o.color??o.statusColor??o.severity),
-          status:text(o.status)||"Outage reported",
-          etr:text(o.etr??o.eta??o.estimatedRestoration),
-          lastUpdated:text(o.lastUpdated??o.updatedAt??o.timestamp),
-          providerWebsite:text(o.providerWebsite)||vendorLink
+    function mergeData(siteRows, outageRows) {
+      const outageLookup = new Map();
+
+      outageRows.forEach(outage => {
+        const key = siteNumber(
+          outage.storeNumber ??
+          outage["Site #"] ??
+          outage.site ??
+          outage.Site
+        );
+
+        if (key) {
+          outageLookup.set(key, outage);
+        }
+      });
+
+      return siteRows.map(store => {
+        const outage = outageLookup.get(
+          keyOf(store)
+        );
+
+        const vendorLink = text(
+          store["Vendor Link"] ??
+          store.VendorLink ??
+          store.providerWebsite
+        );
+
+        if (!outage) {
+          return {
+            ...store,
+            color: "gray",
+            status: "No outage",
+            outageId: "none",
+            etr: "",
+            lastUpdated: "",
+            providerWebsite: vendorLink
+          };
+        }
+
+        return {
+          ...store,
+          color: outageColor(
+            outage.color ??
+            outage.statusColor ??
+            outage.severity ??
+            outage.status
+          ),
+          status:
+            text(outage.status) ||
+            "Outage reported",
+          outageId:
+            text(
+              outage.outage_id ??
+              outage.outageId ??
+              outage.provider_outage_id
+            ) ||
+            "current",
+          etr: text(
+            outage.etr ??
+            outage.eta ??
+            outage.estimatedRestoration
+          ),
+          lastUpdated: text(
+            outage.lastUpdated ??
+            outage.updatedAt ??
+            outage.timestamp
+          ),
+          providerWebsite:
+            text(outage.providerWebsite) ||
+            vendorLink
         };
       });
     }
 
-    function initializeMap(){
-      document.getElementById("map").classList.add("map-style-dark");
-      map=L.map("map",{
-        minZoom:4,maxZoom:18,zoomSnap:.5,zoomDelta:.5,wheelPxPerZoomLevel:90,
-        maxBounds:CONFIG.usaBounds,maxBoundsViscosity:1,worldCopyJump:false
+    function baseStatus(store) {
+      const color = outageColor(store.color);
+
+      if (color === "red") {
+        return "NEW";
+      }
+
+      if (color === "yellow") {
+        return "INVESTIGATING";
+      }
+
+      return "RESOLVED";
+    }
+
+    function acknowledgementStorage() {
+      try {
+        return JSON.parse(
+          localStorage.getItem(
+            CONFIG.acknowledgementKey
+          ) || "{}"
+        );
+      } catch (error) {
+        console.warn(
+          "Could not read acknowledgements.",
+          error
+        );
+
+        return {};
+      }
+    }
+
+    function acknowledgementKey(store) {
+      return [
+        keyOf(store),
+        text(store.outageId) || "current"
+      ].join("_");
+    }
+
+    function getAcknowledgement(store) {
+      const allAcknowledgements =
+        acknowledgementStorage();
+
+      return (
+        allAcknowledgements[
+          acknowledgementKey(store)
+        ] || {
+          status: baseStatus(store),
+          acknowledgedBy: "",
+          acknowledgedAt: ""
+        }
+      );
+    }
+
+    function saveAcknowledgement(
+      store,
+      status,
+      acknowledgedBy = ""
+    ) {
+      const allAcknowledgements =
+        acknowledgementStorage();
+
+      const key =
+        acknowledgementKey(store);
+
+      const previous =
+        allAcknowledgements[key] || {};
+
+      allAcknowledgements[key] = {
+        status,
+        acknowledgedBy:
+          acknowledgedBy ||
+          previous.acknowledgedBy ||
+          "NOC",
+        acknowledgedAt:
+          previous.acknowledgedAt ||
+          new Date().toISOString()
+      };
+
+      try {
+        localStorage.setItem(
+          CONFIG.acknowledgementKey,
+          JSON.stringify(
+            allAcknowledgements
+          )
+        );
+      } catch (error) {
+        console.warn(
+          "Could not save acknowledgement.",
+          error
+        );
+      }
+
+      renderAll();
+    }
+
+    window.acknowledgeOutage = function(
+      site,
+      outageId
+    ) {
+      const store = stores.find(item => {
+        return (
+          keyOf(item) === site &&
+          text(item.outageId) === outageId
+        );
       });
-      map.on("zoom",updateStateMarkerSize);
-      map.on("zoomend",updateStateMarkerSize);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{minZoom:4,maxZoom:18,noWrap:true,attribution:'Dark operations styling &copy; OpenStreetMap contributors'}).addTo(map);
-      map.createPane("stateMarkerPane"); map.getPane("stateMarkerPane").style.zIndex="600";
-      map.createPane("exactStorePane"); map.getPane("exactStorePane").style.zIndex="750";
-      stateLayer=L.layerGroup().addTo(map);
-      exactStoreLayer=L.layerGroup().addTo(map);
+
+      if (!store) {
+        return;
+      }
+
+      const acknowledgedBy =
+        window.prompt(
+          "Enter your name or initials:",
+          ""
+        ) || "NOC";
+
+      saveAcknowledgement(
+        store,
+        "ACKNOWLEDGED",
+        acknowledgedBy
+      );
+    };
+
+    window.changeOutageStatus = function(
+      site,
+      outageId,
+      status
+    ) {
+      const store = stores.find(item => {
+        return (
+          keyOf(item) === site &&
+          text(item.outageId) === outageId
+        );
+      });
+
+      if (store) {
+        saveAcknowledgement(
+          store,
+          status
+        );
+      }
+    };
+
+    function responseStatus(store) {
+      return getAcknowledgement(store).status;
+    }
+
+    function responseStatusColor(store) {
+      return (
+        STATUS_COLORS[
+          responseStatus(store)
+        ] ||
+        STATUS_COLORS.RESOLVED
+      );
+    }
+
+    function responseStatusLabel(store) {
+      return responseStatus(store)
+        .replaceAll("_", " ");
+    }
+
+    function acknowledgementHTML(store) {
+      const acknowledgement =
+        getAcknowledgement(store);
+
+      const site =
+        escapeHtml(keyOf(store));
+
+      const outageId =
+        escapeHtml(
+          text(store.outageId) ||
+          "current"
+        );
+
+      if (
+        acknowledgement.status === "NEW"
+      ) {
+        return `
+          <div class="ack-section">
+            <button
+              class="ack-button"
+              type="button"
+              onclick="acknowledgeOutage(
+                '${site}',
+                '${outageId}'
+              )"
+            >
+              Acknowledge Outage
+            </button>
+          </div>
+        `;
+      }
+
+      const statuses = [
+        "ACKNOWLEDGED",
+        "INVESTIGATING",
+        "DISPATCHED",
+        "CONFIRMED_OUTAGE",
+        "FALSE_POSITIVE",
+        "RESOLVED"
+      ];
+
+      const options = statuses
+        .map(status => {
+          const selected =
+            status ===
+            acknowledgement.status
+              ? "selected"
+              : "";
+
+          return `
+            <option
+              value="${status}"
+              ${selected}
+            >
+              ${status.replaceAll("_", " ")}
+            </option>
+          `;
+        })
+        .join("");
+
+      const acknowledgedTime =
+        acknowledgement.acknowledgedAt
+          ? new Date(
+              acknowledgement.acknowledgedAt
+            ).toLocaleString()
+          : "";
+
+      return `
+        <div class="ack-section">
+          <label>
+            <b>Response status</b>
+          </label>
+
+          <select
+            class="status-select"
+            style="
+              background:
+              ${responseStatusColor(store)}
+            "
+            onchange="
+              changeOutageStatus(
+                '${site}',
+                '${outageId}',
+                this.value
+              )
+            "
+          >
+            ${options}
+          </select>
+
+          <div class="ack-meta">
+            Acknowledged by
+            ${escapeHtml(
+              acknowledgement.acknowledgedBy ||
+              "NOC"
+            )}
+            <br>
+            ${escapeHtml(acknowledgedTime)}
+          </div>
+        </div>
+      `;
+    }
+
+    function initializeMap() {
+      if (typeof L === "undefined") {
+        throw new Error(
+          "Leaflet did not load. Check CDN access."
+        );
+      }
+
+      map = L.map("map", {
+        minZoom: 4,
+        maxZoom: 18,
+        zoomSnap: 0.5,
+        zoomDelta: 0.5,
+        wheelPxPerZoomLevel: 90,
+        maxBounds: CONFIG.usaBounds,
+        maxBoundsViscosity: 1,
+        worldCopyJump: false
+      });
+
+      L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          minZoom: 4,
+          maxZoom: 18,
+          noWrap: true,
+          attribution:
+            "&copy; OpenStreetMap contributors"
+        }
+      ).addTo(map);
+
+      stateLayer =
+        L.layerGroup().addTo(map);
+
+      storeLayer =
+        L.layerGroup().addTo(map);
+
       addLegend();
-      addUSAResetControl();
-      addMapStyleControl();
+      addUSAControl();
       resetUSA();
-      map.on("drag",()=>map.panInsideBounds(CONFIG.usaBounds,{animate:false}));
-      setTimeout(()=>{map.invalidateSize();resetUSA();updateStateMarkerSize();},250);
+
+      map.on(
+        "zoom zoomend",
+        updateStateMarkerSize
+      );
+
+      map.on("drag", () => {
+        map.panInsideBounds(
+          CONFIG.usaBounds,
+          {
+            animate: false
+          }
+        );
+      });
     }
 
-    function updateStateMarkerSize(){
-      if(!map) return;
-      const steps=Math.max(0,(map.getZoom()-4.5)/.5);
-      const scale=Math.min(1.30,.58+(steps*.09));
-      document.documentElement.style.setProperty("--state-marker-scale",scale.toFixed(2));
+    function updateStateMarkerSize() {
+      if (!map) {
+        return;
+      }
+
+      const steps = Math.max(
+        0,
+        (
+          map.getZoom() -
+          4.5
+        ) /
+        0.5
+      );
+
+      const scale = Math.min(
+        1.25,
+        0.60 +
+        steps * 0.08
+      );
+
+      document.documentElement.style
+        .setProperty(
+          "--state-marker-scale",
+          scale.toFixed(2)
+        );
     }
 
-    function resetUSA(){
-      if(!map) return;
-      map.fitBounds(CONFIG.usaDisplayBounds,{padding:[2,2],animate:false});
-      map.setZoom(Math.min(map.getMaxZoom(),map.getZoom()+.5),{animate:false});
+    function resetUSA() {
+      if (!map) {
+        return;
+      }
+
+      selectedState = "";
+
+      if (storeLayer) {
+        storeLayer.clearLayers();
+      }
+
+      map.closePopup();
+
+      map.fitBounds(
+        CONFIG.usaDisplayBounds,
+        {
+          padding: [4, 4],
+          animate: false
+        }
+      );
+
       updateStateMarkerSize();
     }
 
-    function applyMapStyle(style,save=true) {
-      const allowed=new Set(["street","light","dark"]);
-      const selectedStyle=allowed.has(style)?style:"dark";
-      const mapElement=document.getElementById("map");
+    function addUSAControl() {
+      const USAControl =
+        L.Control.extend({
+          options: {
+            position: "topleft"
+          },
 
-      mapElement.classList.remove(
-        "map-style-street",
-        "map-style-light",
-        "map-style-dark"
+          onAdd() {
+            const button =
+              L.DomUtil.create(
+                "button",
+                "usa-map-control"
+              );
+
+            button.type = "button";
+            button.textContent = "USA";
+            button.title =
+              "Reset to continental USA";
+
+            L.DomEvent
+              .disableClickPropagation(button);
+
+            L.DomEvent
+              .disableScrollPropagation(button);
+
+            button.addEventListener(
+              "click",
+              () => {
+                selectedState = "";
+
+                document
+                  .getElementById(
+                    "searchBar"
+                  )
+                  .value = "";
+
+                document
+                  .getElementById(
+                    "filterSelect"
+                  )
+                  .value = "all";
+
+                setSidebar(true);
+                renderAll();
+                resetUSA();
+              }
+            );
+
+            return button;
+          }
+        });
+
+      map.addControl(
+        new USAControl()
       );
-      mapElement.classList.add(`map-style-${selectedStyle}`);
-
-      /* Match the empty tile-loading background to the selected style. */
-      mapElement.style.background=selectedStyle==="dark"?"#080b0e":"#edf0f2";
-
-      if(save) storageSet(CONFIG.mapStyleKey,selectedStyle);
     }
 
-    function addMapStyleControl() {
-      const StyleControl=L.Control.extend({
-        options:{position:"topright"},
+    function addLegend() {
+      const legend =
+        L.control({
+          position: "bottomleft"
+        });
 
-        onAdd:function(){
-          const container=L.DomUtil.create("div","map-style-control");
-          const label=L.DomUtil.create("label","",container);
-          label.htmlFor="mapStyleSelect";
-          label.textContent="Map Style";
+      legend.onAdd = () => {
+        const element =
+          L.DomUtil.create(
+            "div",
+            "map-legend"
+          );
 
-          const select=L.DomUtil.create("select","",container);
-          select.id="mapStyleSelect";
-          select.setAttribute("aria-label","Choose map style");
-          select.innerHTML=`
-            <option value="light">Light Operations</option>
-            <option value="dark">Dark Operations</option>
-            <option value="street">Standard Street</option>
-          `;
+        element.innerHTML = `
+          <div class="map-legend-title">
+            Response Status
+          </div>
 
-          const savedStyle=storageGet(CONFIG.mapStyleKey)||"dark";
-          select.value=["light","dark","street"].includes(savedStyle)?savedStyle:"dark";
-          applyMapStyle(select.value,false);
+          <div class="legend-row">
+            <span
+              class="legend-dot"
+              style="background:#e53935"
+            ></span>
+            New outage
+          </div>
 
-          L.DomEvent.disableClickPropagation(container);
-          L.DomEvent.disableScrollPropagation(container);
-          select.addEventListener("change",()=>applyMapStyle(select.value,true));
+          <div class="legend-row">
+            <span
+              class="legend-dot"
+              style="background:#fb8c00"
+            ></span>
+            Acknowledged
+          </div>
 
-          return container;
-        }
-      });
+          <div class="legend-row">
+            <span
+              class="legend-dot"
+              style="background:#fbc02d"
+            ></span>
+            Investigating
+          </div>
 
-      map.addControl(new StyleControl());
-    }
+          <div class="legend-row">
+            <span
+              class="legend-dot"
+              style="background:#2196f3"
+            ></span>
+            Dispatched
+          </div>
 
-    function addLegend(){
-      const legend=L.control({position:"bottomleft"});
-      legend.onAdd=()=>{
-        const d=L.DomUtil.create("div","map-legend");
-        d.innerHTML=`<div class="map-legend-title">Store Status</div>
-          <div class="legend-row"><span class="legend-dot" style="background:#e53935"></span>Active Outage</div>
-          <div class="legend-row"><span class="legend-dot" style="background:#fbc02d"></span>Possible Outage</div>
-          <div class="legend-row"><span class="legend-dot" style="background:#707780"></span>Normal</div>`;
-        L.DomEvent.disableClickPropagation(d); return d;
+          <div class="legend-row">
+            <span
+              class="legend-dot"
+              style="background:#8b0000"
+            ></span>
+            Confirmed outage
+          </div>
+
+          <div class="legend-row">
+            <span
+              class="legend-dot"
+              style="background:#707780"
+            ></span>
+            False positive
+          </div>
+
+          <div class="legend-row">
+            <span
+              class="legend-dot"
+              style="background:#2e7d32"
+            ></span>
+            Resolved or normal
+          </div>
+        `;
+
+        L.DomEvent
+          .disableClickPropagation(element);
+
+        return element;
       };
+
       legend.addTo(map);
     }
 
-    function addUSAResetControl() {
-      const USAResetControl = L.Control.extend({
-        options: { position:"topleft" },
+    function groupedStates() {
+      const groups = new Map();
 
-        onAdd: function() {
-          const button = L.DomUtil.create("button", "usa-map-control");
-          button.type = "button";
-          button.textContent = "USA";
-          button.title = "Reset map to continental USA";
-          button.setAttribute("aria-label", "Reset map to continental USA");
-
-          L.DomEvent.disableClickPropagation(button);
-          L.DomEvent.disableScrollPropagation(button);
-
-          L.DomEvent.on(button, "click", function(event) {
-            L.DomEvent.stop(event);
-            map.closePopup();
-            clearStateSelection();
-            if(exactStoreLayer) exactStoreLayer.clearLayers();
-            exactStoreMarker=null;
-            selectedState="";
-            document.getElementById("searchBar").value="";
-            document.getElementById("filterSelect").value="all";
-            renderStoreList();
-            setSidebar(true);
-            resetUSA();
-            updateStateMarkerSize();
-          });
-
-          return button;
-        }
-      });
-
-      map.addControl(new USAResetControl());
-    }
-
-    function stateSeverity(summary) {
-      if(summary.active>0) return "red";
-      if(summary.possible>0) return "yellow";
-      return "gray";
-    }
-
-    function buildStateSummaries() {
-      stateSummaries.clear();
       stores.forEach(store => {
-        const code=stateCode(store.State);
-        if(!code) return;
-        if(!stateSummaries.has(code)) {
-          stateSummaries.set(code,{code,name:STATE_NAMES[code]||code,stores:[],active:0,possible:0,normal:0});
+        const code =
+          stateCode(store.State);
+
+        if (!code) {
+          return;
         }
-        const summary=stateSummaries.get(code);
-        summary.stores.push(store);
-        const c=color(store.color);
-        if(c==="red") summary.active++;
-        else if(c==="yellow") summary.possible++;
-        else summary.normal++;
+
+        if (!groups.has(code)) {
+          groups.set(code, []);
+        }
+
+        groups.get(code).push(store);
       });
+
+      return groups;
     }
 
-    function stateIcon(summary) {
-      const severity=stateSeverity(summary);
-      return L.divIcon({
-        className:"state-marker-wrapper",
-        html:`<div class="state-marker-container state-marker-${severity}">
-          ${severity!=="gray"?'<div class="state-pulse-ring"></div>':""}
-          <div class="state-marker-badge"><span class="state-code">${esc(summary.code)}</span><span class="state-count">${summary.stores.length}</span></div>
-        </div>`,
-        iconSize:[64,64],iconAnchor:[32,32],popupAnchor:[0,-30]
-      });
-    }
+    function stateMarkerColor(items) {
+      const activeCount =
+        items.filter(store => {
+          return (
+            outageColor(store.color) ===
+            "red"
+          );
+        }).length;
 
-    function statePopup(summary) {
-      return `<div class="state-popup">
-        <div class="state-popup-title">${esc(summary.name)} (${esc(summary.code)})</div>
-        <div class="state-popup-row"><span>Total stores</span><b>${summary.stores.length}</b></div>
-        <div class="state-popup-row"><span>Active outages</span><b style="color:#d32f2f">${summary.active}</b></div>
-        <div class="state-popup-row"><span>Possible outages</span><b style="color:#a77e00">${summary.possible}</b></div>
-        <div class="state-popup-row"><span>Normal</span><b>${summary.normal}</b></div>
-        <div class="state-popup-action">Click marker to view stores</div>
-      </div>`;
-    }
+      const possibleCount =
+        items.filter(store => {
+          return (
+            outageColor(store.color) ===
+            "yellow"
+          );
+        }).length;
 
-    function stateOffset(summary) {
-      const severity=stateSeverity(summary);
-      return severity==="red"?30000:severity==="yellow"?20000:0;
-    }
+      if (activeCount > 0) {
+        return "#e53935";
+      }
 
-    function keepPopupFullyVisible(popup){
-      if(!map||!popup) return;
-      requestAnimationFrame(()=>{
-        const el=popup.getElement(),mapEl=document.getElementById("map");
-        if(!el||!mapEl) return;
-        const r=el.getBoundingClientRect(),m=mapEl.getBoundingClientRect();
-        const top=m.top+85,left=m.left+20,right=m.right-20,bottom=m.bottom-45;
-        let x=0,y=0;
-        if(r.top<top)y=r.top-top;else if(r.bottom>bottom)y=r.bottom-bottom;
-        if(r.left<left)x=r.left-left;else if(r.right>right)x=r.right-right;
-        if(x||y)map.panBy([x,y],{animate:true,duration:.25});
-      });
+      if (possibleCount > 0) {
+        return "#fbc02d";
+      }
+
+      return "#707780";
     }
 
     function createStateMarkers() {
       stateLayer.clearLayers();
-      stateMarkers.clear();
-      buildStateSummaries();
 
-      stateSummaries.forEach(summary => {
-        const center=STATE_CENTERS[summary.code]||averageStoreCoordinates(summary.stores);
-        if(!center) return;
-        const marker=L.marker(center,{
-          icon:stateIcon(summary),pane:"stateMarkerPane",keyboard:true,
-          riseOnHover:true,riseOffset:50000,zIndexOffset:stateOffset(summary)
-        });
-        marker.bindPopup(statePopup(summary),{
-          maxWidth:280,autoPan:true,keepInView:true,
-          autoPanPaddingTopLeft:[25,110],autoPanPaddingBottomRight:[25,55]
-        });
-        marker.on("popupopen",e=>keepPopupFullyVisible(e.popup));
-        marker.on("click",()=>selectState(summary.code,true));
-        marker.addTo(stateLayer);
-        stateMarkers.set(summary.code,marker);
-      });
-    }
+      groupedStates().forEach(
+        (items, code) => {
+          const center =
+            STATE_CENTERS[code];
 
-    function averageStoreCoordinates(stateStores) {
-      const valid=stateStores.filter(s=>validCoords(Number(s.Latitude),Number(s.Longitude)));
-      if(!valid.length) return null;
-      return [valid.reduce((n,s)=>n+Number(s.Latitude),0)/valid.length,valid.reduce((n,s)=>n+Number(s.Longitude),0)/valid.length];
-    }
-
-    function selectState(code,openPopup=false) {
-      selectedState=stateCode(code);
-      map.closePopup();
-      exactStoreLayer.clearLayers();
-      exactStoreMarker=null;
-      document.getElementById("searchBar").value="";
-      document.getElementById("filterSelect").value="all";
-      renderStoreList();
-      setSidebar(false);
-
-      const summary=stateSummaries.get(selectedState);
-      const marker=stateMarkers.get(selectedState);
-      if(summary&&marker){
-        stateSummaries.forEach((x,c)=>{
-          const m=stateMarkers.get(c);if(m)m.setZIndexOffset(stateOffset(x));
-        });
-        marker.setZIndexOffset(60000);
-        const location=marker.getLatLng();
-        const zoom=Math.max(6,map.getZoom());
-        map.setView(location,zoom,{animate:true});
-        if(openPopup){
-          map.once("moveend",()=>{
-            marker.openPopup();
-            setTimeout(()=>map.panTo(location,{animate:true,duration:.2}),180);
-          });
-        }
-      }
-    }
-
-    function clearStateSelection() {
-      selectedState="";
-      exactStoreLayer.clearLayers();
-      exactStoreMarker=null;
-      stateSummaries.forEach((summary,code)=>{
-        const marker=stateMarkers.get(code);
-        if(marker) marker.setZIndexOffset(stateOffset(summary));
-      });
-    }
-
-    function exactStoreIcon() {
-      return L.divIcon({className:"exact-store-marker-wrapper",html:'<div class="exact-store-marker"></div>',iconSize:[42,42],iconAnchor:[21,38],popupAnchor:[0,-36]});
-    }
-
-    function popupHTML(s){
-      const city=esc(text(s.City)),state=esc(text(s.State));
-      const provider=text(s["Vendor Name"]??s.Vendor??s.Provider),url=text(s.providerWebsite);
-      return `<div class="store-popup"><div class="store-popup-title">Store ${esc(keyOf(s))}${text(s.Site Name??s.Name)?` - ${esc(text(s.Site Name??s.Name))}`:""}</div>
-        <div class="store-popup-row">${esc(text(s.Location??s.Address??s["Street Address"])||"N/A")}</div>
-        <div class="store-popup-row">${city}${city&&state?", ":""}${state}</div>
-        <div class="store-popup-row"><b>Status:</b> ${esc(text(s.status)||statusLabel(color(s.color)))}</div>
-        <div class="store-popup-row"><b>Provider:</b> ${esc(provider||"N/A")}</div>
-        <div class="store-popup-row"><b>ETA:</b> ${esc(text(s.etr)||"N/A")}</div>
-        <div class="store-popup-row"><b>Last Updated:</b> ${esc(text(s.lastUpdated)||"N/A")}</div>
-        ${url?`<div class="store-popup-row"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open Provider Outage Map</a></div>`:""}</div>`;
-    }
-
-    function focusStore(s){
-      const lat=Number(s.Latitude),lon=Number(s.Longitude);
-      if(!map||!validCoords(lat,lon)) { console.warn("Invalid store coordinates",keyOf(s)); return; }
-      selectedState=stateCode(s.State);
-      exactStoreLayer.clearLayers();
-      exactStoreMarker=L.marker([lat,lon],{icon:exactStoreIcon(),pane:"exactStorePane",zIndexOffset:60000,keyboard:true});
-      exactStoreMarker.bindPopup(popupHTML(s),{
-        maxWidth:330,autoPan:true,keepInView:true,
-        autoPanPaddingTopLeft:[30,110],autoPanPaddingBottomRight:[30,55]
-      });
-      exactStoreMarker.on("popupopen",e=>keepPopupFullyVisible(e.popup));
-      exactStoreMarker.addTo(exactStoreLayer);
-      map.invalidateSize({animate:false,pan:false});
-      map.setView([lat,lon],CONFIG.markerZoom,{animate:false});
-      requestAnimationFrame(()=>{map.invalidateSize({animate:false,pan:false});map.panTo([lat,lon],{animate:false});exactStoreMarker.openPopup();});
-    }
-
-    function filteredStores(){
-      const filter=document.getElementById("filterSelect").value;
-      const q=document.getElementById("searchBar").value.trim().toLowerCase();
-      return stores.filter(s=>{
-        const c=color(s.color);
-        const statusOK=filter==="all"||(filter==="outages"&&c==="red")||(filter==="possible"&&c==="yellow")||(filter==="normal"&&c==="gray");
-        const hay=[keyOf(s),s.Site Name,s.Name,s.Location,s.Address,s.City,s.State,s["Vendor Name"],s.Vendor,s.Provider,s.status].map(text).join(" ").toLowerCase();
-        const stateOK=!selectedState||stateCode(s.State)===selectedState;
-        return stateOK&&statusOK&&(!q||hay.includes(q));
-      });
-    }
-
-    function renderStoreList(){
-      const list=document.getElementById("storeList"),items=filteredStores();
-      const scope=selectedState?`${STATE_NAMES[selectedState]||selectedState} stores`:`all stores`;
-      document.getElementById("sidebarSubtitle").textContent=`${items.length} ${scope}`;
-      list.innerHTML="";
-      if(!items.length){list.innerHTML='<div class="no-stores">No matching stores.</div>';return;}
-      const frag=document.createDocumentFragment();
-      items.forEach(s=>{
-        const item=document.createElement("div"); item.className="store-item"; item.tabIndex=0; item.setAttribute("role","button");
-        const city=esc(text(s.City)),state=esc(text(s.State)),url=text(s.providerWebsite),c=color(s.color);
-        item.innerHTML=`<div class="store-title">Store ${esc(keyOf(s))}${text(s.Site Name??s.Name)?` - ${esc(text(s.Site Name??s.Name))}`:""}</div>
-          <div class="store-address">${esc(text(s.Location??s.Address??s["Street Address"])||"N/A")}<br>${city}${city&&state?", ":""}${state}</div>
-          <div class="store-status"><span class="status-dot" style="background:${statusHex(c)}"></span>${esc(text(s.status)||statusLabel(c))}</div>
-          ${url?`<a class="provider-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Provider Outage Map</a>`:""}`;
-        item.addEventListener("click",e=>{if(!e.target.closest("a"))focusStore(s);});
-        item.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();focusStore(s);}});
-        frag.appendChild(item);
-      });
-      list.appendChild(frag);
-    }
-
-    function loadSnapshots(){ try{const x=JSON.parse(storageGet(CONFIG.snapshotKey)||"[]");return Array.isArray(x)?x:[]}catch{return[]} }
-    function recordSnapshot(){
-      const now=Date.now(),keep=CONFIG.snapshotRetentionHours*3600000,min=CONFIG.snapshotMinimumIntervalMinutes*60000;
-      const active=stores.filter(s=>color(s.color)==="red").length,possible=stores.filter(s=>color(s.color)==="yellow").length;
-      const snaps=loadSnapshots().filter(x=>now-Number(x.ts)<=keep); const last=snaps.at(-1);
-      if(!last||now-Number(last.ts)>=min) snaps.push({ts:now,active,possible}); else Object.assign(last,{active,possible});
-      storageSet(CONFIG.snapshotKey,JSON.stringify(snaps));
-    }
-
-    function countBy(items,fn){
-      const m=new Map();items.forEach(x=>{const k=text(fn(x))||"Unknown";m.set(k,(m.get(k)||0)+1)});return [...m].sort((a,b)=>b[1]-a[1]);
-    }
-
-    function renderDashboard(){
-      const active=stores.filter(s=>color(s.color)==="red"),possible=stores.filter(s=>color(s.color)==="yellow"),impacted=[...active,...possible];
-      const providers=new Set(stores.map(s=>text(s["Vendor Name"]??s.Vendor??s.Provider)).filter(Boolean));
-      const states=countBy(impacted,s=>s.State),provs=countBy(impacted,s=>s["Vendor Name"]??s.Vendor??s.Provider);
-      document.getElementById("dashboardContent").innerHTML=`<div class="dash-cards">
-        <div class="dash-card"><h3>Total Stores</h3><p>${stores.length}</p></div>
-        <div class="dash-card"><h3>Active Outages</h3><p style="color:#d32f2f">${active.length}</p></div>
-        <div class="dash-card"><h3>Possible Outages</h3><p style="color:#a77e00">${possible.length}</p></div>
-        <div class="dash-card"><h3>Unique Providers</h3><p>${providers.size}</p></div></div>
-        <div class="dashboard-grid"><div class="dashboard-section"><h3>Impacted Stores by State</h3><div id="byState"></div></div>
-        <div class="dashboard-section"><h3>Impacted Stores by Provider</h3><div id="byProvider"></div></div>
-        <div class="dashboard-section"><h3>48-Hour Outage Trend</h3><div class="chart-wrapper"><canvas id="trendChart"></canvas></div></div></div>`;
-      renderDashList("byState",states,"state");renderDashList("byProvider",provs,"provider");renderTrend();
-    }
-
-    function renderDashList(id,entries,type){
-      const c=document.getElementById(id); if(!entries.length){c.innerHTML='<div class="dash-list-item">No impacted stores</div>';return;}
-      entries.forEach(([name,n])=>{const d=document.createElement("div");d.className="dash-list-item";d.textContent=`${name}: ${n}`;d.onclick=()=>{
-        if(type==="state") selectState(name,false);
-        else { clearStateSelection(); document.getElementById("searchBar").value=name; document.getElementById("filterSelect").value="all"; renderStoreList(); setSidebar(false); }
-      };c.appendChild(d)});
-    }
-
-    function renderTrend(){
-      const canvas=document.getElementById("trendChart"); if(!canvas||typeof Chart==="undefined")return;
-      const snaps=loadSnapshots(); if(trendChart)trendChart.destroy();
-      trendChart=new Chart(canvas,{type:"line",data:{labels:snaps.map(x=>new Date(x.ts).toLocaleString([], {month:"numeric",day:"numeric",hour:"numeric",minute:"2-digit"})),datasets:[
-        {label:"Active Outages",data:snaps.map(x=>Number(x.active||0)),borderColor:"#e53935",backgroundColor:"rgba(229,57,53,.14)",borderWidth:2,pointRadius:2,tension:.25,fill:true},
-        {label:"Possible Outages",data:snaps.map(x=>Number(x.possible||0)),borderColor:"#d4a900",borderWidth:2,pointRadius:2,tension:.25,fill:false}
-      ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{ticks:{autoSkip:true,maxTicksLimit:8}}}}});
-    }
-
-    function setSidebar(collapsed){
-      document.body.classList.toggle("sidebar-collapsed",collapsed);
-      document.getElementById("sidebar").setAttribute("aria-hidden",collapsed?"true":"false");
-      document.getElementById("sidebarTab").setAttribute("aria-expanded",collapsed?"false":"true");
-      /* Panel overlays map; no resize needed. */
-    }
-
-    function toggleDashboard(){
-      const dash=document.getElementById("bottomDashboard"),open=!dash.classList.contains("expanded");
-      dash.classList.toggle("expanded",open);document.body.classList.toggle("dashboard-open",open);
-      document.getElementById("dashboardHandle").setAttribute("aria-expanded",String(open));
-      document.getElementById("dashboardArrow").textContent=open?"▼":"▲";
-      if(open)renderDashboard();/* Panel overlays map; no resize needed. */
-    }
-
-    function wireUI(){
-      document.getElementById("sidebarTab").onclick=()=>setSidebar(!document.body.classList.contains("sidebar-collapsed"));
-      document.getElementById("collapseSidebarBtn").onclick=()=>setSidebar(true);
-      document.getElementById("filterSelect").onchange=renderStoreList;
-      document.getElementById("searchBar").oninput=renderStoreList;
-      document.getElementById("searchBar").onkeydown=e=>{if(e.key==="Enter"){const f=filteredStores();if(f.length===1)focusStore(f[0])}};
-      document.getElementById("dashboardHandle").onclick=toggleDashboard;
-      window.addEventListener("resize",()=>map&&map.invalidateSize({animate:false}));
-    }
-
-    async function fetchText(file){const r=await fetch(file,{cache:"no-store"});if(!r.ok)throw new Error(`${file}: HTTP ${r.status}`);return r.text()}
-    async function fetchJSON(file){const r=await fetch(file,{cache:"no-store"});if(!r.ok)throw new Error(`${file}: HTTP ${r.status}`);return r.json()}
-
-    function loadScriptFromSources(sources, globalName) {
-      return new Promise((resolve, reject) => {
-        if (window[globalName]) {
-          resolve(window[globalName]);
-          return;
-        }
-
-        let sourceIndex = 0;
-
-        function tryNextSource() {
-          if (sourceIndex >= sources.length) {
-            reject(new Error(`${globalName} could not be loaded from any configured source.`));
+          if (!center) {
             return;
           }
 
-          const script = document.createElement("script");
-          script.src = sources[sourceIndex++];
-          script.async = true;
-          script.crossOrigin = "anonymous";
+          const impactedCount =
+            items.filter(store => {
+              return (
+                outageColor(store.color) !==
+                "gray"
+              );
+            }).length;
 
-          script.onload = () => {
-            if (window[globalName]) {
-              resolve(window[globalName]);
-            } else {
-              script.remove();
-              tryNextSource();
+          const markerColor =
+            stateMarkerColor(items);
+
+          const icon =
+            L.divIcon({
+              className:
+                "state-marker-wrapper",
+              html: `
+                <div
+                  class="state-badge"
+                  style="
+                    background:
+                    ${markerColor}
+                  "
+                >
+                  <span class="state-code">
+                    ${escapeHtml(code)}
+                  </span>
+
+                  <span class="state-count">
+                    ${items.length}
+                  </span>
+                </div>
+              `,
+              iconSize: [50, 50],
+              iconAnchor: [25, 25]
+            });
+
+          const marker =
+            L.marker(
+              center,
+              {
+                icon,
+                zIndexOffset:
+                  impactedCount > 0
+                    ? 1000
+                    : 0
+              }
+            );
+
+          marker.bindPopup(`
+            <b>
+              ${escapeHtml(
+                STATE_NAMES[code] ||
+                code
+              )}
+            </b>
+            <br>
+            ${items.length} stores
+            <br>
+            ${impactedCount} impacted
+            <br><br>
+            Click the state marker to view stores.
+          `);
+
+          marker.on(
+            "click",
+            () => {
+              selectState(
+                code,
+                items
+              );
             }
-          };
+          );
 
-          script.onerror = () => {
-            script.remove();
-            tryNextSource();
-          };
-
-          document.head.appendChild(script);
+          marker.addTo(stateLayer);
         }
+      );
+    }
 
-        tryNextSource();
+    function createStoreIcon(store) {
+      return L.divIcon({
+        className:
+          "store-marker-wrapper",
+        html: `
+          <div
+            class="store-pin"
+            style="
+              background:
+              ${responseStatusColor(store)}
+            "
+          ></div>
+        `,
+        iconSize: [34, 40],
+        iconAnchor: [17, 34],
+        popupAnchor: [0, -32]
       });
     }
 
-    async function loadRequiredLibraries() {
-      await loadScriptFromSources(
-        [
-          "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
-          "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        ],
-        "L"
-      );
+    function selectState(
+      code,
+      items
+    ) {
+      selectedState = code;
 
-      try {
-        await loadScriptFromSources(
-          [
-            "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js",
-            "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js"
-          ],
-          "Chart"
+      renderStoreList();
+
+      storeLayer.clearLayers();
+
+      const bounds = [];
+
+      items.forEach(store => {
+        const latitude =
+          Number(store.Latitude);
+
+        const longitude =
+          Number(store.Longitude);
+
+        if (
+          !validCoords(
+            latitude,
+            longitude
+          )
+        ) {
+          return;
+        }
+
+        const marker =
+          L.marker(
+            [
+              latitude,
+              longitude
+            ],
+            {
+              icon:
+                createStoreIcon(store)
+            }
+          );
+
+        marker.bindPopup(
+          popupHTML(store),
+          {
+            maxWidth: 360,
+            autoPan: true,
+            keepInView: true
+          }
         );
-      } catch (chartError) {
-        console.warn("Chart.js did not load. The map will continue without the trend chart.", chartError);
+
+        marker.addTo(storeLayer);
+
+        bounds.push([
+          latitude,
+          longitude
+        ]);
+      });
+
+      if (bounds.length) {
+        map.fitBounds(
+          bounds,
+          {
+            padding: [45, 45],
+            maxZoom: 9
+          }
+        );
+      } else {
+        const center =
+          STATE_CENTERS[code];
+
+        if (center) {
+          map.setView(
+            center,
+            6
+          );
+        }
       }
-    }
 
-    function showStartupError(error) {
-      console.error("Application startup failed:", error);
-
-      document.getElementById("sidebarSubtitle").textContent = "Application load failed";
-      document.getElementById("storeList").innerHTML = `
-        <div class="no-stores">
-          <b>The map library could not be loaded.</b><br><br>
-          ${esc(error && error.message ? error.message : error)}<br><br>
-          Verify that this webpage can reach unpkg.com or jsdelivr.net.
-          If the provider blocks public CDNs, Leaflet must be stored locally with this page.
-        </div>
-      `;
       setSidebar(false);
     }
 
-    async function start(){
-      wireUI();
+    function popupHTML(store) {
+      const provider = text(
+        store["Vendor Name"] ??
+        store.Vendor ??
+        store.Provider
+      );
 
-      try {
-        await loadRequiredLibraries();
-        initializeMap();
+      const providerURL = text(
+        store.providerWebsite ??
+        store["Vendor Link"]
+      );
 
-        const [sitesResult,outagesResult]=await Promise.allSettled([fetchText(CONFIG.sitesFile),fetchJSON(CONFIG.outagesFile)]);
-        if(sitesResult.status!=="fulfilled")throw sitesResult.reason;
-        const siteRows=parseCSV(sitesResult.value);
-        let outageRows=[];
-        if(outagesResult.status==="fulfilled") outageRows=Array.isArray(outagesResult.value)?outagesResult.value:(Array.isArray(outagesResult.value?.outages)?outagesResult.value.outages:[]);
-        stores=mergeData(siteRows,outageRows);
-        createStateMarkers();renderStoreList();recordSnapshot();renderDashboard();resetUSA();
-      } catch(err) {
-        showStartupError(err);
+      const siteName = text(
+        store["Site Name"] ??
+        store.SiteName ??
+        store.Name
+      );
+
+      const address = text(
+        store.Location ??
+        store.Address ??
+        store["Street Address"]
+      );
+
+      return `
+        <div
+          class="store-popup"
+          style="
+            border-left:
+            5px solid
+            ${responseStatusColor(store)};
+            padding-left:10px;
+          "
+        >
+          <div class="store-popup-title">
+            Store
+            ${escapeHtml(keyOf(store))}
+            ${
+              siteName
+                ? ` - ${escapeHtml(siteName)}`
+                : ""
+            }
+          </div>
+
+          <div>
+            ${escapeHtml(
+              address || "N/A"
+            )}
+          </div>
+
+          <div>
+            ${escapeHtml(text(store.City))}
+            ${
+              text(store.City) &&
+              text(store.State)
+                ? ", "
+                : ""
+            }
+            ${escapeHtml(text(store.State))}
+            ${escapeHtml(text(store.Zip))}
+          </div>
+
+          <div class="store-popup-row">
+            <b>Response status:</b>
+            ${escapeHtml(
+              responseStatusLabel(store)
+            )}
+          </div>
+
+          <div class="store-popup-row">
+            <b>Provider:</b>
+            ${escapeHtml(
+              provider || "N/A"
+            )}
+          </div>
+
+          <div class="store-popup-row">
+            <b>Estimated restoration:</b>
+            ${escapeHtml(
+              text(store.etr) || "N/A"
+            )}
+          </div>
+
+          <div class="store-popup-row">
+            <b>Last updated:</b>
+            ${escapeHtml(
+              text(store.lastUpdated) ||
+              "N/A"
+            )}
+          </div>
+
+          ${
+            providerURL
+              ? `
+                <div class="store-popup-row">
+                  <a
+                    href="${escapeHtml(providerURL)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open Provider Outage Map
+                  </a>
+                </div>
+              `
+              : ""
+          }
+
+          ${
+            outageColor(store.color) !==
+            "gray"
+              ? acknowledgementHTML(store)
+              : ""
+          }
+        </div>
+      `;
+    }
+
+    function filteredStores() {
+      const filter =
+        document
+          .getElementById(
+            "filterSelect"
+          )
+          .value;
+
+      const query =
+        document
+          .getElementById(
+            "searchBar"
+          )
+          .value
+          .trim()
+          .toLowerCase();
+
+      return stores.filter(store => {
+        const currentColor =
+          outageColor(store.color);
+
+        const statusMatches =
+          filter === "all" ||
+          (
+            filter === "outages" &&
+            currentColor === "red"
+          ) ||
+          (
+            filter === "possible" &&
+            currentColor === "yellow"
+          ) ||
+          (
+            filter === "normal" &&
+            currentColor === "gray"
+          );
+
+        const stateMatches =
+          !selectedState ||
+          stateCode(store.State) ===
+            selectedState;
+
+        const searchableText = [
+          keyOf(store),
+          store["Site Name"],
+          store.SiteName,
+          store.Location,
+          store.Address,
+          store.City,
+          store.State,
+          store["Vendor Name"],
+          responseStatusLabel(store)
+        ]
+          .map(text)
+          .join(" ")
+          .toLowerCase();
+
+        const searchMatches =
+          !query ||
+          searchableText.includes(query);
+
+        return (
+          statusMatches &&
+          stateMatches &&
+          searchMatches
+        );
+      });
+    }
+
+    function focusStore(store) {
+      const latitude =
+        Number(store.Latitude);
+
+      const longitude =
+        Number(store.Longitude);
+
+      if (
+        !validCoords(
+          latitude,
+          longitude
+        )
+      ) {
+        window.alert(
+          `Store ${keyOf(store)} does not have valid coordinates.`
+        );
+
+        return;
+      }
+
+      storeLayer.clearLayers();
+
+      const marker =
+        L.marker(
+          [
+            latitude,
+            longitude
+          ],
+          {
+            icon:
+              createStoreIcon(store)
+          }
+        );
+
+      marker.bindPopup(
+        popupHTML(store),
+        {
+          maxWidth: 360,
+          autoPan: true,
+          keepInView: true
+        }
+      );
+
+      marker.addTo(storeLayer);
+
+      map.setView(
+        [
+          latitude,
+          longitude
+        ],
+        CONFIG.markerZoom
+      );
+
+      marker.openPopup();
+    }
+
+    function renderStoreList() {
+      const items =
+        filteredStores();
+
+      const list =
+        document.getElementById(
+          "storeList"
+        );
+
+      const scope =
+        selectedState
+          ? (
+              STATE_NAMES[
+                selectedState
+              ] ||
+              selectedState
+            )
+          : "stores";
+
+      document
+        .getElementById(
+          "sidebarSubtitle"
+        )
+        .textContent =
+          `${items.length} ${scope}`;
+
+      list.innerHTML = "";
+
+      if (!items.length) {
+        list.innerHTML = `
+          <div class="no-stores">
+            No matching stores.
+          </div>
+        `;
+
+        return;
+      }
+
+      const fragment =
+        document.createDocumentFragment();
+
+      items.forEach(store => {
+        const item =
+          document.createElement("div");
+
+        item.className = "store-item";
+        item.tabIndex = 0;
+        item.setAttribute(
+          "role",
+          "button"
+        );
+
+        const providerURL = text(
+          store.providerWebsite ??
+          store["Vendor Link"]
+        );
+
+        const siteName = text(
+          store["Site Name"] ??
+          store.SiteName ??
+          store.Name
+        );
+
+        const address = text(
+          store.Location ??
+          store.Address
+        );
+
+        const city =
+          text(store.City);
+
+        const state =
+          text(store.State);
+
+        item.innerHTML = `
+          <div class="store-title">
+            Store
+            ${escapeHtml(keyOf(store))}
+            ${
+              siteName
+                ? ` - ${escapeHtml(siteName)}`
+                : ""
+            }
+          </div>
+
+          <div class="store-address">
+            ${escapeHtml(address || "N/A")}
+            <br>
+            ${escapeHtml(city)}
+            ${
+              city && state
+                ? ", "
+                : ""
+            }
+            ${escapeHtml(state)}
+          </div>
+
+          <div class="store-status">
+            <span
+              class="status-dot"
+              style="
+                background:
+                ${responseStatusColor(store)}
+              "
+            ></span>
+
+            ${escapeHtml(
+              responseStatusLabel(store)
+            )}
+          </div>
+
+          ${
+            providerURL
+              ? `
+                <a
+                  class="provider-link"
+                  href="${escapeHtml(providerURL)}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Provider Outage Map
+                </a>
+              `
+              : ""
+          }
+        `;
+
+        item.addEventListener(
+          "click",
+          event => {
+            if (
+              !event.target.closest("a")
+            ) {
+              focusStore(store);
+            }
+          }
+        );
+
+        item.addEventListener(
+          "keydown",
+          event => {
+            if (
+              event.key === "Enter" ||
+              event.key === " "
+            ) {
+              event.preventDefault();
+              focusStore(store);
+            }
+          }
+        );
+
+        fragment.appendChild(item);
+      });
+
+      list.appendChild(fragment);
+    }
+
+    function renderDashboard() {
+      const activeCount =
+        stores.filter(store => {
+          return (
+            outageColor(store.color) ===
+            "red"
+          );
+        }).length;
+
+      const possibleCount =
+        stores.filter(store => {
+          return (
+            outageColor(store.color) ===
+            "yellow"
+          );
+        }).length;
+
+      const acknowledgedCount =
+        stores.filter(store => {
+          return (
+            responseStatus(store) ===
+            "ACKNOWLEDGED"
+          );
+        }).length;
+
+      const providerCount =
+        new Set(
+          stores
+            .map(store =>
+              text(store["Vendor Name"])
+            )
+            .filter(Boolean)
+        ).size;
+
+      document
+        .getElementById(
+          "dashboardContent"
+        )
+        .innerHTML = `
+          <div class="dash-cards">
+            <div class="dash-card">
+              <h3>Total Stores</h3>
+              <p>${stores.length}</p>
+            </div>
+
+            <div class="dash-card">
+              <h3>Active Outages</h3>
+              <p style="color:#d32f2f">
+                ${activeCount}
+              </p>
+            </div>
+
+            <div class="dash-card">
+              <h3>Possible Outages</h3>
+              <p style="color:#a77e00">
+                ${possibleCount}
+              </p>
+            </div>
+
+            <div class="dash-card">
+              <h3>Acknowledged</h3>
+              <p style="color:#fb8c00">
+                ${acknowledgedCount}
+              </p>
+            </div>
+
+            <div class="dash-card">
+              <h3>Unique Providers</h3>
+              <p>${providerCount}</p>
+            </div>
+          </div>
+        `;
+    }
+
+    function renderAll() {
+      createStateMarkers();
+      renderStoreList();
+      renderDashboard();
+
+      if (selectedState) {
+        const stateStores =
+          stores.filter(store => {
+            return (
+              stateCode(store.State) ===
+              selectedState
+            );
+          });
+
+        selectState(
+          selectedState,
+          stateStores
+        );
       }
     }
 
-    window.addEventListener("DOMContentLoaded", () => {
-      start().catch(showStartupError);
-    });
+    function setSidebar(collapsed) {
+      document.body.classList.toggle(
+        "sidebar-collapsed",
+        collapsed
+      );
+
+      document
+        .getElementById("sidebar")
+        .setAttribute(
+          "aria-hidden",
+          String(collapsed)
+        );
+
+      document
+        .getElementById("sidebarTab")
+        .setAttribute(
+          "aria-expanded",
+          String(!collapsed)
+        );
+
+      setTimeout(() => {
+        if (map) {
+          map.invalidateSize({
+            animate: false
+          });
+        }
+      }, 300);
+    }
+
+    function toggleDashboard() {
+      const dashboard =
+        document.getElementById(
+          "bottomDashboard"
+        );
+
+      dashboard.classList.toggle(
+        "expanded"
+      );
+
+      const expanded =
+        dashboard.classList.contains(
+          "expanded"
+        );
+
+      document
+        .getElementById(
+          "dashboardArrow"
+        )
+        .textContent =
+          expanded ? "▼" : "▲";
+
+      document
+        .getElementById(
+          "dashboardHandle"
+        )
+        .setAttribute(
+          "aria-expanded",
+          String(expanded)
+        );
+
+      if (expanded) {
+        renderDashboard();
+      }
+    }
+
+    function wireUI() {
+      document
+        .getElementById(
+          "sidebarTab"
+        )
+        .addEventListener(
+          "click",
+          () => {
+            setSidebar(
+              !document.body.classList
+                .contains(
+                  "sidebar-collapsed"
+                )
+            );
+          }
+        );
+
+      document
+        .getElementById(
+          "collapseSidebarBtn"
+        )
+        .addEventListener(
+          "click",
+          () => {
+            setSidebar(true);
+          }
+        );
+
+      document
+        .getElementById(
+          "filterSelect"
+        )
+        .addEventListener(
+          "change",
+          renderStoreList
+        );
+
+      document
+        .getElementById(
+          "searchBar"
+        )
+        .addEventListener(
+          "input",
+          renderStoreList
+        );
+
+      document
+        .getElementById(
+          "searchBar"
+        )
+        .addEventListener(
+          "keydown",
+          event => {
+            if (event.key !== "Enter") {
+              return;
+            }
+
+            const results =
+              filteredStores();
+
+            if (results.length === 1) {
+              focusStore(results[0]);
+            }
+          }
+        );
+
+      document
+        .getElementById(
+          "dashboardHandle"
+        )
+        .addEventListener(
+          "click",
+          toggleDashboard
+        );
+
+      window.addEventListener(
+        "resize",
+        () => {
+          if (map) {
+            map.invalidateSize({
+              animate: false
+            });
+          }
+        }
+      );
+    }
+
+    async function fetchText(path) {
+      const response =
+        await fetch(
+          path,
+          {
+            cache: "no-store"
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          `${path}: HTTP ${response.status}`
+        );
+      }
+
+      return response.text();
+    }
+
+    async function fetchJSON(path) {
+      const response =
+        await fetch(
+          path,
+          {
+            cache: "no-store"
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          `${path}: HTTP ${response.status}`
+        );
+      }
+
+      return response.json();
+    }
+
+    function showStartupError(error) {
+      console.error(
+        "Application startup failed:",
+        error
+      );
+
+      document
+        .getElementById(
+          "sidebarSubtitle"
+        )
+        .textContent =
+          "Application load failed";
+
+      document
+        .getElementById(
+          "storeList"
+        )
+        .innerHTML = `
+          <div class="no-stores">
+            <b>
+              Unable to load the map.
+            </b>
+
+            <br><br>
+
+            ${escapeHtml(
+              error &&
+              error.message
+                ? error.message
+                : error
+            )}
+
+            <br><br>
+
+            Confirm that:
+            <br>
+            data/Sites.csv exists
+            <br>
+            outages.json exists
+            <br>
+            Leaflet CDN access is available
+          </div>
+        `;
+
+      setSidebar(false);
+    }
+
+    async function start() {
+      try {
+        wireUI();
+        initializeMap();
+
+        const [
+          sitesResult,
+          outagesResult
+        ] = await Promise.allSettled([
+          fetchText(CONFIG.sitesFile),
+          fetchJSON(CONFIG.outagesFile)
+        ]);
+
+        if (
+          sitesResult.status !==
+          "fulfilled"
+        ) {
+          throw sitesResult.reason;
+        }
+
+        const siteRows =
+          parseCSV(sitesResult.value);
+
+        let outageRows = [];
+
+        if (
+          outagesResult.status ===
+          "fulfilled"
+        ) {
+          const outageData =
+            outagesResult.value;
+
+          if (
+            Array.isArray(outageData)
+          ) {
+            outageRows = outageData;
+          } else if (
+            Array.isArray(
+              outageData?.outages
+            )
+          ) {
+            outageRows =
+              outageData.outages;
+          } else if (
+            Array.isArray(
+              outageData?.impactedSites
+            )
+          ) {
+            outageRows =
+              outageData.impactedSites;
+          }
+        } else {
+          console.warn(
+            "Outages file could not be loaded. Stores will display as normal.",
+            outagesResult.reason
+          );
+        }
+
+        stores = mergeData(
+          siteRows,
+          outageRows
+        );
+
+        console.log(
+          `Loaded ${stores.length} stores`
+        );
+
+        renderAll();
+        resetUSA();
+      } catch (error) {
+        showStartupError(error);
+      }
+    }
+
+    window.addEventListener(
+      "DOMContentLoaded",
+      start
+    );
   </script>
 </body>
 </html>
