@@ -628,37 +628,42 @@
 
     function selectState(code, items) {
       selectedState = stateCode(code);
+      map.stop();
       map.closePopup();
 
       const stateCenter = STATE_CENTERS[selectedState];
 
-      /* Immediately zoom toward the selected state. */
-      if (stateCenter) {
-        map.flyTo(stateCenter, 6, {
-          animate: true,
-          duration: 0.35
-        });
-      }
+      document.getElementById("searchBar").value = "";
+      document.getElementById("filterSelect").value = "all";
 
-      /* Hide state circles and display exact store markers. */
       if (map.hasLayer(stateLayer)) {
         map.removeLayer(stateLayer);
       }
 
+      /* Ensure the individual-store layer is attached to the map. */
+      if (!map.hasLayer(storeLayer)) {
+        storeLayer.addTo(map);
+      }
+
       storeLayer.clearLayers();
-      document.getElementById("searchBar").value = "";
-      document.getElementById("filterSelect").value = "all";
-      renderStoreList();
       setSidebar(false);
+      renderStoreList();
 
       const bounds = L.latLngBounds([]);
-      let markerCount = 0;
+      const stateMarkers = [];
 
       items.forEach(store => {
-        const latitude = Number(store.Latitude);
-        const longitude = Number(store.Longitude);
+        const latitude = parseFloat(store.Latitude);
+        const longitude = parseFloat(store.Longitude);
 
-        if (!validCoords(latitude, longitude)) return;
+        if (!validCoords(latitude, longitude)) {
+          console.warn(
+            `Store ${keyOf(store)} skipped because coordinates are invalid:`,
+            store.Latitude,
+            store.Longitude
+          );
+          return;
+        }
 
         const marker = L.marker(
           [latitude, longitude],
@@ -666,7 +671,8 @@
             icon: createStoreIcon(store),
             zIndexOffset: markerPriority(store),
             riseOnHover: true,
-            riseOffset: 50000
+            riseOffset: 50000,
+            keyboard: true
           }
         );
 
@@ -680,34 +686,48 @@
         );
 
         marker.addTo(storeLayer);
-        bounds.extend([latitude, longitude]);
-        markerCount += 1;
+        stateMarkers.push(marker);
+        bounds.extend(marker.getLatLng());
       });
 
-      /* Recenter once the sidebar has finished opening. */
+      console.log(
+        `State ${selectedState}: ${items.length} stores, ${stateMarkers.length} visible markers`
+      );
+
+      /* First move directly to the state so markers are visible immediately. */
+      if (stateCenter) {
+        map.setView(stateCenter, 6, { animate: false });
+      }
+
+      /* Recalculate after the sidebar transition and center all store markers. */
       window.setTimeout(() => {
         map.invalidateSize({ animate: false, pan: false });
 
-        if (bounds.isValid() && markerCount > 1) {
-          const rightPadding = window.innerWidth > 800 ? 400 : 40;
-
+        if (bounds.isValid() && stateMarkers.length > 1) {
           map.fitBounds(bounds, {
-            paddingTopLeft: [55, 75],
-            paddingBottomRight: [rightPadding, 70],
+            paddingTopLeft: [55, 70],
+            paddingBottomRight: [55, 70],
             maxZoom: 9,
             animate: true,
-            duration: 0.45
+            duration: 0.4
           });
-        } else if (bounds.isValid() && markerCount === 1) {
+
+          /* Shift the fitted markers left so the open sidebar does not cover them. */
+          if (window.innerWidth > 800) {
+            window.setTimeout(() => {
+              map.panBy([180, 0], { animate: true, duration: 0.25 });
+            }, 420);
+          }
+        } else if (bounds.isValid() && stateMarkers.length === 1) {
           map.setView(bounds.getCenter(), 9, { animate: true });
 
           if (window.innerWidth > 800) {
-            map.panBy([-180, 0], { animate: true });
+            map.panBy([180, 0], { animate: true, duration: 0.25 });
           }
         } else if (stateCenter) {
           map.setView(stateCenter, 6, { animate: true });
         }
-      }, 340);
+      }, 320);
     }
 
     function popupHTML(store) {
