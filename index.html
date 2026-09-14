@@ -143,6 +143,7 @@
     .store-form-actions { display:flex; gap:8px; margin-top:10px; }
     .store-form-actions button { flex:1; padding:9px; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:700; }
     #geocodeStoreBtn { background:#fb8c00; } #saveStoreBtn { background:#2e7d32; } #cancelStoreBtn { background:#59616a; }
+    .delete-store-btn { margin-top:8px; padding:7px 10px; color:#fff; background:#c62828; border:0; border-radius:5px; cursor:pointer; font-weight:700; }
     #geocodeResult { margin-top:8px; color:#b9c0c8; font-size:11px; line-height:1.4; }
     .queue-table { width:100%; border-collapse:collapse; font-size:12px; }
     .queue-table th, .queue-table td { padding:9px; border-bottom:1px solid #30353b; text-align:left; vertical-align:top; }
@@ -181,6 +182,7 @@
           <div><label for="newLatitude">Latitude</label><input id="newLatitude" type="number" step="any"></div>
           <div><label for="newLongitude">Longitude</label><input id="newLongitude" type="number" step="any"></div>
           <div class="full"><label for="newStoreNote">Initial note</label><textarea id="newStoreNote"></textarea></div>
+          <div class="full"><label for="googleApiKeyInput">Google Geocoding API key (demo browser only)</label><input id="googleApiKeyInput" type="password" autocomplete="off" placeholder="Paste restricted key"><small style="display:block;color:#9aa3ad;margin-top:4px">Saved only in this browser. For production, use the proxy setting instead.</small></div>
         </div>
         <div id="geocodeResult">Enter an address, then select Find location.</div>
         <div class="store-form-actions">
@@ -242,6 +244,7 @@
       addedStoresKey: "storeOutageAddedStores_v1",
       acknowledgementReviewKey: "storeOutageReviews_v1",
       providerSnapshotKey: "storeOutageProviderSnapshot_v1",
+      googleApiKeyStorageKey: "storeOutageGoogleApiKey_v1",
       googleGeocodingApiKey: "PASTE_RESTRICTED_GOOGLE_GEOCODING_API_KEY_HERE",
       geocodingProxyUrl: "",
       markerZoom: 13,
@@ -967,6 +970,7 @@
         <div class="store-popup-row"><b>Provider:</b> ${escapeHtml(provider || "N/A")}</div>
         <div class="store-popup-row"><b>ETA:</b> ${escapeHtml(text(store.etr) || "N/A")}</div>
         ${url ? `<div class="store-popup-row"><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open Provider Outage Map</a></div>` : ""}
+        ${store.locallyAdded ? `<button class="delete-store-btn" type="button" onclick="deleteAddedStore(\'${escapeHtml(keyOf(store))}\')">Delete store</button>` : ""}
         ${acknowledgementHTML(store)}
       </div>`;
     }
@@ -1160,8 +1164,13 @@
         let response;
         if (CONFIG.geocodingProxyUrl) response=await fetch(`${CONFIG.geocodingProxyUrl}${CONFIG.geocodingProxyUrl.includes("?")?"&":"?"}address=${encodeURIComponent(address)}`);
         else {
-          if (!CONFIG.googleGeocodingApiKey || CONFIG.googleGeocodingApiKey.startsWith("PASTE_")) throw new Error("Add a restricted Google Geocoding API key in CONFIG.googleGeocodingApiKey, or configure CONFIG.geocodingProxyUrl.");
-          response=await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${encodeURIComponent(CONFIG.googleGeocodingApiKey)}`);
+          const enteredKey = storeFormValue("googleApiKeyInput");
+          const savedKey = text(localStorage.getItem(CONFIG.googleApiKeyStorageKey));
+          const configuredKey = CONFIG.googleGeocodingApiKey && !CONFIG.googleGeocodingApiKey.startsWith("PASTE_") ? CONFIG.googleGeocodingApiKey : "";
+          const apiKey = enteredKey || savedKey || configuredKey;
+          if (!apiKey) throw new Error("Paste a restricted Google Geocoding API key in the field above, or configure CONFIG.geocodingProxyUrl.");
+          if (enteredKey) localStorage.setItem(CONFIG.googleApiKeyStorageKey, enteredKey);
+          response=await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${encodeURIComponent(apiKey)}`);
         }
         if (!response.ok) throw new Error(`Geocoding HTTP ${response.status}`);
         const data=await response.json();
@@ -1177,6 +1186,15 @@
       } catch(error) { result.textContent=`Location lookup failed: ${error.message}`; }
     }
 
+    window.deleteAddedStore = function(site) {
+      const store = stores.find(item => keyOf(item) === site);
+      if (!store || !store.locallyAdded) return alert("Only stores added from this page can be deleted here.");
+      if (!confirm(`Delete locally added Store ${site}?`)) return;
+      localStorage.setItem(CONFIG.addedStoresKey, JSON.stringify(addedStoresStorage().filter(item => keyOf(item) !== site)));
+      stores = stores.filter(item => !(item.locallyAdded && keyOf(item) === site));
+      map.closePopup(); renderAll(); resetUSA();
+    };
+
     function saveNewStore() {
       const site=siteNumber(storeFormValue("newSite")), lat=Number(storeFormValue("newLatitude")), lon=Number(storeFormValue("newLongitude"));
       if (!site || !storeFormValue("newAddress") || !storeFormValue("newCity") || !storeFormValue("newState")) { alert("Store number, address, city, and state are required."); return; }
@@ -1189,6 +1207,8 @@
     }
 
     function wireUI() {
+      const savedGoogleKey = text(localStorage.getItem(CONFIG.googleApiKeyStorageKey));
+      if (savedGoogleKey) document.getElementById("googleApiKeyInput").value = savedGoogleKey;
       document.getElementById("showAddStoreBtn").addEventListener("click",()=>document.getElementById("addStorePanel").classList.toggle("open"));
       document.getElementById("cancelStoreBtn").addEventListener("click",()=>{clearStoreForm();document.getElementById("addStorePanel").classList.remove("open");});
       document.getElementById("geocodeStoreBtn").addEventListener("click",geocodeNewStore);
