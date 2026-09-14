@@ -129,6 +129,29 @@
       .dash-cards { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
     }
 
+
+    .sidebar-action-row { display:flex; gap:8px; margin-bottom:9px; }
+    .sidebar-action-row button { flex:1; padding:9px; color:#fff; background:#1976d2; border:0; border-radius:6px; cursor:pointer; font-weight:700; }
+    #addStorePanel { display:none; margin-bottom:12px; padding:12px; background:#20242a; border:1px solid #3a4149; border-radius:8px; }
+    #addStorePanel.open { display:block; }
+    #addStorePanel h3 { margin:0 0 10px; }
+    .store-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .store-form-grid .full { grid-column:1 / -1; }
+    .store-form-grid label { display:block; color:#b9c0c8; font-size:11px; margin-bottom:4px; }
+    .store-form-grid input, .store-form-grid textarea { width:100%; padding:8px; color:#fff; background:#15181b; border:1px solid #4a535d; border-radius:5px; }
+    .store-form-grid textarea { min-height:58px; resize:vertical; }
+    .store-form-actions { display:flex; gap:8px; margin-top:10px; }
+    .store-form-actions button { flex:1; padding:9px; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:700; }
+    #geocodeStoreBtn { background:#fb8c00; } #saveStoreBtn { background:#2e7d32; } #cancelStoreBtn { background:#59616a; }
+    #geocodeResult { margin-top:8px; color:#b9c0c8; font-size:11px; line-height:1.4; }
+    .queue-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .queue-table th, .queue-table td { padding:9px; border-bottom:1px solid #30353b; text-align:left; vertical-align:top; }
+    .queue-table th { position:sticky; top:0; background:#15181b; color:#b9c0c8; }
+    .status-pill { display:inline-block; padding:3px 7px; color:#fff; border-radius:10px; font-weight:700; }
+    .mini-badge { display:inline-block; margin:2px 3px 2px 0; padding:2px 6px; color:#fff; background:#59616a; border-radius:8px; font-size:10px; }
+    .queue-action { padding:5px 8px; color:#fff; background:#1976d2; border:0; border-radius:5px; cursor:pointer; }
+    .resolved-summary { margin-bottom:10px; color:#b9c0c8; font-size:12px; }
+    @media (max-width:800px) { .history-entry { grid-template-columns:1fr; } .queue-table { min-width:850px; } .store-form-grid { grid-template-columns:1fr; } .store-form-grid .full { grid-column:auto; } }
   </style>
 </head>
 <body class="sidebar-collapsed">
@@ -143,9 +166,32 @@
       <button id="collapseSidebarBtn" class="header-btn" type="button">▶</button>
     </div>
     <div class="sidebar-controls">
+      <div class="sidebar-action-row"><button id="showAddStoreBtn" type="button">+ Add Store</button></div>
+      <div id="addStorePanel">
+        <h3>Add Store</h3>
+        <div class="store-form-grid">
+          <div><label for="newSite">Store number</label><input id="newSite" required></div>
+          <div><label for="newSiteName">Store name</label><input id="newSiteName"></div>
+          <div class="full"><label for="newAddress">Street address</label><input id="newAddress" required></div>
+          <div><label for="newCity">City</label><input id="newCity" required></div>
+          <div><label for="newState">State</label><input id="newState" maxlength="2" required></div>
+          <div><label for="newZip">ZIP code</label><input id="newZip"></div>
+          <div><label for="newProvider">Provider</label><input id="newProvider"></div>
+          <div class="full"><label for="newProviderUrl">Provider outage URL</label><input id="newProviderUrl" type="url"></div>
+          <div><label for="newLatitude">Latitude</label><input id="newLatitude" type="number" step="any"></div>
+          <div><label for="newLongitude">Longitude</label><input id="newLongitude" type="number" step="any"></div>
+          <div class="full"><label for="newStoreNote">Initial note</label><textarea id="newStoreNote"></textarea></div>
+        </div>
+        <div id="geocodeResult">Enter an address, then select Find location.</div>
+        <div class="store-form-actions">
+          <button id="geocodeStoreBtn" type="button">Find location</button>
+          <button id="saveStoreBtn" type="button">Save store</button>
+          <button id="cancelStoreBtn" type="button">Cancel</button>
+        </div>
+      </div>
       <select id="filterSelect" aria-label="Filter stores">
         <option value="all">All Stores</option>
-        <option value="outages">Outages</option>
+        <option value="outages">All Outages</option><option value="manual">Manual Overrides</option><option value="unacknowledged">Unacknowledged</option>
       </select>
       <input id="searchBar" type="search" placeholder="Search store, name, city, state...">
     </div>
@@ -158,24 +204,29 @@
     <button id="dashboardHandle" type="button" aria-expanded="false">▲ OUTAGE DASHBOARD</button>
     <div id="dashboardContent">
       <div class="dashboard-tabs">
-        <button class="dashboard-tab active" type="button" data-panel="summaryPanel">Counters</button>
+        <button class="dashboard-tab active" type="button" data-panel="impactPanel">Current Impact</button>
+        <button class="dashboard-tab" type="button" data-panel="activePanel">Active Outages</button>
         <button class="dashboard-tab" type="button" data-panel="historyPanel">History</button>
+        <button class="dashboard-tab" type="button" data-panel="resolvedPanel">Resolved</button>
       </div>
-      <div id="summaryPanel" class="dashboard-panel active">
+      <div id="impactPanel" class="dashboard-panel active">
         <div class="dash-cards">
-          <div class="dash-card"><h3>Outage</h3><p id="trackerRed" style="color:#ff5252">0</p></div>
-          <div class="dash-card"><h3>Possible outage</h3><p id="trackerYellow" style="color:#ffeb3b">0</p></div>
+          <div class="dash-card" data-filter="outages"><h3>Down now</h3><p id="trackerRed" style="color:#ff5252">0</p></div>
+          <div class="dash-card" data-filter="outages"><h3>Possible</h3><p id="trackerYellow" style="color:#ffeb3b">0</p></div>
+          <div class="dash-card" data-filter="unacknowledged"><h3>Unacknowledged</h3><p id="trackerUnack">0</p></div>
+          <div class="dash-card" data-filter="manual"><h3>Manual overrides</h3><p id="trackerManual">0</p></div>
+          <div class="dash-card"><h3>No ETR</h3><p id="trackerNoEtr">0</p></div>
+          <div class="dash-card"><h3>Resolved today</h3><p id="trackerResolved">0</p></div>
           <div class="dash-card"><h3>No outage</h3><p id="trackerGreen" style="color:#41e66f">0</p></div>
           <div class="dash-card"><h3>History records</h3><p id="trackerHistory">0</p></div>
         </div>
       </div>
+      <div id="activePanel" class="dashboard-panel"><div id="activeOutageList"></div></div>
       <div id="historyPanel" class="dashboard-panel">
-        <div class="history-toolbar">
-          <input id="historySearch" type="search" placeholder="Search store, status, location, or note...">
-          <button id="clearHistoryBtn" type="button">Clear history</button>
-        </div>
+        <div class="history-toolbar"><input id="historySearch" type="search" placeholder="Search store, event, status, or note..."><button id="clearHistoryBtn" type="button">Clear history</button></div>
         <div id="historyList"></div>
       </div>
+      <div id="resolvedPanel" class="dashboard-panel"><div id="resolvedList"></div></div>
     </div>
   </section>
 
@@ -187,7 +238,12 @@
       sitesFile: "data/Sites.csv",
       outagesFile: "outages.json",
       acknowledgementKey: "storeOutageAcknowledgements_v1",
-      historyKey: "storeOutageHistory_v1",
+      historyKey: "storeOutageHistory_v2",
+      addedStoresKey: "storeOutageAddedStores_v1",
+      acknowledgementReviewKey: "storeOutageReviews_v1",
+      providerSnapshotKey: "storeOutageProviderSnapshot_v1",
+      googleGeocodingApiKey: "PASTE_RESTRICTED_GOOGLE_GEOCODING_API_KEY_HERE",
+      geocodingProxyUrl: "",
       markerZoom: 13,
       usaBounds: [[18, -140], [56, -52]],
       usaDisplayBounds: [[24.5, -124.8], [49.3, -67]]
@@ -435,6 +491,40 @@
       return Boolean(getStoredOverride(store));
     }
 
+    function addedStoresStorage() {
+      try { const value = JSON.parse(localStorage.getItem(CONFIG.addedStoresKey) || "[]"); return Array.isArray(value) ? value : []; }
+      catch { return []; }
+    }
+
+    function reviewsStorage() {
+      try { return JSON.parse(localStorage.getItem(CONFIG.acknowledgementReviewKey) || "{}"); }
+      catch { return {}; }
+    }
+
+    function isAcknowledged(store) {
+      const review = reviewsStorage()[ackKey(store)];
+      return Boolean(review && review.providerStatus === automaticStatus(store));
+    }
+
+    window.acknowledgeStore = function(site) {
+      const store = stores.find(item => keyOf(item) === site);
+      if (!store) return;
+      const reviews = reviewsStorage();
+      reviews[ackKey(store)] = { providerStatus: automaticStatus(store), acknowledgedAt: new Date().toISOString() };
+      localStorage.setItem(CONFIG.acknowledgementReviewKey, JSON.stringify(reviews));
+      addHistoryEntry(store, "Outage acknowledged", getAcknowledgement(store).status, "");
+      renderAll();
+    };
+
+    function durationText(start, end = new Date()) {
+      const ms = Math.max(0, new Date(end) - new Date(start));
+      const minutes = Math.floor(ms / 60000);
+      const days = Math.floor(minutes / 1440);
+      const hours = Math.floor((minutes % 1440) / 60);
+      const mins = minutes % 60;
+      return `${days ? `${days}d ` : ""}${hours}h ${mins}m`;
+    }
+
     function historyStorage() {
       try {
         const value = JSON.parse(localStorage.getItem(CONFIG.historyKey) || "[]");
@@ -456,9 +546,37 @@
         action,
         status,
         providerStatus: automaticStatus(store),
+        effectiveStatus: getAcknowledgement(store).status,
+        outageId: text(store.outageId) || "current",
+        etr: text(store.etr),
+        startedAt: text(store.outageStartedAt || store.startedAt),
         note: text(note)
       });
       localStorage.setItem(CONFIG.historyKey, JSON.stringify(history.slice(0, 1000)));
+    }
+
+    function syncProviderHistory() {
+      let previous = {};
+      try { previous = JSON.parse(localStorage.getItem(CONFIG.providerSnapshotKey) || "{}"); } catch {}
+      const next = {};
+      stores.forEach(store => {
+        const key = ackKey(store);
+        const status = automaticStatus(store);
+        next[key] = { status, etr: text(store.etr), updatedAt: new Date().toISOString() };
+        if (!previous[key]) {
+          if (["RED", "YELLOW"].includes(status)) addHistoryEntry(store, "Provider outage detected", status, text(store.status));
+          return;
+        }
+        if (previous[key].status !== status) {
+          const action = status === "GREEN" ? "Outage resolved" : previous[key].status === "GREEN" ? "Provider outage detected" : "Provider status changed";
+          addHistoryEntry(store, action, status, `Previous provider status: ${previous[key].status}`);
+          const reviews = reviewsStorage(); delete reviews[key];
+          localStorage.setItem(CONFIG.acknowledgementReviewKey, JSON.stringify(reviews));
+        } else if (previous[key].etr !== text(store.etr)) {
+          addHistoryEntry(store, "ETR changed", status, `ETR: ${text(store.etr) || "N/A"}`);
+        }
+      });
+      localStorage.setItem(CONFIG.providerSnapshotKey, JSON.stringify(next));
     }
 
     function saveAcknowledgement(store, status, note = "", acknowledgedBy = "Manual override") {
@@ -862,13 +980,12 @@
 
         const statusMatch =
           filter === "all" ||
-          (
-            filter === "outages" &&
-            ["RED", "YELLOW"].includes(effectiveStatus)
-          );
+          (filter === "outages" && ["RED", "YELLOW"].includes(effectiveStatus)) ||
+          (filter === "manual" && isManualStatus(store)) ||
+          (filter === "unacknowledged" && ["RED", "YELLOW"].includes(effectiveStatus) && !isAcknowledged(store));
 
         const stateMatch =
-          filter === "outages" ||
+          ["outages", "manual", "unacknowledged"].includes(filter) ||
           !selectedState ||
           stateCode(store.State) === selectedState;
 
@@ -947,8 +1064,8 @@
       const items = filteredStores();
       const list = document.getElementById("storeList");
       document.getElementById("sidebarSubtitle").textContent =
-        document.getElementById("filterSelect").value === "outages"
-          ? `${items.length} outages across all states`
+        ["outages", "manual", "unacknowledged"].includes(document.getElementById("filterSelect").value)
+          ? `${items.length} matching stores across all states`
           : `${items.length} ${selectedState ? STATE_NAMES[selectedState] || selectedState : "stores"}`;
       list.innerHTML = "";
       if (!items.length) {
@@ -972,29 +1089,42 @@
       const query = text(document.getElementById("historySearch")?.value).toLowerCase();
       const history = historyStorage();
       const list = document.getElementById("historyList");
-      const visible = history.filter(entry =>
-        !query || [entry.site, entry.siteName, entry.city, entry.state, entry.action, entry.status, entry.note]
-          .map(text).join(" ").toLowerCase().includes(query)
-      );
+      const visible = history.filter(entry => !query || Object.values(entry).map(text).join(" ").toLowerCase().includes(query));
       document.getElementById("trackerHistory").textContent = history.length;
-      if (!visible.length) {
-        list.innerHTML = `<div class="history-empty">${history.length ? "No matching history records." : "No outage history has been recorded yet."}</div>`;
-        return;
-      }
-      list.innerHTML = visible.map(entry => `
-        <div class="history-entry">
-          <div><b>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</b></div>
-          <div><b>Store ${escapeHtml(entry.site)}</b><br>${escapeHtml(entry.state)}</div>
-          <div><b>${escapeHtml(entry.action)}</b><br>${escapeHtml(entry.status)}</div>
-          <div class="history-note"><b>${escapeHtml(entry.siteName || entry.city || "")}</b>${entry.note ? `<br>${escapeHtml(entry.note)}` : "<br>No note entered."}</div>
-        </div>`).join("");
+      list.innerHTML = visible.length ? visible.map(entry => `<div class="history-entry"><div><b>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</b></div><div><b>Store ${escapeHtml(entry.site)}</b><br>${escapeHtml(entry.city)} ${escapeHtml(entry.state)}</div><div><b>${escapeHtml(entry.action)}</b><br>${escapeHtml(entry.status)}</div><div class="history-note"><b>${escapeHtml(entry.siteName || "")}</b>${entry.note ? `<br>${escapeHtml(entry.note)}` : "<br>No note entered."}${entry.etr ? `<br>ETR: ${escapeHtml(entry.etr)}` : ""}</div></div>`).join("") : `<div class="history-empty">${history.length ? "No matching history records." : "No outage history has been recorded yet."}</div>`;
+    }
+
+    function renderActiveOutages() {
+      const active = stores.filter(store => ["RED", "YELLOW"].includes(getAcknowledgement(store).status)).sort((a,b) => {
+        const rank = store => (getAcknowledgement(store).status === "RED" ? 0 : 2) + (isAcknowledged(store) ? 1 : 0);
+        return rank(a)-rank(b) || keyOf(a).localeCompare(keyOf(b), undefined, {numeric:true});
+      });
+      const target = document.getElementById("activeOutageList");
+      if (!active.length) { target.innerHTML='<div class="history-empty">No active outages.</div>'; return; }
+      target.innerHTML=`<table class="queue-table"><thead><tr><th>Store</th><th>Status</th><th>Source</th><th>Provider</th><th>Duration</th><th>ETR</th><th>Latest note</th><th>Action</th></tr></thead><tbody>${active.map(store => {
+        const ack=getAcknowledgement(store), saved=getStoredOverride(store), began=text(store.outageStartedAt||store.startedAt||store.lastUpdated);
+        return `<tr><td><b>${escapeHtml(keyOf(store))}</b><br>${escapeHtml(text(store["Site Name"]))}<br>${escapeHtml(text(store.City))}, ${escapeHtml(text(store.State))}</td><td><span class="status-pill" style="background:${statusColor(store)}">${escapeHtml(statusLabel(store))}</span><br>${!isAcknowledged(store)?'<span class="mini-badge">NEW</span>':''}${isManualStatus(store)?'<span class="mini-badge">MANUAL</span>':''}${!text(store.etr)?'<span class="mini-badge">NO ETR</span>':''}</td><td>${isManualStatus(store)?'Manual':'Provider'}<br>Provider: ${escapeHtml(automaticStatus(store))}</td><td>${escapeHtml(text(store["Vendor Name"]??store.Vendor??store.Provider)||'N/A')}</td><td>${began?durationText(began):'N/A'}</td><td>${escapeHtml(text(store.etr)||'N/A')}</td><td>${escapeHtml(text(saved?.note)||'No note')}</td><td>${!isAcknowledged(store)?`<button class="queue-action" onclick="acknowledgeStore('${escapeHtml(keyOf(store))}')">Acknowledge</button>`:'Acknowledged'}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    }
+
+    function renderResolved() {
+      const resolved=historyStorage().filter(entry=>entry.action==="Outage resolved");
+      const target=document.getElementById("resolvedList");
+      target.innerHTML=`<div class="resolved-summary">${resolved.length} recorded resolution event(s)</div>`+(resolved.length?resolved.map(entry=>`<div class="history-entry"><div>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</div><div><b>Store ${escapeHtml(entry.site)}</b><br>${escapeHtml(entry.state)}</div><div><b>Resolved</b><br>${escapeHtml(entry.providerStatus)}</div><div class="history-note">${escapeHtml(entry.note||'Provider returned to no outage.')}</div></div>`).join(''):'<div class="history-empty">No resolved outages recorded yet.</div>');
     }
 
     function renderDashboard() {
-      document.getElementById("trackerRed").textContent = stores.filter(store => getAcknowledgement(store).status === "RED").length;
-      document.getElementById("trackerYellow").textContent = stores.filter(store => getAcknowledgement(store).status === "YELLOW").length;
-      document.getElementById("trackerGreen").textContent = stores.filter(store => getAcknowledgement(store).status === "GREEN").length;
-      renderHistory();
+      const red=stores.filter(s=>getAcknowledgement(s).status==="RED");
+      const yellow=stores.filter(s=>getAcknowledgement(s).status==="YELLOW");
+      document.getElementById("trackerRed").textContent=red.length;
+      document.getElementById("trackerYellow").textContent=yellow.length;
+      document.getElementById("trackerGreen").textContent=stores.filter(s=>getAcknowledgement(s).status==="GREEN").length;
+      document.getElementById("trackerManual").textContent=stores.filter(isManualStatus).length;
+      document.getElementById("trackerUnack").textContent=[...red,...yellow].filter(s=>!isAcknowledged(s)).length;
+      document.getElementById("trackerNoEtr").textContent=[...red,...yellow].filter(s=>!text(s.etr)).length;
+      const today=new Date().toDateString();
+      document.getElementById("trackerResolved").textContent=historyStorage().filter(e=>e.action==="Outage resolved"&&new Date(e.timestamp).toDateString()===today).length;
+      renderHistory(); renderActiveOutages(); renderResolved();
     }
 
     function renderAll() {
@@ -1013,7 +1143,57 @@
       setTimeout(() => map && map.invalidateSize(), 300);
     }
 
+    let previewMarker = null;
+
+    function storeFormValue(id) { return text(document.getElementById(id).value); }
+    function clearStoreForm() {
+      ["newSite","newSiteName","newAddress","newCity","newState","newZip","newProvider","newProviderUrl","newLatitude","newLongitude","newStoreNote"].forEach(id=>document.getElementById(id).value="");
+      document.getElementById("geocodeResult").textContent="Enter an address, then select Find location.";
+      if (previewMarker) { map.removeLayer(previewMarker); previewMarker=null; }
+    }
+
+    async function geocodeNewStore() {
+      const address=[storeFormValue("newAddress"),storeFormValue("newCity"),storeFormValue("newState"),storeFormValue("newZip")].filter(Boolean).join(", ");
+      if (!address) { alert("Enter an address first."); return; }
+      const result=document.getElementById("geocodeResult"); result.textContent="Finding location...";
+      try {
+        let response;
+        if (CONFIG.geocodingProxyUrl) response=await fetch(`${CONFIG.geocodingProxyUrl}${CONFIG.geocodingProxyUrl.includes("?")?"&":"?"}address=${encodeURIComponent(address)}`);
+        else {
+          if (!CONFIG.googleGeocodingApiKey || CONFIG.googleGeocodingApiKey.startsWith("PASTE_")) throw new Error("Add a restricted Google Geocoding API key in CONFIG.googleGeocodingApiKey, or configure CONFIG.geocodingProxyUrl.");
+          response=await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${encodeURIComponent(CONFIG.googleGeocodingApiKey)}`);
+        }
+        if (!response.ok) throw new Error(`Geocoding HTTP ${response.status}`);
+        const data=await response.json();
+        const item=Array.isArray(data.results)?data.results[0]:data.result||data;
+        const location=item?.geometry?.location||item?.location;
+        if (!location || !validCoords(Number(location.lat),Number(location.lng))) throw new Error(data.error_message||`No geocoding result (${data.status||"unknown"}).`);
+        document.getElementById("newLatitude").value=Number(location.lat).toFixed(6);
+        document.getElementById("newLongitude").value=Number(location.lng).toFixed(6);
+        result.textContent=`Found: ${item.formatted_address||address}`;
+        if (previewMarker) map.removeLayer(previewMarker);
+        previewMarker=L.marker([location.lat,location.lng],{icon:L.divIcon({className:"store-marker-wrapper",html:'<div class="store-pin" style="background:#2196f3"></div>',iconSize:[34,40],iconAnchor:[17,34]})}).addTo(map).bindPopup("New store preview").openPopup();
+        map.setView([location.lat,location.lng],13);
+      } catch(error) { result.textContent=`Location lookup failed: ${error.message}`; }
+    }
+
+    function saveNewStore() {
+      const site=siteNumber(storeFormValue("newSite")), lat=Number(storeFormValue("newLatitude")), lon=Number(storeFormValue("newLongitude"));
+      if (!site || !storeFormValue("newAddress") || !storeFormValue("newCity") || !storeFormValue("newState")) { alert("Store number, address, city, and state are required."); return; }
+      if (stores.some(store=>keyOf(store)===site)) { alert(`Store ${site} already exists.`); return; }
+      if (!validCoords(lat,lon)) { alert("Find the location or enter valid latitude and longitude values."); return; }
+      const store={"Site #":site,"Site Name":storeFormValue("newSiteName"),Location:storeFormValue("newAddress"),Address:storeFormValue("newAddress"),City:storeFormValue("newCity"),State:stateCode(storeFormValue("newState")),Zip:storeFormValue("newZip"),Latitude:lat,Longitude:lon,"Vendor Name":storeFormValue("newProvider"),"Vendor Link":storeFormValue("newProviderUrl"),providerWebsite:storeFormValue("newProviderUrl"),color:"gray",status:"No outage",outageId:"none",locallyAdded:true};
+      const added=addedStoresStorage(); added.push(store); localStorage.setItem(CONFIG.addedStoresKey,JSON.stringify(added));
+      stores.push(store); addHistoryEntry(store,"Store added","GREEN",storeFormValue("newStoreNote"));
+      clearStoreForm(); document.getElementById("addStorePanel").classList.remove("open"); renderAll(); resetUSA();
+    }
+
     function wireUI() {
+      document.getElementById("showAddStoreBtn").addEventListener("click",()=>document.getElementById("addStorePanel").classList.toggle("open"));
+      document.getElementById("cancelStoreBtn").addEventListener("click",()=>{clearStoreForm();document.getElementById("addStorePanel").classList.remove("open");});
+      document.getElementById("geocodeStoreBtn").addEventListener("click",geocodeNewStore);
+      document.getElementById("saveStoreBtn").addEventListener("click",saveNewStore);
+      document.querySelectorAll(".dash-card[data-filter]").forEach(card=>card.addEventListener("click",()=>{document.getElementById("filterSelect").value=card.dataset.filter;renderStoreList();setSidebar(false);}));
       document.getElementById("sidebarTab").addEventListener("click", () => setSidebar(!document.body.classList.contains("sidebar-collapsed")));
       document.getElementById("collapseSidebarBtn").addEventListener("click", () => setSidebar(true));
       document.getElementById("filterSelect").addEventListener("change", renderStoreList);
@@ -1071,6 +1251,8 @@
         ]);
         const outageRows = Array.isArray(outageData) ? outageData : Array.isArray(outageData.outages) ? outageData.outages : [];
         stores = mergeData(parseCSV(sitesText), outageRows);
+        addedStoresStorage().forEach(store => { if (!stores.some(item => keyOf(item) === keyOf(store))) stores.push(store); });
+        syncProviderHistory();
         renderAll();
         resetUSA();
       } catch (error) {
