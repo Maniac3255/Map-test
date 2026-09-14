@@ -610,22 +610,47 @@
           riseOnHover: true,
           riseOffset: 50000
         }).addTo(stateLayer);
-        marker.bindPopup(`<b>${escapeHtml(STATE_NAMES[code] || code)}</b><br>${items.length} stores<br>${active} impacted`);
-        marker.on("click", () => selectState(code, items));
+        marker.bindTooltip(
+          `<b>${escapeHtml(STATE_NAMES[code] || code)}</b><br>${items.length} stores<br>${active} impacted<br>Click to view stores`,
+          {
+            direction: "top",
+            offset: [0, -22],
+            opacity: 0.96,
+            sticky: true
+          }
+        );
+
+        marker.on("click", event => {
+          if (event && event.originalEvent) {
+            L.DomEvent.stop(event.originalEvent);
+          }
+          openStateView(code);
+        });
       });
     }
 
+    function openStateView(code) {
+      const normalizedCode = stateCode(code);
+      const stateStores = stores.filter(
+        store => stateCode(store.State) === normalizedCode
+      );
+
+      selectState(normalizedCode, stateStores);
+    }
+
     function selectState(code, items) {
-      selectedState = code;
+      selectedState = stateCode(code);
       map.closePopup();
+      map.closeTooltip();
+
+      document.getElementById("searchBar").value = "";
+      document.getElementById("filterSelect").value = "all";
 
       if (map.hasLayer(stateLayer)) {
         map.removeLayer(stateLayer);
       }
 
       storeLayer.clearLayers();
-      document.getElementById("searchBar").value = "";
-      document.getElementById("filterSelect").value = "all";
       renderStoreList();
       setSidebar(false);
 
@@ -635,7 +660,9 @@
         const latitude = Number(store.Latitude);
         const longitude = Number(store.Longitude);
 
-        if (!validCoords(latitude, longitude)) return;
+        if (!validCoords(latitude, longitude)) {
+          return;
+        }
 
         const marker = L.marker(
           [latitude, longitude],
@@ -649,29 +676,42 @@
 
         marker.bindPopup(
           popupHTML(store),
-          { maxWidth: 360, autoPan: true, keepInView: true }
+          {
+            maxWidth: 360,
+            autoPan: true,
+            keepInView: true
+          }
         );
 
         marker.addTo(storeLayer);
         bounds.extend([latitude, longitude]);
       });
 
-      requestAnimationFrame(() => {
+      /* Wait for the sidebar transition before calculating the map center. */
+      window.setTimeout(() => {
         map.invalidateSize({ animate: false, pan: false });
 
         if (bounds.isValid()) {
-          const rightPadding = window.innerWidth > 800 ? 390 : 35;
+          const sidebarPadding = window.innerWidth > 800 ? 390 : 35;
+
           map.fitBounds(bounds, {
             paddingTopLeft: [45, 70],
-            paddingBottomRight: [rightPadding, 60],
+            paddingBottomRight: [sidebarPadding, 60],
             maxZoom: 9,
-            animate: true
+            animate: true,
+            duration: 0.45
           });
         } else {
-          const center = STATE_CENTERS[code];
-          if (center) map.setView(center, 6, { animate: true });
+          const center = STATE_CENTERS[selectedState];
+
+          if (center) {
+            map.setView(center, 6, {
+              animate: true,
+              duration: 0.45
+            });
+          }
         }
-      });
+      }, 320);
     }
 
     function popupHTML(store) {
