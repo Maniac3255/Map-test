@@ -157,7 +157,7 @@ for _, row in sites.iterrows():
 
     map_data.append({
         "storeNumber": store_number,
-        "storeName": row["SiteName"],
+        "storeName": row["Site Name"],
         "address": f"{row['City']}, {row['State']}",
         "provider": row["Vendor Name"],
         "providerWebsite": (
