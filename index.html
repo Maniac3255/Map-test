@@ -64,22 +64,33 @@
 
     #bottomDashboard {
       position: fixed; right: 0; bottom: 0; left: 0; height: var(--dashboard-height);
-      color: #111; background: #f4f6f8; border-top: 1px solid #c8ced5;
-      box-shadow: 0 -4px 14px rgba(0,0,0,.22); z-index: 999;
+      color: #fff; background: #15181b; border-top: 1px solid #30353b;
+      box-shadow: 0 -4px 14px rgba(0,0,0,.35); z-index: 999;
       transform: translateY(100%); transition: transform .28s ease;
     }
     #bottomDashboard.expanded { transform: translateY(0); }
     #dashboardHandle {
-      position: absolute; top: -38px; left: 50%; width: 180px; height: 38px;
-      color: #fff; background: var(--panel); border: 1px solid var(--panel-border);
+      position: absolute; top: -40px; left: 50%; width: 210px; height: 40px;
+      color: #fff; background: #15181b; border: 1px solid #30353b;
       border-bottom: 0; border-radius: 12px 12px 0 0; transform: translateX(-50%);
       cursor: pointer; font-weight: 700;
     }
     #dashboardContent { height: 100%; padding: 14px; overflow: auto; }
-    .dash-cards { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 10px; }
-    .dash-card { padding: 12px; background: #fff; border: 1px solid #d8dde3; border-radius: 8px; }
-    .dash-card h3 { margin: 0 0 8px; color: #4c545d; font-size: 12px; text-transform: uppercase; }
-    .dash-card p { margin: 0; font-size: 24px; font-weight: 700; }
+    .dashboard-tabs { display:flex; gap:8px; margin-bottom:12px; }
+    .dashboard-tab { padding:8px 14px; color:#fff; background:#252b32; border:1px solid #454d56; border-radius:6px; cursor:pointer; font-weight:700; }
+    .dashboard-tab.active { background:#1976d2; border-color:#1976d2; }
+    .dashboard-panel { display:none; }
+    .dashboard-panel.active { display:block; }
+    .dash-cards { display:grid; grid-template-columns:repeat(4,minmax(130px,1fr)); gap:10px; }
+    .dash-card { padding:12px; background:#20242a; border:1px solid #3a4149; border-radius:8px; }
+    .dash-card h3 { margin:0 0 8px; color:#b9c0c8; font-size:12px; text-transform:uppercase; }
+    .dash-card p { margin:0; font-size:24px; font-weight:700; }
+    .history-toolbar { display:flex; gap:8px; margin-bottom:10px; }
+    #historySearch { flex:1; padding:9px; color:#fff; background:#20242a; border:1px solid #454d56; border-radius:6px; }
+    #clearHistoryBtn { padding:9px 12px; color:#fff; background:#343a40; border:1px solid #59616a; border-radius:6px; cursor:pointer; }
+    .history-entry { display:grid; grid-template-columns:150px 105px 145px 1fr; gap:10px; padding:10px; border-bottom:1px solid #30353b; font-size:12px; line-height:1.4; }
+    .history-note { color:#d7dce1; white-space:pre-wrap; }
+    .history-empty { padding:30px; color:#b9c0c8; text-align:center; }
 
     .map-legend { padding: 10px 12px; color: #fff; background: rgba(21,24,27,.95); border: 1px solid #333941; border-radius: 8px; font-size: 12px; line-height: 1.8; }
     .legend-row { display: flex; align-items: center; gap: 8px; }
@@ -87,7 +98,8 @@
     .usa-map-control { width: 36px; height: 36px; color: #fff; background: #171b20; border: 2px solid rgba(255,255,255,.25); border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 800; }
 
     .state-marker-wrapper, .store-marker-wrapper { overflow: visible !important; background: transparent; border: 0; }
-    .state-badge { width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 3px 9px rgba(0,0,0,.65); font-weight: 800; transform: scale(var(--state-marker-scale,.72)); transition: transform .25s ease; }
+    .state-marker-wrapper { display:flex !important; align-items:center; justify-content:center; }
+    .state-badge { width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 3px 9px rgba(0,0,0,.65); font-weight: 800; transform-origin: center center; transform: scale(var(--state-marker-scale,.72)); transition: transform .25s ease; }
     .state-code { font-size: 14px; }
     .state-count { font-size: 11px; }
 
@@ -117,11 +129,6 @@
       .dash-cards { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
     }
 
-    #outageTracker { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1100; display: flex; gap: 8px; padding: 8px; color: #fff; background: #15181b; border: 1px solid #30353b; border-radius: 16px; box-shadow: 0 5px 18px rgba(0,0,0,.45); }
-    .tracker-card { min-width: 94px; padding: 10px 12px; background: #20242a; border-radius: 11px; }
-    .tracker-label { color: #b9c0c8; font-size: 11px; }
-    .tracker-count { margin-top: 5px; font-size: 20px; font-weight: 800; }
-    #trackerRed { color: #ff5252; } #trackerYellow { color: #ffeb3b; } #trackerGreen { color: #41e66f; }
   </style>
 </head>
 <body class="sidebar-collapsed">
@@ -147,10 +154,29 @@
 
   <button id="sidebarTab" type="button">STORES</button>
 
-  <section id="outageTracker" aria-label="Outage tracker">
-    <div class="tracker-card"><div class="tracker-label">Outage</div><div id="trackerRed" class="tracker-count">0</div></div>
-    <div class="tracker-card"><div class="tracker-label">Possible</div><div id="trackerYellow" class="tracker-count">0</div></div>
-    <div class="tracker-card"><div class="tracker-label">No outage</div><div id="trackerGreen" class="tracker-count">0</div></div>
+  <section id="bottomDashboard" aria-label="Outage dashboard">
+    <button id="dashboardHandle" type="button" aria-expanded="false">▲ OUTAGE DASHBOARD</button>
+    <div id="dashboardContent">
+      <div class="dashboard-tabs">
+        <button class="dashboard-tab active" type="button" data-panel="summaryPanel">Counters</button>
+        <button class="dashboard-tab" type="button" data-panel="historyPanel">History</button>
+      </div>
+      <div id="summaryPanel" class="dashboard-panel active">
+        <div class="dash-cards">
+          <div class="dash-card"><h3>Outage</h3><p id="trackerRed" style="color:#ff5252">0</p></div>
+          <div class="dash-card"><h3>Possible outage</h3><p id="trackerYellow" style="color:#ffeb3b">0</p></div>
+          <div class="dash-card"><h3>No outage</h3><p id="trackerGreen" style="color:#41e66f">0</p></div>
+          <div class="dash-card"><h3>History records</h3><p id="trackerHistory">0</p></div>
+        </div>
+      </div>
+      <div id="historyPanel" class="dashboard-panel">
+        <div class="history-toolbar">
+          <input id="historySearch" type="search" placeholder="Search store, status, location, or note...">
+          <button id="clearHistoryBtn" type="button">Clear history</button>
+        </div>
+        <div id="historyList"></div>
+      </div>
+    </div>
   </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -161,6 +187,7 @@
       sitesFile: "data/Sites.csv",
       outagesFile: "outages.json",
       acknowledgementKey: "storeOutageAcknowledgements_v1",
+      historyKey: "storeOutageHistory_v1",
       markerZoom: 13,
       usaBounds: [[18, -140], [56, -52]],
       usaDisplayBounds: [[24.5, -124.8], [49.3, -67]]
@@ -180,6 +207,15 @@
       SD:[43.9695,-99.9018],TN:[35.5175,-86.5804],TX:[31.9686,-99.9018],UT:[39.321,-111.0937],
       VT:[44.5588,-72.5778],VA:[37.4316,-78.6569],WA:[47.4009,-120.7401],WV:[38.5976,-80.4549],
       WI:[43.7844,-88.7879],WY:[43.076,-107.2903],DC:[38.9072,-77.0369]
+    };
+
+    const STATE_MARKER_CENTERS = {
+      ...STATE_CENTERS,
+      AK:[64.2,-152.5], HI:[20.8,-157.5],
+      ID:[44.25,-114.35], SD:[44.45,-100.25], WI:[44.70,-89.75], MI:[44.35,-85.55], NH:[43.75,-71.58],
+      FL:[28.15,-82.10], LA:[31.00,-92.00], MD:[39.05,-76.80], MA:[42.25,-71.80],
+      CT:[41.60,-72.70], RI:[41.68,-71.55], NJ:[40.15,-74.65], DE:[39.05,-75.50],
+      VT:[44.05,-72.70], WV:[38.65,-80.60], DC:[38.90,-77.04]
     };
 
     const STATE_NAMES = {
@@ -399,6 +435,32 @@
       return Boolean(getStoredOverride(store));
     }
 
+    function historyStorage() {
+      try {
+        const value = JSON.parse(localStorage.getItem(CONFIG.historyKey) || "[]");
+        return Array.isArray(value) ? value : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function addHistoryEntry(store, action, status, note) {
+      const history = historyStorage();
+      history.unshift({
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: new Date().toISOString(),
+        site: keyOf(store),
+        siteName: text(store["Site Name"] ?? store.SiteName),
+        city: text(store.City),
+        state: text(store.State),
+        action,
+        status,
+        providerStatus: automaticStatus(store),
+        note: text(note)
+      });
+      localStorage.setItem(CONFIG.historyKey, JSON.stringify(history.slice(0, 1000)));
+    }
+
     function saveAcknowledgement(store, status, note = "", acknowledgedBy = "Manual override") {
       if (!["RED", "YELLOW", "GREEN"].includes(status)) return;
 
@@ -413,6 +475,7 @@
       };
 
       localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
+      addHistoryEntry(store, "Manual status saved", status, note);
       renderAll();
       focusStore(store);
     }
@@ -436,6 +499,8 @@
       if (!store) return;
 
       const all = ackStorage();
+      const previous = all[ackKey(store)];
+      addHistoryEntry(store, "Manual override cleared", automaticStatus(store), previous ? previous.note : "");
       delete all[ackKey(store)];
       localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
       renderAll();
@@ -630,7 +695,7 @@
     function createStateMarkers() {
       stateLayer.clearLayers();
       groupedStates().forEach((items, code) => {
-        const center = STATE_CENTERS[code];
+        const center = STATE_MARKER_CENTERS[code] || STATE_CENTERS[code];
         if (!center) return;
         const redCount = items.filter(item => getAcknowledgement(item).status === "RED").length;
         const yellowCount = items.filter(item => getAcknowledgement(item).status === "YELLOW").length;
@@ -903,10 +968,33 @@
       });
     }
 
+    function renderHistory() {
+      const query = text(document.getElementById("historySearch")?.value).toLowerCase();
+      const history = historyStorage();
+      const list = document.getElementById("historyList");
+      const visible = history.filter(entry =>
+        !query || [entry.site, entry.siteName, entry.city, entry.state, entry.action, entry.status, entry.note]
+          .map(text).join(" ").toLowerCase().includes(query)
+      );
+      document.getElementById("trackerHistory").textContent = history.length;
+      if (!visible.length) {
+        list.innerHTML = `<div class="history-empty">${history.length ? "No matching history records." : "No outage history has been recorded yet."}</div>`;
+        return;
+      }
+      list.innerHTML = visible.map(entry => `
+        <div class="history-entry">
+          <div><b>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</b></div>
+          <div><b>Store ${escapeHtml(entry.site)}</b><br>${escapeHtml(entry.state)}</div>
+          <div><b>${escapeHtml(entry.action)}</b><br>${escapeHtml(entry.status)}</div>
+          <div class="history-note"><b>${escapeHtml(entry.siteName || entry.city || "")}</b>${entry.note ? `<br>${escapeHtml(entry.note)}` : "<br>No note entered."}</div>
+        </div>`).join("");
+    }
+
     function renderDashboard() {
       document.getElementById("trackerRed").textContent = stores.filter(store => getAcknowledgement(store).status === "RED").length;
       document.getElementById("trackerYellow").textContent = stores.filter(store => getAcknowledgement(store).status === "YELLOW").length;
       document.getElementById("trackerGreen").textContent = stores.filter(store => getAcknowledgement(store).status === "GREEN").length;
+      renderHistory();
     }
 
     function renderAll() {
@@ -930,6 +1018,27 @@
       document.getElementById("collapseSidebarBtn").addEventListener("click", () => setSidebar(true));
       document.getElementById("filterSelect").addEventListener("change", renderStoreList);
       document.getElementById("searchBar").addEventListener("input", renderStoreList);
+      document.getElementById("dashboardHandle").addEventListener("click", () => {
+        const dashboard = document.getElementById("bottomDashboard");
+        const expanded = dashboard.classList.toggle("expanded");
+        document.getElementById("dashboardHandle").textContent = `${expanded ? "▼" : "▲"} OUTAGE DASHBOARD`;
+        document.getElementById("dashboardHandle").setAttribute("aria-expanded", String(expanded));
+        setTimeout(() => map && map.invalidateSize(), 300);
+      });
+      document.querySelectorAll(".dashboard-tab").forEach(button => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".dashboard-tab").forEach(item => item.classList.remove("active"));
+          document.querySelectorAll(".dashboard-panel").forEach(item => item.classList.remove("active"));
+          button.classList.add("active");
+          document.getElementById(button.dataset.panel).classList.add("active");
+        });
+      });
+      document.getElementById("historySearch").addEventListener("input", renderHistory);
+      document.getElementById("clearHistoryBtn").addEventListener("click", () => {
+        if (!window.confirm("Clear all locally stored outage history?")) return;
+        localStorage.removeItem(CONFIG.historyKey);
+        renderHistory();
+      });
       window.addEventListener("resize", () => map && map.invalidateSize());
     }
 
