@@ -130,6 +130,7 @@
     }
 
 
+    .sidebar-bottom-actions { padding-top:10px; border-top:1px solid #30353b; }
     .sidebar-action-row { display:flex; gap:8px; margin-bottom:9px; }
     .sidebar-action-row button { flex:1; padding:9px; color:#fff; background:#1976d2; border:0; border-radius:6px; cursor:pointer; font-weight:700; }
     #addStorePanel { display:none; margin-bottom:12px; padding:12px; background:#20242a; border:1px solid #3a4149; border-radius:8px; }
@@ -167,6 +168,14 @@
       <button id="collapseSidebarBtn" class="header-btn" type="button">▶</button>
     </div>
     <div class="sidebar-controls">
+      <select id="filterSelect" aria-label="Filter stores">
+        <option value="all">All Stores</option>
+        <option value="outages">All Outages</option>
+      </select>
+      <input id="searchBar" type="search" placeholder="Search store, name, city, state...">
+    </div>
+    <div id="storeList"></div>
+    <div class="sidebar-bottom-actions">
       <div class="sidebar-action-row"><button id="showAddStoreBtn" type="button">+ Add Store</button></div>
       <div id="addStorePanel">
         <h3>Add Store</h3>
@@ -191,13 +200,7 @@
           <button id="cancelStoreBtn" type="button">Cancel</button>
         </div>
       </div>
-      <select id="filterSelect" aria-label="Filter stores">
-        <option value="all">All Stores</option>
-        <option value="outages">All Outages</option><option value="manual">Manual Overrides</option><option value="unacknowledged">Unacknowledged</option>
-      </select>
-      <input id="searchBar" type="search" placeholder="Search store, name, city, state...">
     </div>
-    <div id="storeList"></div>
   </aside>
 
   <button id="sidebarTab" type="button">STORES</button>
