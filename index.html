@@ -77,7 +77,7 @@
       cursor: pointer; font-weight: 700;
     }
     #dashboardContent { height: 100%; padding: 14px; overflow: auto; }
-    .dash-cards { display: grid; grid-template-columns: repeat(4, minmax(145px, 1fr)); gap: 10px; }
+    .dash-cards { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 10px; }
     .dash-card { padding: 12px; background: #fff; border: 1px solid #d8dde3; border-radius: 8px; }
     .dash-card h3 { margin: 0 0 8px; color: #4c545d; font-size: 12px; text-transform: uppercase; }
     .dash-card p { margin: 0; font-size: 24px; font-weight: 700; }
@@ -130,9 +130,9 @@
     <div class="sidebar-controls">
       <select id="filterSelect">
         <option value="all">All Stores</option>
-        <option value="outages">Active Outages Only</option>
-        <option value="possible">Possible Outages Only</option>
-        <option value="normal">Normal Stores Only</option>
+        <option value="impacted">Outages and Possible Outages</option>
+        <option value="manual">Manual Status Only</option>
+        <option value="normal">No Outage Only</option>
       </select>
       <input id="searchBar" type="search" placeholder="Search store, name, city, state...">
     </div>
@@ -308,48 +308,96 @@
     }
 
     function ackStorage() {
-      try { return JSON.parse(localStorage.getItem(CONFIG.acknowledgementKey) || "{}"); }
-      catch { return {}; }
+      try {
+        return JSON.parse(localStorage.getItem(CONFIG.acknowledgementKey) || "{}");
+      } catch {
+        return {};
+      }
     }
 
     function ackKey(store) {
       return `${keyOf(store)}_${text(store.outageId) || "current"}`;
     }
 
+    function automaticStatus(store) {
+      return baseStatus(store);
+    }
+
+    function getStoredOverride(store) {
+      const all = ackStorage();
+      const key = ackKey(store);
+      const saved = all[key];
+
+      if (!saved) return null;
+
+      const currentAutomaticStatus = automaticStatus(store);
+
+      /*
+       * Automatically clear the manual value whenever the provider's
+       * automatic status changes from the value present when the manual
+       * override was created.
+       */
+      if (saved.automaticStatusAtOverride !== currentAutomaticStatus) {
+        delete all[key];
+        localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
+        return null;
+      }
+
+      return saved;
+    }
+
     function getAcknowledgement(store) {
-      return ackStorage()[ackKey(store)] || {
-        status: baseStatus(store),
+      const saved = getStoredOverride(store);
+
+      if (saved && ["RED", "YELLOW", "GREEN"].includes(saved.status)) {
+        return saved;
+      }
+
+      return {
+        status: automaticStatus(store),
+        source: "automatic",
         acknowledgedBy: "",
-        acknowledgedAt: ""
+        acknowledgedAt: "",
+        automaticStatusAtOverride: automaticStatus(store)
       };
     }
 
-    function saveAcknowledgement(store, status, acknowledgedBy = "") {
+    function isManualStatus(store) {
+      return Boolean(getStoredOverride(store));
+    }
+
+    function saveAcknowledgement(store, status, acknowledgedBy = "Manual override") {
+      if (!["RED", "YELLOW", "GREEN"].includes(status)) return;
+
       const all = ackStorage();
-      const prior = all[ackKey(store)] || {};
       all[ackKey(store)] = {
         status,
-        acknowledgedBy: acknowledgedBy || prior.acknowledgedBy || "NOC",
-        acknowledgedAt: prior.acknowledgedAt || new Date().toISOString()
+        source: "manual",
+        acknowledgedBy,
+        acknowledgedAt: new Date().toISOString(),
+        automaticStatusAtOverride: automaticStatus(store)
       };
+
       localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
       renderAll();
+      focusStore(store);
     }
 
     window.changeOutageStatus = function(site, outageId, status) {
       const store = stores.find(item =>
         keyOf(item) === site && (text(item.outageId) || "current") === outageId
       );
-      if (store && ["RED", "YELLOW", "GREEN"].includes(status)) {
-        saveAcknowledgement(store, status, "Manual override");
-      }
+
+      if (store) saveAcknowledgement(store, status);
     };
 
     window.clearStatusOverride = function(site, outageId) {
       const store = stores.find(item =>
         keyOf(item) === site && (text(item.outageId) || "current") === outageId
       );
+
       if (!store) return;
+
       const all = ackStorage();
       delete all[ackKey(store)];
       localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
@@ -369,21 +417,41 @@
 
     function acknowledgementHTML(store) {
       const acknowledgement = getAcknowledgement(store);
+      const automatic = automaticStatus(store);
       const site = escapeHtml(keyOf(store));
       const outageId = escapeHtml(text(store.outageId) || "current");
+      const manual = isManualStatus(store);
+
       const options = ["RED", "YELLOW", "GREEN"].map(status => {
-        const label = status === "RED" ? "Outage" : status === "YELLOW" ? "Possible Outage" : "No Outage";
+        const label = status === "RED"
+          ? "Outage"
+          : status === "YELLOW"
+            ? "Possible Outage"
+            : "No Outage";
+
         return `<option value="${status}" ${status === acknowledgement.status ? "selected" : ""}>${label}</option>`;
       }).join("");
-      const overrideExists = Boolean(ackStorage()[ackKey(store)]);
+
+      const automaticLabel = automatic === "RED"
+        ? "Outage"
+        : automatic === "YELLOW"
+          ? "Possible Outage"
+          : "No Outage";
+
       const changed = acknowledgement.acknowledgedAt
         ? new Date(acknowledgement.acknowledgedAt).toLocaleString()
         : "";
+
       return `<div class="ack-section">
         <label><b>Store status</b></label>
         <select class="status-select" style="background:${statusColor(store)}" onchange="changeOutageStatus('${site}','${outageId}',this.value)">${options}</select>
-        <div class="ack-meta">Automatic provider status${overrideExists ? " is manually overridden" : " is active"}.${changed ? `<br>Last changed: ${escapeHtml(changed)}` : ""}</div>
-        ${overrideExists ? `<button class="clear-override-button" type="button" onclick="clearStatusOverride('${site}','${outageId}')">Use automatic provider status</button>` : ""}
+        <div class="ack-meta">
+          Status source: <b>${manual ? "Manual" : "Provider automatic"}</b><br>
+          Provider status: <b>${automaticLabel}</b>
+          ${manual && changed ? `<br>Manual change: ${escapeHtml(changed)}` : ""}
+          ${manual ? "<br>The manual status will clear automatically when the provider status changes." : ""}
+        </div>
+        ${manual ? `<button class="clear-override-button" type="button" onclick="clearStatusOverride('${site}','${outageId}')">Use automatic provider status now</button>` : ""}
       </div>`;
     }
 
@@ -565,8 +633,12 @@
       const filter = document.getElementById("filterSelect").value;
       const query = document.getElementById("searchBar").value.trim().toLowerCase();
       return stores.filter(store => {
-        const color = outageColor(store.color);
-        const statusMatch = filter === "all" || (filter === "outages" && color === "red") || (filter === "possible" && color === "yellow") || (filter === "normal" && color === "gray");
+        const effectiveStatus = getAcknowledgement(store).status;
+        const statusMatch =
+          filter === "all" ||
+          (filter === "impacted" && ["RED", "YELLOW"].includes(effectiveStatus)) ||
+          (filter === "manual" && isManualStatus(store)) ||
+          (filter === "normal" && effectiveStatus === "GREEN");
         const stateMatch = !selectedState || stateCode(store.State) === selectedState;
         const haystack = [keyOf(store), store["Site Name"], store.Location, store.City, store.State, store["Vendor Name"], statusLabel(store)].map(text).join(" ").toLowerCase();
         return statusMatch && stateMatch && (!query || haystack.includes(query));
@@ -609,15 +681,17 @@
     }
 
     function renderDashboard() {
-      const active = stores.filter(store => outageColor(store.color) === "red").length;
-      const possible = stores.filter(store => outageColor(store.color) === "yellow").length;
+      const active = stores.filter(store => getAcknowledgement(store).status === "RED").length;
+      const possible = stores.filter(store => getAcknowledgement(store).status === "YELLOW").length;
       const noOutage = stores.filter(store => getAcknowledgement(store).status === "GREEN").length;
+      const manualCount = stores.filter(store => isManualStatus(store)).length;
       const providers = new Set(stores.map(store => text(store["Vendor Name"])).filter(Boolean)).size;
       document.getElementById("dashboardContent").innerHTML = `<div class="dash-cards">
         <div class="dash-card"><h3>Total Stores</h3><p>${stores.length}</p></div>
         <div class="dash-card"><h3>Active Outages</h3><p style="color:#d32f2f">${active}</p></div>
         <div class="dash-card"><h3>Possible Outages</h3><p style="color:#a77e00">${possible}</p></div>
         <div class="dash-card"><h3>No Outage</h3><p style="color:#2e7d32">${noOutage}</p></div>
+        <div class="dash-card"><h3>Manual Statuses</h3><p style="color:#1565c0">${manualCount}</p></div>
         <div class="dash-card"><h3>Unique Providers</h3><p>${providers}</p></div>
       </div>`;
     }
