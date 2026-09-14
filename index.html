@@ -128,11 +128,9 @@
       <button id="collapseSidebarBtn" class="header-btn" type="button">▶</button>
     </div>
     <div class="sidebar-controls">
-      <select id="filterSelect">
+      <select id="filterSelect" aria-label="Filter stores">
         <option value="all">All Stores</option>
-        <option value="impacted">Outages and Possible Outages</option>
-        <option value="manual">Manual Status Only</option>
-        <option value="normal">No Outage Only</option>
+        <option value="outages">Outages</option>
       </select>
       <input id="searchBar" type="search" placeholder="Search store, name, city, state...">
     </div>
@@ -461,6 +459,14 @@
       </div>`;
     }
 
+    function markerPriority(store) {
+      const status = getAcknowledgement(store).status;
+
+      if (status === "RED") return 30000;
+      if (status === "YELLOW") return 20000;
+      return 1000;
+    }
+
     function initializeMap() {
       if (typeof L === "undefined") throw new Error("Leaflet did not load. Check CDN access.");
       map = L.map("map", {
@@ -505,11 +511,9 @@
           button.type = "button";
           button.textContent = "USA";
           L.DomEvent.disableClickPropagation(button);
-          button.addEventListener("click", () => {
-            selectedState = "";
-            document.getElementById("searchBar").value = "";
-            document.getElementById("filterSelect").value = "all";
-            renderAll();
+          button.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
             resetUSA();
           });
           return button;
@@ -593,7 +597,19 @@
           html: `<div class="state-badge" style="background:${color}"><span class="state-code">${escapeHtml(code)}</span><span class="state-count">${items.length}</span></div>`,
           iconSize: [50, 50], iconAnchor: [25, 25]
         });
-        const marker = L.marker(center, { icon, zIndexOffset: active > 0 ? 1000 : 0 }).addTo(stateLayer);
+        const statePriority =
+          redCount > 0
+            ? 30000
+            : yellowCount > 0
+              ? 20000
+              : 1000;
+
+        const marker = L.marker(center, {
+          icon,
+          zIndexOffset: statePriority,
+          riseOnHover: true,
+          riseOffset: 50000
+        }).addTo(stateLayer);
         marker.bindPopup(`<b>${escapeHtml(STATE_NAMES[code] || code)}</b><br>${items.length} stores<br>${active} impacted`);
         marker.on("click", () => selectState(code, items));
       });
@@ -623,7 +639,12 @@
 
         const marker = L.marker(
           [latitude, longitude],
-          { icon: createStoreIcon(store) }
+          {
+            icon: createStoreIcon(store),
+            zIndexOffset: markerPriority(store),
+            riseOnHover: true,
+            riseOffset: 50000
+          }
         );
 
         marker.bindPopup(
@@ -671,16 +692,70 @@
     function filteredStores() {
       const filter = document.getElementById("filterSelect").value;
       const query = document.getElementById("searchBar").value.trim().toLowerCase();
-      return stores.filter(store => {
+
+      const filtered = stores.filter(store => {
         const effectiveStatus = getAcknowledgement(store).status;
+
         const statusMatch =
           filter === "all" ||
-          (filter === "impacted" && ["RED", "YELLOW"].includes(effectiveStatus)) ||
-          (filter === "manual" && hasManualHistory(store)) ||
-          (filter === "normal" && effectiveStatus === "GREEN");
-        const stateMatch = !selectedState || stateCode(store.State) === selectedState;
-        const haystack = [keyOf(store), store["Site Name"], store.Location, store.City, store.State, store["Vendor Name"], statusLabel(store)].map(text).join(" ").toLowerCase();
-        return statusMatch && stateMatch && (!query || haystack.includes(query));
+          (
+            filter === "outages" &&
+            ["RED", "YELLOW"].includes(effectiveStatus)
+          );
+
+        const stateMatch =
+          !selectedState ||
+          stateCode(store.State) === selectedState;
+
+        const searchableText = [
+          keyOf(store),
+          store["Site Name"],
+          store.SiteName,
+          store.Location,
+          store.Address,
+          store.City,
+          store.State,
+          store["Vendor Name"],
+          store.Vendor,
+          store.Provider,
+          statusLabel(store)
+        ]
+          .map(text)
+          .join(" ")
+          .toLowerCase();
+
+        const searchMatch =
+          !query || searchableText.includes(query);
+
+        return statusMatch && stateMatch && searchMatch;
+      });
+
+      const statusOrder = {
+        RED: 0,
+        YELLOW: 1,
+        GREEN: 2
+      };
+
+      return filtered.sort((firstStore, secondStore) => {
+        const firstStatus = getAcknowledgement(firstStore).status;
+        const secondStatus = getAcknowledgement(secondStore).status;
+
+        const statusDifference =
+          (statusOrder[firstStatus] ?? 99) -
+          (statusOrder[secondStatus] ?? 99);
+
+        if (statusDifference !== 0) {
+          return statusDifference;
+        }
+
+        return keyOf(firstStore).localeCompare(
+          keyOf(secondStore),
+          undefined,
+          {
+            numeric: true,
+            sensitivity: "base"
+          }
+        );
       });
     }
 
@@ -692,7 +767,15 @@
       }
       storeLayer.clearLayers();
       const icon = L.divIcon({ className: "store-marker-wrapper", html: `<div class="store-pin" style="background:${statusColor(store)}"></div>`, iconSize: [34,40], iconAnchor: [17,34] });
-      const marker = L.marker([lat, lon], { icon }).bindPopup(popupHTML(store), { maxWidth: 360 }).addTo(storeLayer);
+      const marker = L.marker([lat, lon], {
+        icon,
+        zIndexOffset: 60000,
+        riseOnHover: true,
+        riseOffset: 70000
+      }).bindPopup(
+        popupHTML(store),
+        { maxWidth: 360 }
+      ).addTo(storeLayer);
       map.setView([lat, lon], CONFIG.markerZoom);
       marker.openPopup();
     }
