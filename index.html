@@ -658,6 +658,16 @@
       });
     }
 
+    function createStoreIcon(store) {
+      return L.divIcon({
+        className: "store-marker-wrapper",
+        html: `<div class="store-pin" style="background:${statusColor(store)}"></div>`,
+        iconSize: [34, 40],
+        iconAnchor: [17, 34],
+        popupAnchor: [0, -32]
+      });
+    }
+
     function selectState(code, items) {
       selectedState = stateCode(code);
       items = Array.isArray(items) && items.length
