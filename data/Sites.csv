@@ -146,7 +146,7 @@ SUT,284,CITY OF ST. GEORGE UTILITY BILL,https://www.dixiepower.com/outage-map/,S
 FWV,286,MON POWER,https://www.firstenergycorp.com/outages_help/current_outages_maps/outages-map.html,Fairmont,2386 WHITE HALL BLVD,FAIRMONT,WV,26554-8220,39.2745,-80.177
 ,287,City of Escanaba Michigan,https://gis.escanaba.org/PublicOutageMap/,Escanaba MI,2905 N Lincoln Rd Escanaba,ESCANABA,MICHIGAN,49829,47.6739,-117.216
 LFMN,290,MINNESOTA POWER,https://www.mnpower.com/OutageCenter/OutageMap,Little Falls,14884 113TH STREET,LITTLE FALLS,MN,56345-6378,46.8397,-92.2364
-CID,295,IDAHO POWER CO,https://tools.idahopower.com/outage,Caldwell,5500 CLEVELAND BLVD,CALDWELL,ID,83607-8010,30.329,-81.9498
+CID,295,IDAHO POWER CO,https://tools.idahopower.com/outage,Caldwell,5500 CLEVELAND BLVD,CALDWELL,ID,83607-8010,43.63024701783525, -116.64106411865441
 KCKS,311,KANSAS CITY BOARD OF PUBLIC UTILITIES,https://outage.bpu.com/,Kansas City,1201 NORTH 98TH STREET,KANSAS CITY,KS,66111-1865,39.1198,-94.8046
 BMT,312,YELLOWSTONE VALLEY ELECTRIC COOPERATIVE,https://www.yvec.com/test-outage-map/,Billings,976 ROSEBUD LANE,BILLINGS,MT,59101-6485,45.7684,-108.5287
 BMO,313,WHITE RIVER VALLEY ELECTRIC COOPERATIVE,https://whiteriver.outagemap.coop/,Branson,1342 SW OUTER RD,BRANSON,MO,65616-7866,36.6287,-93.2654
