@@ -55,7 +55,6 @@
     #filterSelect, #searchBar { width: 100%; margin-bottom: 9px; padding: 10px; color: #fff; background: var(--input); border: 1px solid #3a4149; border-radius: 6px; }
 
     .store-item { padding: 12px; color: #fff; border-bottom: 1px solid var(--panel-border); cursor: pointer; }
-    .store-item:hover { background: rgba(255,255,255,.05); }
     .store-title { margin-bottom: 5px; font-size: 14px; font-weight: 700; }
     .store-address { color: #b9c0c8; font-size: 12px; line-height: 1.4; }
     .store-status { display: flex; align-items: center; gap: 7px; margin-top: 6px; font-size: 12px; font-weight: 700; }
@@ -102,6 +101,9 @@
     .ack-button, .status-select { width: 100%; padding: 8px; color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-weight: 700; }
     .ack-button { background: var(--orange); }
     .status-select { margin-top: 5px; }
+    .status-note { width:100%; min-height:72px; margin-top:8px; padding:9px; color:#fff; background:#252b32; border:1px solid #59616a; border-radius:6px; resize:vertical; }
+    .save-status-button { width:100%; margin-top:8px; padding:9px; color:#fff; background:#1976d2; border:0; border-radius:6px; cursor:pointer; font-weight:700; }
+    .saved-note { margin-top:7px; padding:7px 8px; color:#fff; background:#252b32; border-left:3px solid #64b5f6; border-radius:3px; white-space:pre-wrap; }
     .ack-meta { margin-top: 7px; color: #b9c0c8; font-size: 11px; }
     .clear-override-button { width:100%; margin-top:8px; padding:7px; color:#fff; background:#343a40; border:1px solid #59616a; border-radius:6px; cursor:pointer; }
 
@@ -397,7 +399,7 @@
       return Boolean(getStoredOverride(store));
     }
 
-    function saveAcknowledgement(store, status, acknowledgedBy = "Manual override") {
+    function saveAcknowledgement(store, status, note = "", acknowledgedBy = "Manual override") {
       if (!["RED", "YELLOW", "GREEN"].includes(status)) return;
 
       const all = ackStorage();
@@ -406,7 +408,8 @@
         source: "manual",
         acknowledgedBy,
         acknowledgedAt: new Date().toISOString(),
-        automaticStatusAtOverride: automaticStatus(store)
+        automaticStatusAtOverride: automaticStatus(store),
+        note: text(note)
       };
 
       localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
@@ -414,12 +417,15 @@
       focusStore(store);
     }
 
-    window.changeOutageStatus = function(site, outageId, status) {
+    window.saveOutageStatus = function(site, outageId, controlId) {
       const store = stores.find(item =>
         keyOf(item) === site && (text(item.outageId) || "current") === outageId
       );
-
-      if (store) saveAcknowledgement(store, status);
+      const control = document.getElementById(controlId);
+      if (!store || !control) return;
+      const status = control.querySelector(".status-select").value;
+      const note = control.querySelector(".status-note").value;
+      saveAcknowledgement(store, status, note);
     };
 
     window.clearStatusOverride = function(site, outageId) {
@@ -452,6 +458,7 @@
       const automatic = automaticStatus(store);
       const site = escapeHtml(keyOf(store));
       const outageId = escapeHtml(text(store.outageId) || "current");
+      const controlId = `status-control-${site.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
       const manualActive = isManualStatus(store);
       const manualHistory = hasManualHistory(store);
 
@@ -467,6 +474,7 @@
       const changed = saved && saved.acknowledgedAt
         ? new Date(saved.acknowledgedAt).toLocaleString()
         : "";
+      const savedNote = saved ? text(saved.note) : "";
 
       const historyText = manualHistory
         ? `<br>Last manual selection: <b>${labelFor(saved.status)}</b>${changed ? ` on ${escapeHtml(changed)}` : ""}`
@@ -478,14 +486,18 @@
           ? `<br>Manual override remains active until the provider status changes.`
           : "";
 
-      return `<div class="ack-section">
+      return `<div class="ack-section" id="${controlId}">
         <label><b>Store status</b></label>
-        <select class="status-select" style="background:${statusColor(store)}" onchange="changeOutageStatus('${site}','${outageId}',this.value)">${options}</select>
+        <select class="status-select" style="background:${statusColor(store)}">${options}</select>
+        <label style="display:block;margin-top:9px"><b>Manual change note / reason</b></label>
+        <textarea class="status-note" maxlength="500" placeholder="Add the reason for the manual status change...">${escapeHtml(savedNote)}</textarea>
+        <button class="save-status-button" type="button" onclick="saveOutageStatus('${site}','${outageId}','${controlId}')">Save status and note</button>
         <div class="ack-meta">
           Current source: <b>${manualActive ? "Manual" : "Provider automatic"}</b><br>
           Provider status: <b>${labelFor(automatic)}</b>
           ${historyText}
           ${syncText}
+          ${savedNote ? `<div class="saved-note"><b>Saved note:</b><br>${escapeHtml(savedNote)}</div>` : ""}
         </div>
         ${manualHistory ? `<button class="clear-override-button" type="button" onclick="clearStatusOverride('${site}','${outageId}')">Clear manual status history</button>` : ""}
       </div>`;
@@ -639,19 +651,7 @@
         const marker = L.marker(center, {
           icon,
           zIndexOffset: statePriority,
-          riseOnHover: true,
-          riseOffset: 50000
         }).addTo(stateLayer);
-        marker.bindTooltip(
-          `<b>${escapeHtml(STATE_NAMES[code] || code)}</b><br>${items.length} stores<br>${active} impacted<br>Click to view stores`,
-          {
-            direction: "top",
-            offset: [0, -22],
-            opacity: 0.96,
-            sticky: true
-          }
-        );
-
         marker.on("click", () => {
           selectState(code, items);
         });
@@ -715,8 +715,6 @@
           {
             icon: createStoreIcon(store),
             zIndexOffset: markerPriority(store),
-            riseOnHover: true,
-            riseOffset: 50000,
             keyboard: true
           }
         );
@@ -739,40 +737,40 @@
         `State ${selectedState}: ${items.length} stores, ${stateMarkers.length} visible markers`
       );
 
-      /* First move directly to the state so markers are visible immediately. */
-      if (stateCenter) {
-        map.setView(stateCenter, 6, { animate: false });
-      }
-
-      /* Recalculate after the sidebar transition and center all store markers. */
+      /* Wait for the sidebar to finish opening, then perform one final map move.
+         Asymmetric right padding reserves space for the sidebar without a second pan. */
       window.setTimeout(() => {
         map.invalidateSize({ animate: false, pan: false });
 
+        const sidebarPadding = window.innerWidth > 800 ? 390 : 45;
+        const fitOptions = {
+          paddingTopLeft: [45, 65],
+          paddingBottomRight: [sidebarPadding, 85],
+          maxZoom: 9,
+          animate: false
+        };
+
         if (bounds.isValid() && stateMarkers.length > 1) {
-          map.fitBounds(bounds, {
-            paddingTopLeft: [55, 70],
-            paddingBottomRight: [55, 70],
-            maxZoom: 9,
-            animate: true,
-            duration: 0.4
-          });
-
-          /* Shift the fitted markers left so the open sidebar does not cover them. */
-          if (window.innerWidth > 800) {
-            window.setTimeout(() => {
-              map.panBy([180, 0], { animate: true, duration: 0.25 });
-            }, 420);
-          }
+          map.fitBounds(bounds, fitOptions);
         } else if (bounds.isValid() && stateMarkers.length === 1) {
-          map.setView(bounds.getCenter(), 9, { animate: true });
-
-          if (window.innerWidth > 800) {
-            map.panBy([180, 0], { animate: true, duration: 0.25 });
-          }
+          const targetPoint = map.project(bounds.getCenter(), 9);
+          const horizontalOffset = window.innerWidth > 800 ? 170 : 0;
+          const adjustedCenter = map.unproject(
+            L.point(targetPoint.x + horizontalOffset, targetPoint.y),
+            9
+          );
+          map.setView(adjustedCenter, 9, { animate: false });
         } else if (stateCenter) {
-          map.setView(stateCenter, 6, { animate: true });
+          const fallbackZoom = 6;
+          const targetPoint = map.project(stateCenter, fallbackZoom);
+          const horizontalOffset = window.innerWidth > 800 ? 170 : 0;
+          const adjustedCenter = map.unproject(
+            L.point(targetPoint.x + horizontalOffset, targetPoint.y),
+            fallbackZoom
+          );
+          map.setView(adjustedCenter, fallbackZoom, { animate: false });
         }
-      }, 320);
+      }, 300);
     }
 
     function popupHTML(store) {
@@ -805,6 +803,7 @@
           );
 
         const stateMatch =
+          filter === "outages" ||
           !selectedState ||
           stateCode(store.State) === selectedState;
 
@@ -871,8 +870,6 @@
       const marker = L.marker([lat, lon], {
         icon,
         zIndexOffset: 60000,
-        riseOnHover: true,
-        riseOffset: 70000
       }).bindPopup(
         popupHTML(store),
         { maxWidth: 360 }
@@ -884,7 +881,10 @@
     function renderStoreList() {
       const items = filteredStores();
       const list = document.getElementById("storeList");
-      document.getElementById("sidebarSubtitle").textContent = `${items.length} ${selectedState ? STATE_NAMES[selectedState] || selectedState : "stores"}`;
+      document.getElementById("sidebarSubtitle").textContent =
+        document.getElementById("filterSelect").value === "outages"
+          ? `${items.length} outages across all states`
+          : `${items.length} ${selectedState ? STATE_NAMES[selectedState] || selectedState : "stores"}`;
       list.innerHTML = "";
       if (!items.length) {
         list.innerHTML = '<div class="no-stores">No matching stores.</div>';
