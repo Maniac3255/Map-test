@@ -235,7 +235,7 @@
     }
 
     function validCoords(lat, lon) {
-      return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+      return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && !(lat === 0 && lon === 0);
     }
 
     function outageColor(value) {
@@ -275,15 +275,40 @@
       return rows;
     }
 
+    function parseCoordinate(value) {
+      const cleaned = text(value).replaceAll("'", "").replace(/[°]/g, "").trim();
+      const number = Number.parseFloat(cleaned);
+      return Number.isFinite(number) ? number : NaN;
+    }
+
+    function firstValue(store, names) {
+      for (const name of names) {
+        if (store[name] !== undefined && text(store[name]) !== "") return store[name];
+      }
+      return "";
+    }
+
     function parseCSV(raw) {
       const rows = parseCSVRows(raw);
       if (rows.length < 2) return [];
-      const headers = rows[0].map(header => text(header).replace(/^\uFEFF/, ""));
+      const headers = rows[0].map(header => text(header).replace(/^\uFEFF/, "").trim());
       return rows.slice(1).map(columns => {
         const store = {};
         headers.forEach((header, index) => store[header] = text(columns[index]));
-        store.Latitude = Number.parseFloat(text(store.Latitude).replaceAll("'", ""));
-        store.Longitude = Number.parseFloat(text(store.Longitude).replaceAll("'", ""));
+
+        store.State = firstValue(store, ["State", "State Code", "State/Province", "ST"]);
+        store.Latitude = parseCoordinate(firstValue(store, ["Latitude", "Lat", "latitude", "LAT"]));
+        store.Longitude = parseCoordinate(firstValue(store, ["Longitude", "Lon", "Lng", "Long", "longitude", "LON", "LNG"]));
+
+        const combined = text(firstValue(store, ["Geolocation", "GeoLocation", "Coordinates", "Lat/Lon"]));
+        if ((!Number.isFinite(store.Latitude) || !Number.isFinite(store.Longitude)) && combined) {
+          const coordinateParts = combined.match(/-?\d+(?:\.\d+)?/g) || [];
+          if (coordinateParts.length >= 2) {
+            store.Latitude = parseCoordinate(coordinateParts[0]);
+            store.Longitude = parseCoordinate(coordinateParts[1]);
+          }
+        }
+
         store["Site #"] = keyOf(store);
         return store;
       });
@@ -635,6 +660,9 @@
 
     function selectState(code, items) {
       selectedState = stateCode(code);
+      items = Array.isArray(items) && items.length
+        ? items
+        : stores.filter(store => stateCode(store.State) === selectedState);
       map.stop();
       map.closePopup();
 
