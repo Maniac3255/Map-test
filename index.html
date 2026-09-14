@@ -316,7 +316,7 @@
     }
 
     function ackKey(store) {
-      return `${keyOf(store)}_${text(store.outageId) || "current"}`;
+      return `site_${keyOf(store)}`;
     }
 
     function automaticStatus(store) {
@@ -325,31 +325,25 @@
 
     function getStoredOverride(store) {
       const all = ackStorage();
-      const key = ackKey(store);
-      const saved = all[key];
+      const saved = all[ackKey(store)];
+      return saved || null;
+    }
 
-      if (!saved) return null;
-
-      const currentAutomaticStatus = automaticStatus(store);
-
-      /*
-       * Automatically clear the manual value whenever the provider's
-       * automatic status changes from the value present when the manual
-       * override was created.
-       */
-      if (saved.automaticStatusAtOverride !== currentAutomaticStatus) {
-        delete all[key];
-        localStorage.setItem(CONFIG.acknowledgementKey, JSON.stringify(all));
-        return null;
-      }
-
-      return saved;
+    function providerChangedSinceOverride(store, saved) {
+      return Boolean(
+        saved &&
+        saved.automaticStatusAtOverride !== automaticStatus(store)
+      );
     }
 
     function getAcknowledgement(store) {
       const saved = getStoredOverride(store);
 
-      if (saved && ["RED", "YELLOW", "GREEN"].includes(saved.status)) {
+      if (
+        saved &&
+        ["RED", "YELLOW", "GREEN"].includes(saved.status) &&
+        !providerChangedSinceOverride(store, saved)
+      ) {
         return saved;
       }
 
@@ -358,11 +352,18 @@
         source: "automatic",
         acknowledgedBy: "",
         acknowledgedAt: "",
-        automaticStatusAtOverride: automaticStatus(store)
+        automaticStatusAtOverride: automaticStatus(store),
+        priorManualStatus: saved ? saved.status : "",
+        providerSupersededManual: providerChangedSinceOverride(store, saved)
       };
     }
 
     function isManualStatus(store) {
+      const saved = getStoredOverride(store);
+      return Boolean(saved && !providerChangedSinceOverride(store, saved));
+    }
+
+    function hasManualHistory(store) {
       return Boolean(getStoredOverride(store));
     }
 
@@ -417,41 +418,46 @@
 
     function acknowledgementHTML(store) {
       const acknowledgement = getAcknowledgement(store);
+      const saved = getStoredOverride(store);
       const automatic = automaticStatus(store);
       const site = escapeHtml(keyOf(store));
       const outageId = escapeHtml(text(store.outageId) || "current");
-      const manual = isManualStatus(store);
+      const manualActive = isManualStatus(store);
+      const manualHistory = hasManualHistory(store);
 
-      const options = ["RED", "YELLOW", "GREEN"].map(status => {
-        const label = status === "RED"
-          ? "Outage"
-          : status === "YELLOW"
-            ? "Possible Outage"
-            : "No Outage";
+      const labelFor = status =>
+        status === "RED" ? "Outage" :
+        status === "YELLOW" ? "Possible Outage" :
+        "No Outage";
 
-        return `<option value="${status}" ${status === acknowledgement.status ? "selected" : ""}>${label}</option>`;
-      }).join("");
+      const options = ["RED", "YELLOW", "GREEN"].map(status =>
+        `<option value="${status}" ${status === acknowledgement.status ? "selected" : ""}>${labelFor(status)}</option>`
+      ).join("");
 
-      const automaticLabel = automatic === "RED"
-        ? "Outage"
-        : automatic === "YELLOW"
-          ? "Possible Outage"
-          : "No Outage";
-
-      const changed = acknowledgement.acknowledgedAt
-        ? new Date(acknowledgement.acknowledgedAt).toLocaleString()
+      const changed = saved && saved.acknowledgedAt
+        ? new Date(saved.acknowledgedAt).toLocaleString()
         : "";
+
+      const historyText = manualHistory
+        ? `<br>Last manual selection: <b>${labelFor(saved.status)}</b>${changed ? ` on ${escapeHtml(changed)}` : ""}`
+        : "";
+
+      const syncText = acknowledgement.providerSupersededManual
+        ? `<br><b>Provider changed to ${labelFor(automatic)}. Automatic status is now active.</b>`
+        : manualActive
+          ? `<br>Manual override remains active until the provider status changes.`
+          : "";
 
       return `<div class="ack-section">
         <label><b>Store status</b></label>
         <select class="status-select" style="background:${statusColor(store)}" onchange="changeOutageStatus('${site}','${outageId}',this.value)">${options}</select>
         <div class="ack-meta">
-          Status source: <b>${manual ? "Manual" : "Provider automatic"}</b><br>
-          Provider status: <b>${automaticLabel}</b>
-          ${manual && changed ? `<br>Manual change: ${escapeHtml(changed)}` : ""}
-          ${manual ? "<br>The manual status will clear automatically when the provider status changes." : ""}
+          Current source: <b>${manualActive ? "Manual" : "Provider automatic"}</b><br>
+          Provider status: <b>${labelFor(automatic)}</b>
+          ${historyText}
+          ${syncText}
         </div>
-        ${manual ? `<button class="clear-override-button" type="button" onclick="clearStatusOverride('${site}','${outageId}')">Use automatic provider status now</button>` : ""}
+        ${manualHistory ? `<button class="clear-override-button" type="button" onclick="clearStatusOverride('${site}','${outageId}')">Clear manual status history</button>` : ""}
       </div>`;
     }
 
@@ -484,6 +490,8 @@
       document.getElementById("searchBar").value = "";
       document.getElementById("filterSelect").value = "all";
       renderStoreList();
+      setSidebar(true);
+      map.invalidateSize({ animate: false, pan: false });
       map.fitBounds(CONFIG.usaDisplayBounds, { padding: [2, 2], animate: false });
       map.setZoom(Math.min(map.getMaxZoom(), map.getZoom() + 0.5), { animate: false });
       updateStateMarkerSize();
@@ -594,24 +602,55 @@
     function selectState(code, items) {
       selectedState = code;
       map.closePopup();
-      if (map.hasLayer(stateLayer)) map.removeLayer(stateLayer);
-      renderStoreList();
+
+      if (map.hasLayer(stateLayer)) {
+        map.removeLayer(stateLayer);
+      }
+
       storeLayer.clearLayers();
-      const bounds = [];
-      items.forEach(store => {
-        const lat = Number(store.Latitude), lon = Number(store.Longitude);
-        if (!validCoords(lat, lon)) return;
-        const markerColor = statusColor(store);
-        const icon = L.divIcon({
-          className: "store-marker-wrapper",
-          html: `<div class="store-pin" style="background:${markerColor}"></div>`,
-          iconSize: [34, 40], iconAnchor: [17, 34]
-        });
-        L.marker([lat, lon], { icon }).bindPopup(popupHTML(store), { maxWidth: 360 }).addTo(storeLayer);
-        bounds.push([lat, lon]);
-      });
-      if (bounds.length) map.fitBounds(bounds, { padding: [45, 45], maxZoom: 9 });
+      document.getElementById("searchBar").value = "";
+      document.getElementById("filterSelect").value = "all";
+      renderStoreList();
       setSidebar(false);
+
+      const bounds = L.latLngBounds([]);
+
+      items.forEach(store => {
+        const latitude = Number(store.Latitude);
+        const longitude = Number(store.Longitude);
+
+        if (!validCoords(latitude, longitude)) return;
+
+        const marker = L.marker(
+          [latitude, longitude],
+          { icon: createStoreIcon(store) }
+        );
+
+        marker.bindPopup(
+          popupHTML(store),
+          { maxWidth: 360, autoPan: true, keepInView: true }
+        );
+
+        marker.addTo(storeLayer);
+        bounds.extend([latitude, longitude]);
+      });
+
+      requestAnimationFrame(() => {
+        map.invalidateSize({ animate: false, pan: false });
+
+        if (bounds.isValid()) {
+          const rightPadding = window.innerWidth > 800 ? 390 : 35;
+          map.fitBounds(bounds, {
+            paddingTopLeft: [45, 70],
+            paddingBottomRight: [rightPadding, 60],
+            maxZoom: 9,
+            animate: true
+          });
+        } else {
+          const center = STATE_CENTERS[code];
+          if (center) map.setView(center, 6, { animate: true });
+        }
+      });
     }
 
     function popupHTML(store) {
@@ -637,7 +676,7 @@
         const statusMatch =
           filter === "all" ||
           (filter === "impacted" && ["RED", "YELLOW"].includes(effectiveStatus)) ||
-          (filter === "manual" && isManualStatus(store)) ||
+          (filter === "manual" && hasManualHistory(store)) ||
           (filter === "normal" && effectiveStatus === "GREEN");
         const stateMatch = !selectedState || stateCode(store.State) === selectedState;
         const haystack = [keyOf(store), store["Site Name"], store.Location, store.City, store.State, store["Vendor Name"], statusLabel(store)].map(text).join(" ").toLowerCase();
@@ -684,7 +723,7 @@
       const active = stores.filter(store => getAcknowledgement(store).status === "RED").length;
       const possible = stores.filter(store => getAcknowledgement(store).status === "YELLOW").length;
       const noOutage = stores.filter(store => getAcknowledgement(store).status === "GREEN").length;
-      const manualCount = stores.filter(store => isManualStatus(store)).length;
+      const manualCount = stores.filter(store => hasManualHistory(store)).length;
       const providers = new Set(stores.map(store => text(store["Vendor Name"])).filter(Boolean)).size;
       document.getElementById("dashboardContent").innerHTML = `<div class="dash-cards">
         <div class="dash-card"><h3>Total Stores</h3><p>${stores.length}</p></div>
