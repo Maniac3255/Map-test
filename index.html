@@ -87,6 +87,10 @@
     .dash-card { padding:12px; background:#20242a; border:1px solid #3a4149; border-radius:8px; }
     .dash-card h3 { margin:0 0 8px; color:#b9c0c8; font-size:12px; text-transform:uppercase; }
     .dash-card p { margin:0; font-size:24px; font-weight:700; }
+    .dashboard-section-title { margin:14px 0 8px; color:#e6e9ed; font-size:13px; text-transform:uppercase; letter-spacing:.5px; }
+    .isp-cards { grid-template-columns:repeat(5,minmax(120px,1fr)); }
+    .isp-card h3 { text-transform:none; font-size:13px; color:#d7dce2; }
+    .isp-card p { font-size:22px; color:#64b5f6; }
     .history-toolbar { display:flex; gap:8px; margin-bottom:10px; }
     #historySearch { flex:1; padding:9px; color:#fff; background:#20242a; border:1px solid #454d56; border-radius:6px; }
     #clearHistoryBtn { padding:9px 12px; color:#fff; background:#343a40; border:1px solid #59616a; border-radius:6px; cursor:pointer; }
@@ -211,21 +215,34 @@
     <button id="dashboardHandle" type="button" aria-expanded="false">▲ OUTAGE DASHBOARD</button>
     <div id="dashboardContent">
       <div class="dashboard-tabs">
-        <button class="dashboard-tab active" type="button" data-panel="impactPanel">Current Impact</button>
+        <button class="dashboard-tab active" type="button" data-panel="impactPanel">Current Outages</button>
+        <button class="dashboard-tab" type="button" data-panel="ispPanel">ISP Providers Down</button>
         <button class="dashboard-tab" type="button" data-panel="activePanel">Active Outages</button>
         <button class="dashboard-tab" type="button" data-panel="historyPanel">History</button>
         <button class="dashboard-tab" type="button" data-panel="resolvedPanel">Resolved</button>
       </div>
       <div id="impactPanel" class="dashboard-panel active">
+        <h3 class="dashboard-section-title">Current Outages</h3>
         <div class="dash-cards">
-          <div class="dash-card" data-filter="outages"><h3>Down now</h3><p id="trackerRed" style="color:#ff5252">0</p></div>
-          <div class="dash-card" data-filter="outages"><h3>Possible</h3><p id="trackerYellow" style="color:#ffeb3b">0</p></div>
-          <div class="dash-card" data-filter="unacknowledged"><h3>Unacknowledged</h3><p id="trackerUnack">0</p></div>
-          <div class="dash-card" data-filter="manual"><h3>Manual overrides</h3><p id="trackerManual">0</p></div>
-          <div class="dash-card"><h3>No ETR</h3><p id="trackerNoEtr">0</p></div>
-          <div class="dash-card"><h3>Resolved today</h3><p id="trackerResolved">0</p></div>
-          <div class="dash-card"><h3>No outage</h3><p id="trackerGreen" style="color:#41e66f">0</p></div>
-          <div class="dash-card"><h3>History records</h3><p id="trackerHistory">0</p></div>
+          <div class="dash-card"><h3>Power Outage</h3><p id="trackerPower" style="color:#ff5252">0</p></div>
+          <div class="dash-card"><h3>Possible Power Outage</h3><p id="trackerPossiblePower" style="color:#ffeb3b">0</p></div>
+          <div class="dash-card"><h3>ISP Outages</h3><p id="trackerIsp" style="color:#64b5f6">0</p></div>
+          <div class="dash-card"><h3>Resolved</h3><p id="trackerResolved" style="color:#41e66f">0</p></div>
+        </div>
+      </div>
+      <div id="ispPanel" class="dashboard-panel">
+        <h3 class="dashboard-section-title">ISP Providers Down</h3>
+        <div class="dash-cards isp-cards">
+          <div class="dash-card isp-card"><h3>Spectrum</h3><p id="ispSpectrum">0</p></div>
+          <div class="dash-card isp-card"><h3>AT&amp;T</h3><p id="ispAtt">0</p></div>
+          <div class="dash-card isp-card"><h3>Cradlepoint (T-Mobile)</h3><p id="ispCradlepoint">0</p></div>
+          <div class="dash-card isp-card"><h3>Lumen</h3><p id="ispLumen">0</p></div>
+          <div class="dash-card isp-card"><h3>Comcast</h3><p id="ispComcast">0</p></div>
+          <div class="dash-card isp-card"><h3>Cox</h3><p id="ispCox">0</p></div>
+          <div class="dash-card isp-card"><h3>Mediacom</h3><p id="ispMediacom">0</p></div>
+          <div class="dash-card isp-card"><h3>-</h3><p>-</p></div>
+          <div class="dash-card isp-card"><h3>-</h3><p>-</p></div>
+          <div class="dash-card isp-card"><h3>-</h3><p>-</p></div>
         </div>
       </div>
       <div id="activePanel" class="dashboard-panel"><div id="activeOutageList"></div></div>
@@ -542,6 +559,29 @@
       }
     }
 
+    const ISP_PROVIDERS = [
+      { id: "ispSpectrum", label: "Spectrum", terms: ["spectrum", "charter"] },
+      { id: "ispAtt", label: "AT&T", terms: ["at&t", "att"] },
+      { id: "ispCradlepoint", label: "Cradlepoint (T-Mobile)", terms: ["cradlepoint", "t-mobile", "tmobile"] },
+      { id: "ispLumen", label: "Lumen", terms: ["lumen", "centurylink"] },
+      { id: "ispComcast", label: "Comcast", terms: ["comcast", "xfinity"] },
+      { id: "ispCox", label: "Cox", terms: ["cox"] },
+      { id: "ispMediacom", label: "Mediacom", terms: ["mediacom"] }
+    ];
+
+    function providerName(store) { return text(store["Vendor Name"] ?? store.Vendor ?? store.Provider); }
+    function ispProviderDefinition(value) {
+      const name = text(value).toLowerCase().replace(/[^a-z0-9&]+/g, " ").trim();
+      return ISP_PROVIDERS.find(provider => provider.terms.some(term => name.includes(term))) || null;
+    }
+    function isIspStore(store) { return Boolean(ispProviderDefinition(providerName(store))); }
+    function eventTypeForStore(store) { return isIspStore(store) ? "ISP Provider Outage" : "Power Outage"; }
+    function eventTypeForEntry(entry) {
+      if (entry.eventType) return entry.eventType;
+      const store = stores.find(item => keyOf(item) === text(entry.site));
+      return store ? eventTypeForStore(store) : "Power Outage";
+    }
+
     function addHistoryEntry(store, action, status, note) {
       const history = historyStorage();
       history.unshift({
@@ -553,6 +593,8 @@
         state: text(store.State),
         action,
         status,
+        eventType: eventTypeForStore(store),
+        provider: providerName(store),
         providerStatus: automaticStatus(store),
         effectiveStatus: getAcknowledgement(store).status,
         outageId: text(store.outageId) || "current",
@@ -1099,7 +1141,8 @@
       const history = historyStorage();
       const list = document.getElementById("historyList");
       const visible = history.filter(entry => !query || Object.values(entry).map(text).join(" ").toLowerCase().includes(query));
-      document.getElementById("trackerHistory").textContent = history.length;
+      const historyTracker = document.getElementById("trackerHistory");
+      if (historyTracker) historyTracker.textContent = history.length;
       list.innerHTML = visible.length ? visible.map(entry => `<div class="history-entry"><div><b>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</b></div><div><b>Store ${escapeHtml(entry.site)}</b><br>${escapeHtml(entry.city)} ${escapeHtml(entry.state)}</div><div><b>${escapeHtml(entry.action)}</b><br>${escapeHtml(entry.status)}</div><div class="history-note"><b>${escapeHtml(entry.siteName || "")}</b>${entry.note ? `<br>${escapeHtml(entry.note)}` : "<br>No note entered."}${entry.etr ? `<br>ETR: ${escapeHtml(entry.etr)}` : ""}</div></div>`).join("") : `<div class="history-empty">${history.length ? "No matching history records." : "No outage history has been recorded yet."}</div>`;
     }
 
@@ -1119,20 +1162,22 @@
     function renderResolved() {
       const resolved=historyStorage().filter(entry=>entry.action==="Outage resolved");
       const target=document.getElementById("resolvedList");
-      target.innerHTML=`<div class="resolved-summary">${resolved.length} recorded resolution event(s)</div>`+(resolved.length?resolved.map(entry=>`<div class="history-entry"><div>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</div><div><b>Store ${escapeHtml(entry.site)}</b><br>${escapeHtml(entry.state)}</div><div><b>Resolved</b><br>${escapeHtml(entry.providerStatus)}</div><div class="history-note">${escapeHtml(entry.note||'Provider returned to no outage.')}</div></div>`).join(''):'<div class="history-empty">No resolved outages recorded yet.</div>');
+      target.innerHTML=`<div class="resolved-summary">${resolved.length} recorded resolution event(s)</div>`+(resolved.length?resolved.map(entry=>`<div class="history-entry"><div>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</div><div><b>Store ${escapeHtml(entry.site)}</b><br>${escapeHtml(entry.state)}</div><div><b>${escapeHtml(eventTypeForEntry(entry))} Resolved</b><br>${escapeHtml(entry.provider||entry.providerStatus)}</div><div class="history-note">${escapeHtml(entry.note||'Provider returned to no outage.')}</div></div>`).join(''):'<div class="history-empty">No resolved outages recorded yet.</div>');
     }
 
     function renderDashboard() {
-      const red=stores.filter(s=>getAcknowledgement(s).status==="RED");
-      const yellow=stores.filter(s=>getAcknowledgement(s).status==="YELLOW");
-      document.getElementById("trackerRed").textContent=red.length;
-      document.getElementById("trackerYellow").textContent=yellow.length;
-      document.getElementById("trackerGreen").textContent=stores.filter(s=>getAcknowledgement(s).status==="GREEN").length;
-      document.getElementById("trackerManual").textContent=stores.filter(isManualStatus).length;
-      document.getElementById("trackerUnack").textContent=[...red,...yellow].filter(s=>!isAcknowledged(s)).length;
-      document.getElementById("trackerNoEtr").textContent=[...red,...yellow].filter(s=>!text(s.etr)).length;
-      const today=new Date().toDateString();
-      document.getElementById("trackerResolved").textContent=historyStorage().filter(e=>e.action==="Outage resolved"&&new Date(e.timestamp).toDateString()===today).length;
+      const active = stores.filter(store => ["RED", "YELLOW"].includes(getAcknowledgement(store).status));
+      const power = active.filter(store => !isIspStore(store));
+      const isp = active.filter(isIspStore);
+      document.getElementById("trackerPower").textContent = power.filter(store => getAcknowledgement(store).status === "RED").length;
+      document.getElementById("trackerPossiblePower").textContent = power.filter(store => getAcknowledgement(store).status === "YELLOW").length;
+      document.getElementById("trackerIsp").textContent = isp.length;
+      const today = new Date().toDateString();
+      const resolvedToday = historyStorage().filter(entry => entry.action === "Outage resolved" && new Date(entry.timestamp).toDateString() === today);
+      document.getElementById("trackerResolved").textContent = resolvedToday.length;
+      ISP_PROVIDERS.forEach(provider => {
+        document.getElementById(provider.id).textContent = isp.filter(store => ispProviderDefinition(providerName(store))?.id === provider.id).length;
+      });
       renderHistory(); renderActiveOutages(); renderResolved();
     }
 
