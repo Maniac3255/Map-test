@@ -1,1 +1,24 @@
-[]
+[
+  {
+    "storeNumber": "0324",
+    "storeName": "Temecula CA",
+    "address": "27590 Jefferson Ave STE A, TEMECULA, CALIFORNIA, 92590",
+    "city": "TEMECULA",
+    "state": "CALIFORNIA",
+    "zip": "92590",
+    "provider": "SOUTHERN CALIFORNIA EDISON",
+    "providerWebsite": "https://www.sce.com/outages-safety/outage-center/check-outage-status",
+    "distanceMiles": 0.8831347976,
+    "lat": 33.7315,
+    "lon": -117.1466,
+    "outageLat": 33.7189815328,
+    "outageLon": -117.1497023968,
+    "incidentId": 136524801,
+    "outageId": 136524801,
+    "status": "ACTIVE",
+    "plannedOutage": false,
+    "etr": "",
+    "lastUpdated": "",
+    "color": "yellow"
+  }
+]
